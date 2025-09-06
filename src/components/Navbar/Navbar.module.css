@@ -1,0 +1,151 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg,#B00020,#800018);
+  padding: 0 25px;
+  height: 70px;
+  font-family: 'Helvetica Neue', sans-serif;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-radius: 45px;
+  color: white;
+}
+
+/* Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.45rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: white;
+  transition: transform 0.25s ease, text-shadow 0.3s ease;
+}
+.logo:hover {
+  transform: scale(1.1);
+  text-shadow: 0 0 14px rgba(255,255,255,0.85);
+}
+
+/* Buscador */
+.searchContainer {
+  position: relative;
+  flex: 1;
+  max-width: 550px;
+  margin: 0 25px;
+  display: flex;
+  justify-content: center;
+  transition: max-width 0.3s ease;
+}
+.searchContainer.active { max-width: 620px; }
+
+.searchInput {
+  width: 100%;
+  padding: 12px 50px 12px 18px;
+  border-radius: 40px;
+  border: none;
+  font-size: 0.95rem;
+  box-shadow: inset 0 4px 15px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+.searchInput::placeholder { color: #888; }
+.searchInput:focus {
+  outline: none;
+  box-shadow: 0 0 20px rgba(26,188,156,0.65);
+}
+
+.searchIcon {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  font-size: 1.15rem;
+  pointer-events: none;
+}
+
+.suggestions {
+  position: absolute;
+  top: 52px;
+  width: 100%;
+  background: white;
+  color: black;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+  z-index: 100;
+  animation: fadeSlide 0.3s;
+}
+.suggestionItem { padding: 10px 15px; cursor: pointer; transition: background 0.2s ease; }
+.suggestionItem:hover { background: #f0f0f0; }
+
+.icons { display: flex; align-items: center; gap: 22px; }
+
+.iconWrapper {
+  position: relative;
+  font-size: 1.35rem;
+  cursor: pointer;
+  transition: transform 0.25s ease, filter 0.25s ease;
+  overflow: visible;
+}
+
+/* Iconos premium: líneas blancas, halo, minimalistas */
+.outlineIcon {
+  fill: rgba(255,255,255,0);
+  stroke: #FFFFFF;
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px rgba(255,255,255,0.6));
+  transition: all 0.3s ease;
+}
+.iconWrapper:hover .outlineIcon {
+  fill: #16A085;
+  stroke: #FFFFFF;
+  stroke-width: 3.5px;
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 8px rgba(22,160,133,0.65));
+}
+
+/* Ripple */
+.rippleDynamic {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: rgba(22,160,133,0.45);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  animation: rippleEffect 0.5s ease-out;
+  pointer-events: none;
+}
+@keyframes rippleEffect { to { transform: translate(-50%,-50%) scale(5); opacity:0; } }
+
+/* Tooltip */
+.iconWrapper:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.95);
+  color: #555;
+  font-weight: 400;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  animation: tooltipFadeSlide 0.25s forwards;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+@keyframes tooltipFadeSlide { 0% { opacity:0; transform:translateX(-50%) translateY(5px);} 100% { opacity:1; transform:translateX(-50%) translateY(0);} }
+
+/* Click bounce */
+.clickBounce { animation: bounce 0.3s; }
+@keyframes bounce { 0% { transform: scale(1); } 50% { transform: scale(1.45);} 100% { transform: scale(1); } }
+
+/* Responsive */
+@media (max-width:900px) { .searchContainer { max-width:280px; margin:0 10px;} .logoText{display:none;} }

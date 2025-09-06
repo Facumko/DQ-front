@@ -1,0 +1,16 @@
+:root {
+  /* Colores principales */
+  --brand-600: #B00020;
+  --brand-700: #8b0019;
+
+  /* Colores para badges */
+  --badge-green: #21B457;
+  --badge-red: #DC2626;
+
+  /* Tipografía */
+  --font-family: 'Roboto', sans-serif;
+
+  /* Otros */
+  --text-color: #333;
+  --bg-color: #fafafa;
+}
