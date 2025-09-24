@@ -1,0 +1,38 @@
+.container {
+  margin-bottom: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+}
+
+.filterButton {
+  border-radius: 50px;
+  border: 1px solid #ddd;
+  background: #fff;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.filterButton:hover {
+  background: #f0f0f0;
+}
+
+.active {
+  background: #2ecc71;
+  color: #fff;
+}
+
+.cardsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

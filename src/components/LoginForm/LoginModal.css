@@ -1,0 +1,271 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+
+.modal-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  position: relative;
+  width: 300px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+
+.modal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+
+.modal-title {
+  margin-bottom: 1rem;
+  font-size: 20px;
+  text-align: center;
+}
+
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+
+.modal-input {
+  padding: 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+
+.modal-button {
+  padding: 0.5rem;
+  background: #8b0000;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+
+.modal-button:hover {
+  background: #a52a2a;
+}
+
+
+.modal-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+
+.password-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+
+.password-input {
+  width: 100%;
+  padding-right: 2.5rem; /* espacio para el ícono */
+}
+
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  color: #555;
+}
+
+
+.toggle-password:hover {
+  color: #000;
+}
+
+
+.forgot-password {
+  font-size: 0.85rem;
+  color: #8b0000;
+  text-decoration: none;
+  margin-bottom: 1rem;
+  display: inline-block;
+}
+.forgot-password:hover {
+  text-decoration: underline;
+}
+
+
+.login-btn {
+  background: #8b0000;
+}
+
+
+.login-btn:hover {
+  background: #a52a2a;
+}
+
+
+.register-btn {
+  background: #228b22; /* verde */
+}
+.register-btn:hover {
+  background: #2e8b57;
+}
+
+
+.google-btn {
+  background: #4285f4; /* azul Google */
+}
+.google-btn:hover {
+  background: #357ae8;
+}
+
+
+/* Ya tenías estilos base, agregamos algunos extras */
+
+
+.password-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+
+.password-input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  color: #555;
+}
+
+
+.toggle-password:hover {
+  color: #000;
+}
+
+
+/* Botones diferenciados */
+.login-btn {
+  background: #8b0000;
+}
+.login-btn:hover {
+  background: #a52a2a;
+}
+
+
+.register-btn {
+  background: #228b22;
+}
+.register-btn:hover {
+  background: #2e8b57;
+}
+
+
+.google-btn {
+  background: #4285f4;
+}
+.google-btn:hover {
+  background: #357ae8;
+}
+
+
+.modal-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  font-size: 22px;
+  font-weight: bold;
+  color: #8b0000;
+}
+
+
+.modal-logo .logo-icon {
+  margin-right: 8px;
+  font-size: 24px;
+  color: #8b0000;
+}
+
+
+.modal-subtitle {
+  text-align: center;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  color: #555;
+}
+
+
+.separator {
+  text-align: center;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+
+.google-btn {
+  background: #4285f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.google-btn:hover {
+  background: #357ae8;
+}
+
+
+.facebook-btn {
+  background: #3b5998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.facebook-btn:hover {
+  background: #2d4373;
+}
+
+
+.apple-btn {
+  background: #000;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.apple-btn:hover {
+  background: #333;
+}
+
+
+
+  

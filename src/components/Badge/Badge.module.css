@@ -1,9 +1,9 @@
 .badge {
-  color: white;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  display: inline-block;
-  margin-bottom: 8px;
+  color: white;            /* Texto blanco */
+  padding: 4px 10px;       /* Espaciado interno */
+  border-radius: 999px;    /* Hace el badge completamente redondeado */
+  font-size: 12px;         /* Tamaño de fuente pequeño */
+  font-weight: 600;        /* Negrita ligera */
+  display: inline-block;   /* Se ajusta al ancho del contenido */
+  margin-bottom: 8px;      /* Separación inferior */
 }

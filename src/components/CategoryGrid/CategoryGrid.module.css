@@ -1,0 +1,77 @@
+.section {
+  text-align: center;     /* Centra el contenido */
+  margin: 60px auto;      /* Separación superior/inferior y centrado horizontal */
+  max-width: 1000px;      /* Ancho máximo */
+  padding: 0 16px;        /* Espaciado horizontal */
+}
+
+.title {
+  font-size: 2rem;        /* Tamaño grande */
+  font-weight: 700;       /* Negrita */
+  margin-bottom: 8px;     /* Separación inferior */
+  color: #222;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 40px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); /* Responsive: adapta cantidad de columnas */
+  gap: 20px; /* Separación entre cards */
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* Separación icono-texto */
+  padding: 20px;
+  border-radius: 16px;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease; /* Animación al pasar el mouse */
+}
+
+.card:hover {
+  transform: translateY(-6px); /* Levanta la card al hover */
+  box-shadow: 0 8px 22px rgba(0,0,0,0.2); /* Sombra suave */
+}
+
+.icon {
+  flex-shrink: 0; /* No reduce tamaño */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.texts h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.texts span {
+  font-size: 0.9rem;
+  opacity: 0.9; /* Subtítulo más tenue */
+}
+
+/* Paleta de colores según categoría */
+.blue { background: #1976d2; }
+.orange { background: #fb8c00; }
+.green { background: #43a047; }
+.purple { background: #8e24aa; }
+.red { background: #e53935; }
+.pink { background: #d81b60; }
+
+/* Responsive móvil */
+@media (max-width: 600px) {
+  .title {
+    font-size: 1.5rem;
+  }
+  .subtitle {
+    font-size: 1rem;
+  }
+}

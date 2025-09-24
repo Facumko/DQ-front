@@ -1,0 +1,16 @@
+.container {
+  margin-bottom: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.viewAll {
+  color: #3498db;
+  text-decoration: none;
+  font-size: 0.9rem;
+}

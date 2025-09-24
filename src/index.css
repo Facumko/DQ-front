@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@100;200;300;400;500;600;700&display=swap');
+
 :root {
   /* Colores principales */
   --brand-600: #B00020;
@@ -8,9 +10,49 @@
   --badge-red: #DC2626;
 
   /* Tipografía */
-  --font-family: 'Roboto', sans-serif;
+  --font-family: 'Open Sans', sans-serif;
 
   /* Otros */
   --text-color: #333;
   --bg-color: #fafafa;
+}
+
+/* Aplicar fuente globalmente */
+body {
+  font-family: var(--font-family);
+  font-weight: 100; /* fino */
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  margin: 0;
+  padding: 0;
+}
+
+/* Títulos un poco más marcados */
+h1, h2, h3 {
+  font-weight: 400; /* semi-light para que resalten */
+  font-family: var(--font-family);
+}
+
+/* Badges (ejemplo) */
+.badge {
+  font-family: var(--font-family);
+  font-weight: 500; /* medio para destacar */
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  color: white;
+  display: inline-block;
+}
+
+.badge.green {
+  background-color: var(--badge-green);
+}
+
+.badge.red {
+  background-color: var(--badge-red);
+}
+
+/* Párrafos y texto general */
+p, span, li, a {
+  font-weight: 100; /* fino */
+  font-family: var(--font-family);
 }

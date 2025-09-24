@@ -4,7 +4,7 @@ import { useCarouselAutoplay } from "./useCarouselAutoplay";
 import { useParallaxEffect } from "./useParallaxEffect";
 import PropTypes from "prop-types";
 
-const Carousel = ({ slides }) => {
+const Carousel = ({ slides = [] }) => {  // <--- valor por defecto
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const carouselRef = useRef();
@@ -14,9 +14,9 @@ const Carousel = ({ slides }) => {
   useCarouselAutoplay(isPaused, slides.length, setCurrent);
   useParallaxEffect(carouselRef);
 
-  // Navegación
-  const prevSlide = useCallback(() => setCurrent(prev => (prev - 1 + slides.length) % slides.length), [slides.length]);
-  const nextSlide = useCallback(() => setCurrent(prev => (prev + 1) % slides.length), [slides.length]);
+  // Prev/Next
+  const prevSlide = useCallback(() => setCurrent(prev => (slides.length ? (prev - 1 + slides.length) % slides.length : 0)), [slides.length]);
+  const nextSlide = useCallback(() => setCurrent(prev => (slides.length ? (prev + 1) % slides.length : 0)), [slides.length]);
   const goToSlide = useCallback((index) => setCurrent(index), []);
 
   // Teclado
@@ -45,6 +45,8 @@ const Carousel = ({ slides }) => {
     return () => observer.disconnect();
   }, []);
 
+  if (!slides || slides.length === 0) return null; // <--- protección extra
+
   return (
     <div
       className={styles.carousel}
@@ -66,7 +68,7 @@ const Carousel = ({ slides }) => {
           <div
             key={slide.id}
             className={`${styles.slide} ${index === current ? styles.active : ""}`}
-            style={{ backgroundImage: `url(${slide.imageUrl})` }}
+            style={{ backgroundImage: `url(${slide.imageUrl || ""})` }}
             id={`slide-${slide.id}`}
           >
             <div className={styles.overlay}>
@@ -113,7 +115,7 @@ Carousel.propTypes = {
     ctaText: PropTypes.string,
     badge: PropTypes.shape({ type: PropTypes.string, text: PropTypes.string }),
     imageUrl: PropTypes.string.isRequired,
-  })).isRequired
+  }))
 };
 
 export default Carousel;

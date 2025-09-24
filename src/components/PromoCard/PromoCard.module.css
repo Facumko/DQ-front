@@ -1,57 +1,58 @@
 .card {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  flex-direction: row;       /* Imagen y textos en fila */
+  align-items: center;       /* Centra verticalmente */
+  background: #fff;          /* Fondo blanco */
+  border-radius: 12px;       /* Bordes redondeados */
+  padding: 12px;             /* Espaciado interno */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Sombra sutil */
+  cursor: pointer;           /* Apunta como clickable */
+  transition: transform 0.3s ease, box-shadow 0.3s ease; /* Animaciones hover/focus */
 }
 
 .card:focus {
-  outline: 2px solid #B00020;
+  outline: 2px solid #B00020; /* Resalta card al enfocarla con teclado */
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  transform: translateY(-4px); /* Levanta la card al pasar el mouse */
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15); /* Sombra más marcada */
 }
 
 .image {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
-  object-fit: cover;
-  margin-right: 12px;
-  flex-shrink: 0;
+  border-radius: 8px;        /* Bordes redondeados de la imagen */
+  object-fit: cover;         /* Mantiene proporción y recorta si es necesario */
+  margin-right: 12px;        /* Separación de textos */
+  flex-shrink: 0;            /* No reduce tamaño */
 }
 
 .content {
   display: flex;
-  flex-direction: column;
+  flex-direction: column;    /* Textos en columna: título, subtítulo, promo */
 }
 
 .title {
   font-size: 1rem;
   font-weight: 700;
   margin: 0;
-  color: #333;
+  color: #333;               /* Color principal */
 }
 
 .subtitle {
   font-size: 0.85rem;
-  color: #666;
+  color: #666;               /* Color más tenue para subtítulo */
   margin: 2px 0;
 }
 
 .promo {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #B00020;
+  color: #B00020;            /* Color rojo para destacar promo */
 }
 
+/* Responsive móvil: cambia layout a columna */
 @media (max-width: 768px) {
   .card {
     flex-direction: column;
@@ -60,6 +61,6 @@
   }
   .image {
     margin-right: 0;
-    margin-bottom: 8px;
+    margin-bottom: 8px; /* Separación vertical en móvil */
   }
 }

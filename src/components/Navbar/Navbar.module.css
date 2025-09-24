@@ -22,7 +22,7 @@
   font-size: 1.45rem;
   font-weight: 700;
   cursor: pointer;
-  color: white;
+  color: rgb(255, 255, 255);
   transition: transform 0.25s ease, text-shadow 0.3s ease;
 }
 .logo:hover {
@@ -94,12 +94,9 @@
 
 /* Iconos premium: líneas blancas, halo, minimalistas */
 .outlineIcon {
-  fill: rgba(255,255,255,0);
-  stroke: #FFFFFF;
-  stroke-width: 3px;
+  stroke: rgba(255, 255, 255, 0.567);
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px rgba(255,255,255,0.6));
   transition: all 0.3s ease;
 }
 .iconWrapper:hover .outlineIcon {
@@ -149,3 +146,25 @@
 
 /* Responsive */
 @media (max-width:900px) { .searchContainer { max-width:280px; margin:0 10px;} .logoText{display:none;} }
+
+.loginButton, .userButton {
+  background: white;
+  color: #B00020;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 25px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.loginButton:hover, .userButton:hover {
+  background: #f5f5f5;
+  transform: scale(1.05);
+}
+
+.userButton {
+  background: #16A085;
+  color: white;
+}

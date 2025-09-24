@@ -1,0 +1,64 @@
+.headerContainer {
+  background: #fff;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.businessInfo {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.businessName {
+  font-size: 2.2rem;
+  font-weight: bold;
+}
+
+.status {
+  font-size: 0.8rem;
+  color: #2ecc71;
+}
+
+.contactInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.addressDetail {
+  display: block;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.favButton, .socialButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 50px;
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+}
+
+.favButton:hover, .socialButton:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
