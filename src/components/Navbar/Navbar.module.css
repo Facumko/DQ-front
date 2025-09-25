@@ -168,3 +168,54 @@
   background: #16A085;
   color: white;
 }
+
+/* ===== Usuario / Menú desplegable ===== */
+.userWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.userIcon {
+  font-size: 1.30rem; /* igual que los otros */
+  stroke: rgba(255, 255, 255, 0.567);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.3s ease;
+}
+
+.userIcon:hover {
+  color: #16A085;
+  transform: scale(1.2);
+}
+
+.userMenu {
+  position: absolute;
+  top: 130%;
+  right: 0;
+  background: #fff;
+  color: #000;
+  border-radius: 8px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.25);
+  min-width: 160px;
+  z-index: 2000;
+  animation: fadeSlide 0.2s ease;
+  overflow: hidden;
+}
+
+.userMenuItem {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s ease;
+}
+
+.userMenuItem:hover {
+  background: #f5f5f5;
+}
+
+/* Animación suave para desplegar menú */
+@keyframes fadeSlide {
+  0% { opacity: 0; transform: translateY(-5px); }
+  100% { opacity: 1; transform: translateY(0); }
+}

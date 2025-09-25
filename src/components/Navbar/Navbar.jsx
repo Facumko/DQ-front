@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import { UserContext } from "../../pages/UserContext";
 import LoginModal from "../LoginForm/LoginModal";
 import { useNavigate } from "react-router-dom"; 
@@ -13,6 +13,8 @@ import Categories from "../Categories/Categories";
 const Navbar = () => {
   const { user, logout } = useContext(UserContext);
   const [showLogin, setShowLogin] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
   const navigate = useNavigate();
 
   const [searchActive, setSearchActive] = useState(false);
@@ -36,7 +38,6 @@ const Navbar = () => {
     { icon: FaRegBell, label: "Notificaciones", link: "/notificaciones" },
     { icon: FaRegCalendarAlt, label: "Eventos", link: "/eventos" },
     { icon: FaRegCreditCard, label: "Métodos de pago", link: "/pagos" },
-    { icon: FaRegUser, label: "Perfil", link: "/Negocios" }
   ];
 
   // Función para búsqueda
@@ -62,6 +63,17 @@ const Navbar = () => {
     setTimeout(() => ripple.remove(), 500);
     navigate(link);
   };
+
+  // Cerrar menú al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <>
@@ -105,7 +117,7 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Íconos principales + Categories + login */}
+        {/* Íconos principales + Categorías + Usuario */}
         <div className={styles.icons}>
           {icons.map((item, idx) => {
             const IconComp = item.icon;
@@ -133,22 +145,40 @@ const Navbar = () => {
           {/* Dropdown de categorías */}
           <Categories expanded={showCategories} />
 
-          {/* Usuario / Login */}
-          {user ? (
-            <div className={styles.userSection}>
-              <span className={styles.userName}>Hola, {user.name}</span>
-              <button className={styles.userButton} onClick={logout}>
-                Cerrar sesión
-              </button>
-            </div>
-          ) : (
-            <button
-              className={styles.loginButton}
-              onClick={() => setShowLogin(true)}
-            >
-              Iniciar sesión
-            </button>
-          )}
+          {/* Ícono de usuario */}
+          <div className={styles.userWrapper} ref={menuRef}>
+            <FaRegUser
+              className={`${styles.outlineIcon} ${styles.userIcon}`}
+              onClick={() => {
+                if (user) setShowMenu((prev) => !prev);
+                else setShowLogin(true);
+              }}
+              title={user ? "Cuenta" : "Iniciar sesión"}
+            />
+
+            {user && showMenu && (
+              <div className={styles.userMenu}>
+                <div
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    navigate("/perfil");
+                    setShowMenu(false);
+                  }}
+                >
+                  Mi cuenta
+                </div>
+                <div
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    logout();
+                    setShowMenu(false);
+                  }}
+                >
+                  Cerrar sesión
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </nav>
 
