@@ -266,6 +266,58 @@
   background: #333;
 }
 
+/* Estilo para mensajes de error */
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  border-left: 3px solid #dc2626;
+  animation: slideIn 0.3s ease;
+  text-align: left;
+}
 
+/* Estados deshabilitados */
+.modal-input:disabled {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
 
-  
+.modal-button:disabled {
+  background: #d1d5db !important;
+  color: #6b7280 !important;
+  cursor: not-allowed;
+  transform: none !important;
+  opacity: 0.7;
+}
+
+.modal-button:disabled:hover {
+  background: #d1d5db !important;
+  transform: none !important;
+}
+
+/* Animación para errores */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejorar visibilidad de los toggles de contraseña cuando están deshabilitados */
+.password-container .toggle-password {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.modal-input:disabled + .toggle-password {
+  opacity: 0.5;
+}

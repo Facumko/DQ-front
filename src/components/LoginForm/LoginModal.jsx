@@ -1,11 +1,10 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { UserContext } from "../../pages/UserContext";
 import "./LoginModal.css";
-import { loginUser, registerUser } from "../../Api/Api";
 import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaGoogle, FaFacebook, FaApple } from "react-icons/fa";
 
 export default function LoginModal({ onClose }) {
-  const { login } = useContext(UserContext);
+  const { login, register, loading, error, clearError } = useContext(UserContext);
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,6 +12,7 @@ export default function LoginModal({ onClose }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [localError, setLocalError] = useState('');
 
   // Restablecer contraseña
   const [resetCode, setResetCode] = useState("");
@@ -21,9 +21,35 @@ export default function LoginModal({ onClose }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
+  // Limpiar errores al cambiar inputs
+  useEffect(() => {
+    if (localError && (email || password || registerPassword)) {
+      setLocalError('');
+    }
+  }, [email, password, registerPassword, localError]);
+
+  // Limpiar errores del contexto al cerrar modal
+  useEffect(() => {
+    return () => {
+      if (clearError) clearError();
+    };
+  }, [clearError]);
+
   const checkEmail = (e) => {
     e.preventDefault();
-    if (!email) return;
+    setLocalError('');
+    
+    if (!email.trim()) {
+      setLocalError('Por favor ingresa tu correo electrónico');
+      return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setLocalError('Por favor ingresa un email válido');
+      return;
+    }
+
     // Simulación: si termina en @test.com, login, si no registro
     if (email.endsWith("@test.com")) {
       setStep("login");
@@ -32,42 +58,85 @@ export default function LoginModal({ onClose }) {
     }
   };
 
-  // --- LOGIN ---
+  // --- LOGIN MEJORADO ---
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    setLocalError('');
+    clearError();
+    
+    // Validaciones básicas
+    if (!email.trim() || !password.trim()) {
+      setLocalError('Por favor completa todos los campos');
+      return;
+    }
+    
+    // Validación de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setLocalError('Por favor ingresa un email válido');
+      return;
+    }
 
-    try {
-      const data = await loginUser(email, password); // llamada al backend
-      login({ name: data.name }); // sin token todavía
-      onClose();
-    } catch (err) {
-      alert(err.message || "Error al iniciar sesión");
+    // Usar la función login del contexto
+    const result = await login(email, password);
+    
+    if (result.success) {
+      onClose(); // Cierra modal solo si es exitoso
+    } else {
+      setLocalError(result.error);
     }
   };
 
-  // --- REGISTRO ---
+  // --- REGISTRO MEJORADO ---
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (registerPassword !== confirmPassword) {
-      alert("Las contraseñas no coinciden");
+    setLocalError('');
+    clearError();
+    
+    // Validaciones
+    if (!email.trim() || !registerPassword.trim() || !confirmPassword.trim()) {
+      setLocalError('Por favor completa todos los campos');
       return;
     }
-    if (!registerPassword.trim()) return;
+    
+    if (registerPassword !== confirmPassword) {
+      setLocalError('Las contraseñas no coinciden');
+      return;
+    }
+    
+    if (registerPassword.length < 6) {
+      setLocalError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
 
-    try {
-      const data = await registerUser(email, registerPassword); // llamada al backend
-      login({ name: data.name }); // login automático
-      onClose();
-    } catch (err) {
-      alert(err.message || "Error al registrar usuario");
+    // Usar la función register del contexto
+    const result = await register({
+      email,
+      password: registerPassword
+    });
+    
+    if (result.success) {
+      onClose(); // Cierra modal y hace login automático
+    } else {
+      setLocalError(result.error);
     }
   };
 
   // --- OLVIDÉ CONTRASEÑA ---
   const handleForgotPassword = (e) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    setLocalError('');
+    
+    if (!email.trim()) {
+      setLocalError('Por favor ingresa tu correo electrónico');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setLocalError('Por favor ingresa un email válido');
+      return;
+    }
 
     // Simulación de envío de código
     alert(`Se envió un código de confirmación a ${email}`);
@@ -76,14 +145,28 @@ export default function LoginModal({ onClose }) {
 
   const handleResetPassword = (e) => {
     e.preventDefault();
-    if (newPassword !== confirmNewPassword) {
-      alert("Las contraseñas no coinciden");
+    setLocalError('');
+    
+    if (!resetCode.trim() || !newPassword.trim() || !confirmNewPassword.trim()) {
+      setLocalError('Por favor completa todos los campos');
       return;
     }
-    if (resetCode.trim() && newPassword.trim()) {
-      alert("Contraseña restablecida correctamente ✅");
-      setStep("login");
+    
+    if (newPassword !== confirmNewPassword) {
+      setLocalError('Las contraseñas no coinciden');
+      return;
     }
+    
+    if (newPassword.length < 6) {
+      setLocalError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    
+    alert("Contraseña restablecida correctamente ✅");
+    setStep("login");
+    setResetCode("");
+    setNewPassword("");
+    setConfirmNewPassword("");
   };
 
   // Social logins
@@ -114,20 +197,40 @@ export default function LoginModal({ onClose }) {
           <>
             <p className="modal-subtitle">Inicia sesión y sé parte de nuestra comunidad</p>
             <form onSubmit={checkEmail} className="modal-form">
+              {/* Mostrar errores locales */}
+              {localError && (
+                <div className="error-message">
+                  {localError}
+                </div>
+              )}
+              
               <input
                 type="email"
                 placeholder="Correo electrónico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="modal-input"
+                disabled={loading}
               />
-              <button type="submit" className="modal-button login-btn">Continuar</button>
+              <button 
+                type="submit" 
+                className="modal-button login-btn"
+                disabled={loading}
+              >
+                {loading ? 'Verificando...' : 'Continuar'}
+              </button>
 
               <div className="separator">o</div>
 
-              <button type="button" className="modal-button google-btn" onClick={loginWithGoogle}><FaGoogle /> Continuar con Google</button>
-              <button type="button" className="modal-button facebook-btn" onClick={loginWithFacebook}><FaFacebook /> Continuar con Facebook</button>
-              <button type="button" className="modal-button apple-btn" onClick={loginWithApple}><FaApple /> Continuar con Apple</button>
+              <button type="button" className="modal-button google-btn" onClick={loginWithGoogle}>
+                <FaGoogle /> Continuar con Google
+              </button>
+              <button type="button" className="modal-button facebook-btn" onClick={loginWithFacebook}>
+                <FaFacebook /> Continuar con Facebook
+              </button>
+              <button type="button" className="modal-button apple-btn" onClick={loginWithApple}>
+                <FaApple /> Continuar con Apple
+              </button>
             </form>
           </>
         )}
@@ -135,6 +238,13 @@ export default function LoginModal({ onClose }) {
         {/* Paso: login */}
         {step === "login" && (
           <form onSubmit={handleLogin} className="modal-form">
+            {/* Mostrar errores */}
+            {(error || localError) && (
+              <div className="error-message">
+                {localError || error}
+              </div>
+            )}
+            
             <div className="password-container">
               <input
                 type={showPassword ? "text" : "password"}
@@ -142,13 +252,24 @@ export default function LoginModal({ onClose }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="modal-input password-input"
+                disabled={loading}
               />
               <span className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </span>
             </div>
-            <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); setStep("forgot"); }}>Olvidé mi contraseña</a>
-            <button type="submit" className="modal-button login-btn">Iniciar sesión</button>
+            
+            <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); setStep("forgot"); }}>
+              Olvidé mi contraseña
+            </a>
+            
+            <button 
+              type="submit" 
+              className="modal-button login-btn"
+              disabled={loading}
+            >
+              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+            </button>
           </form>
         )}
 
@@ -157,6 +278,13 @@ export default function LoginModal({ onClose }) {
           <>
             <p className="modal-subtitle">Regístrate y sé parte de nuestra comunidad</p>
             <form onSubmit={handleRegister} className="modal-form">
+              {/* Mostrar errores */}
+              {(error || localError) && (
+                <div className="error-message">
+                  {localError || error}
+                </div>
+              )}
+              
               <div className="password-container">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -164,6 +292,7 @@ export default function LoginModal({ onClose }) {
                   value={registerPassword}
                   onChange={(e) => setRegisterPassword(e.target.value)}
                   className="modal-input password-input"
+                  disabled={loading}
                 />
                 <span className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -177,6 +306,7 @@ export default function LoginModal({ onClose }) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="modal-input password-input"
+                  disabled={loading}
                 />
                 <span className="toggle-password" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -192,9 +322,9 @@ export default function LoginModal({ onClose }) {
               <button
                 type="submit"
                 className="modal-button register-btn"
-                disabled={!registerPassword || !confirmPassword || registerPassword !== confirmPassword}
+                disabled={loading || !registerPassword || !confirmPassword || registerPassword !== confirmPassword}
               >
-                Regístrate
+                {loading ? 'Registrando...' : 'Regístrate'}
               </button>
             </form>
           </>
@@ -205,14 +335,28 @@ export default function LoginModal({ onClose }) {
           <>
             <p className="modal-subtitle">Ingresa tu correo para restablecer tu contraseña</p>
             <form onSubmit={handleForgotPassword} className="modal-form">
+              {/* Mostrar errores locales */}
+              {localError && (
+                <div className="error-message">
+                  {localError}
+                </div>
+              )}
+              
               <input
                 type="email"
                 placeholder="Correo electrónico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="modal-input"
+                disabled={loading}
               />
-              <button type="submit" className="modal-button login-btn">Enviar código</button>
+              <button 
+                type="submit" 
+                className="modal-button login-btn"
+                disabled={loading}
+              >
+                {loading ? 'Enviando...' : 'Enviar código'}
+              </button>
             </form>
           </>
         )}
@@ -222,12 +366,20 @@ export default function LoginModal({ onClose }) {
           <>
             <p className="modal-subtitle">Ingresa el código de confirmación que enviamos a <b>{email}</b></p>
             <form onSubmit={handleResetPassword} className="modal-form">
+              {/* Mostrar errores locales */}
+              {localError && (
+                <div className="error-message">
+                  {localError}
+                </div>
+              )}
+              
               <input
                 type="text"
                 placeholder="Código de confirmación"
                 value={resetCode}
                 onChange={(e) => setResetCode(e.target.value)}
                 className="modal-input"
+                disabled={loading}
               />
 
               <div className="password-container">
@@ -237,6 +389,7 @@ export default function LoginModal({ onClose }) {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="modal-input password-input"
+                  disabled={loading}
                 />
                 <span className="toggle-password" onClick={() => setShowNewPassword(!showNewPassword)}>
                   {showNewPassword ? <FaEyeSlash /> : <FaEye />}
@@ -250,6 +403,7 @@ export default function LoginModal({ onClose }) {
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   className="modal-input password-input"
+                  disabled={loading}
                 />
                 <span className="toggle-password" onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}>
                   {showConfirmNewPassword ? <FaEyeSlash /> : <FaEye />}
@@ -265,9 +419,9 @@ export default function LoginModal({ onClose }) {
               <button
                 type="submit"
                 className="modal-button login-btn"
-                disabled={!resetCode || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword}
+                disabled={loading || !resetCode || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword}
               >
-                Restablecer contraseña
+                {loading ? 'Restableciendo...' : 'Restablecer contraseña'}
               </button>
             </form>
           </>
