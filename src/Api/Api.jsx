@@ -1,12 +1,23 @@
 import axios from "axios";
 
-const API_URL = "http://192.168.1.64:8080"; // tu backend
+// Configuración del backend
+const API_URL = "http://192.168.1.64:8080"; // Cambiado a localhost
+// Si tu backend está en otra IP, cámbiala aquí: "http://192.168.1.64:8080"
 
+// Función para login - endpoint correcto
 export const loginUser = async (email, password) => {
   try {
-    const response = await axios.post(`${API_URL}/usuario/guardar`, { email, password });
+    const response = await axios.post(`${API_URL}/usuario/login`, { 
+      email, 
+      password 
+    });
+    
+    console.log("Login exitoso:", response.data);
     return response.data;
+    
   } catch (error) {
+    console.error("Error en login:", error);
+    
     if (error.response) {
       switch (error.response.status) {
         case 401:
@@ -16,22 +27,27 @@ export const loginUser = async (email, password) => {
         case 500:
           throw new Error('Error interno del servidor');
         default:
-          throw new Error('Error al iniciar sesión');
+          throw new Error(`Error ${error.response.status}: ${error.response.data?.message || 'Error al iniciar sesión'}`);
       }
     } else if (error.request) {
-      throw new Error('No se pudo conectar al servidor. Verifica tu conexión.');
+      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en http://localhost:8080');
     } else {
       throw new Error('Error inesperado. Intenta nuevamente.');
     }
   }
 };
 
-// 🔥 NUEVA FUNCIÓN - Esta es la que falta
+// Función para registro - endpoint específico
 export const registerUser = async (userData) => {
   try {
     const response = await axios.post(`${API_URL}/usuario/guardar`, userData);
+    
+    console.log("Registro exitoso:", response.data);
     return response.data;
+    
   } catch (error) {
+    console.error("Error en registro:", error);
+    
     if (error.response) {
       switch (error.response.status) {
         case 400:
@@ -41,12 +57,36 @@ export const registerUser = async (userData) => {
         case 500:
           throw new Error('Error interno del servidor');
         default:
-          throw new Error('Error al registrar usuario');
+          throw new Error(`Error ${error.response.status}: ${error.response.data?.message || 'Error al registrar usuario'}`);
       }
     } else if (error.request) {
-      throw new Error('No se pudo conectar al servidor. Verifica tu conexión.');
+      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en http://localhost:8080');
     } else {
       throw new Error('Error inesperado. Intenta nuevamente.');
     }
   }
 };
+
+// Función para verificar conexión con el backend
+export const checkConnection = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/health`);
+    return response.data;
+  } catch (error) {
+    console.warn("Backend no disponible:", error.message);
+    return null;
+  }
+};
+
+// Configuración global de axios (opcional)
+axios.defaults.timeout = 10000; // 10 segundos de timeout
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+
+// Interceptor para manejar errores globalmente (opcional)
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    console.error("Error en petición HTTP:", error);
+    return Promise.reject(error);
+  }
+);

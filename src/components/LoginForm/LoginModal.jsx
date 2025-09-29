@@ -50,19 +50,17 @@ export default function LoginModal({ onClose }) {
       return;
     }
 
-    // Simulación: si termina en @test.com, login, si no registro
-    if (email.endsWith("@test.com")) {
-      setStep("login");
-    } else {
-      setStep("register");
-    }
+    // Para pruebas: cualquier email va al login
+    // En producción podrías verificar en el backend si el email existe
+    setStep("login");
   };
 
   // --- LOGIN MEJORADO ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setLocalError('');
-    clearError();
+    
+    if (clearError) clearError();
     
     // Validaciones básicas
     if (!email.trim() || !password.trim()) {
@@ -77,12 +75,16 @@ export default function LoginModal({ onClose }) {
       return;
     }
 
+    console.log("Intentando login con:", { email, password: "***" });
+
     // Usar la función login del contexto
     const result = await login(email, password);
     
     if (result.success) {
+      console.log("Login exitoso, cerrando modal");
       onClose(); // Cierra modal solo si es exitoso
     } else {
+      console.log("Error en login:", result.error);
       setLocalError(result.error);
     }
   };
@@ -91,7 +93,7 @@ export default function LoginModal({ onClose }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     setLocalError('');
-    clearError();
+    if (clearError) clearError();
     
     // Validaciones
     if (!email.trim() || !registerPassword.trim() || !confirmPassword.trim()) {
@@ -109,15 +111,22 @@ export default function LoginModal({ onClose }) {
       return;
     }
 
+    console.log("Intentando registro con:", { email, password: "***" });
+
     // Usar la función register del contexto
     const result = await register({
       email,
-      password: registerPassword
+      password: registerPassword,
+      // Agrega otros campos que tu backend requiera:
+      name: email.split('@')[0], // nombre por defecto
+      username: email.split('@')[0] + Date.now(), // username único
     });
     
     if (result.success) {
+      console.log("Registro exitoso, cerrando modal");
       onClose(); // Cierra modal y hace login automático
     } else {
+      console.log("Error en registro:", result.error);
       setLocalError(result.error);
     }
   };
@@ -171,13 +180,13 @@ export default function LoginModal({ onClose }) {
 
   // Social logins
   const loginWithGoogle = () => {
-    window.location.href = "https://accounts.google.com/o/oauth2/v2/auth?...";
+    alert("Login con Google - Funcionalidad en desarrollo");
   };
   const loginWithFacebook = () => {
-    window.location.href = "https://www.facebook.com/v10.0/dialog/oauth?...";
+    alert("Login con Facebook - Funcionalidad en desarrollo");
   };
   const loginWithApple = () => {
-    window.location.href = "https://appleid.apple.com/auth/authorize?...";
+    alert("Login con Apple - Funcionalidad en desarrollo");
   };
 
   return (
@@ -191,6 +200,13 @@ export default function LoginModal({ onClose }) {
           <span className="logo-text">Dónde Queda?</span>
         </div>
         <h2 className="modal-title">Bienvenido a Dónde Queda</h2>
+
+        {/* Debug info - remover en producción */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{ fontSize: '10px', color: '#666', marginBottom: '10px' }}>
+            Estado: {step} | Loading: {loading ? 'Sí' : 'No'}
+          </div>
+        )}
 
         {/* Paso: ingreso de email */}
         {step === "email" && (
@@ -245,6 +261,15 @@ export default function LoginModal({ onClose }) {
               </div>
             )}
             
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="modal-input"
+              disabled={loading}
+            />
+            
             <div className="password-container">
               <input
                 type={showPassword ? "text" : "password"}
@@ -270,6 +295,10 @@ export default function LoginModal({ onClose }) {
             >
               {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </button>
+            
+            <p style={{ marginTop: "0.5rem", cursor: "pointer", color: "blue" }} onClick={() => setStep("register")}>
+              ¿No tienes cuenta? Regístrate
+            </p>
           </form>
         )}
 
@@ -284,6 +313,15 @@ export default function LoginModal({ onClose }) {
                   {localError || error}
                 </div>
               )}
+              
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="modal-input"
+                disabled={loading}
+              />
               
               <div className="password-container">
                 <input
@@ -326,6 +364,10 @@ export default function LoginModal({ onClose }) {
               >
                 {loading ? 'Registrando...' : 'Regístrate'}
               </button>
+              
+              <p style={{ marginTop: "0.5rem", cursor: "pointer", color: "blue" }} onClick={() => setStep("login")}>
+                ¿Ya tienes cuenta? Inicia sesión
+              </p>
             </form>
           </>
         )}
