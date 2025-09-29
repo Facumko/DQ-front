@@ -20,7 +20,8 @@ export function UserProvider({ children }) {
     setError(null);
     
     try {
-      const userData = await loginUser(email, password);
+      const response = await loginUser(email,password);
+      const userData = response.user || response;
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
       return { success: true, data: userData };
@@ -39,7 +40,8 @@ export function UserProvider({ children }) {
     setError(null);
     
     try {
-      const newUser = await registerUser(userData);
+      const response = await registerUser(userData);
+      const newUser = response.user || response;
       setUser(newUser);
       localStorage.setItem("user", JSON.stringify(newUser));
       return { success: true, data: newUser };

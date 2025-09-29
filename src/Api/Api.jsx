@@ -15,6 +15,10 @@ export const loginUser = async (email, password) => {
     console.log("Login exitoso:", response.data);
     return response.data;
     
+    if (!response.date.user) {
+      throw new Error ('Respuesta inválida del servidor')
+    }
+    return response.data; // Devuelve { message: "...", user: {...} }
   } catch (error) {
     console.error("Error en login:", error);
     
