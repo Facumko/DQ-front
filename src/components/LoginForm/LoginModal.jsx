@@ -5,7 +5,7 @@ import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaGoogle, FaFacebook, FaApple } from
 
 export default function LoginModal({ onClose }) {
   const { login, register, loading, error, clearError } = useContext(UserContext);
-  const [step, setStep] = useState("login");
+  const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
