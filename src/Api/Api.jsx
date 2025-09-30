@@ -6,7 +6,7 @@ const API_URL = "http://192.168.1.64:8080";
 // Función para login - endpoint correcto
 export const loginUser = async (email, password) => {
   try {
-    const response = await axios.post(`${API_URL}/usuario/login`, { 
+    const response = await axios.post(`${API_URL}/auth/login`, { 
       email, 
       password 
     });
@@ -14,7 +14,7 @@ export const loginUser = async (email, password) => {
     console.log("Login exitoso:", response.data);
     
     // ✅ Validación ANTES del return
-    if (!response.data.user) {
+    if (!response.data || !response.data.idUser) {
       throw new Error('Respuesta inválida del servidor');
     }
     
@@ -45,7 +45,7 @@ export const loginUser = async (email, password) => {
 // Función para registro - endpoint específico
 export const registerUser = async (userData) => {
   try {
-    const response = await axios.post(`${API_URL}/usuario/guardar`, userData);
+    const response = await axios.post(`${API_URL}/auth/registrarse`, userData);
     
     console.log("Registro exitoso:", response.data);
     
