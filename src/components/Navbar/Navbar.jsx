@@ -143,7 +143,8 @@ const Navbar = () => {
           </div>
 
           {/* Dropdown de categorías */}
-          <Categories expanded={showCategories} />
+          <Categories expanded={showCategories} 
+          onClose={() => setShowCategories(false)}/>
 
           {/* Ícono de usuario */}
           <div className={styles.userWrapper} ref={menuRef}>

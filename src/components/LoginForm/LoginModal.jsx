@@ -5,7 +5,7 @@ import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaGoogle, FaFacebook, FaApple } from
 
 export default function LoginModal({ onClose }) {
   const { login, register, loading, error, clearError } = useContext(UserContext);
-  const [step, setStep] = useState("email");
+  const [step, setStep] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
@@ -203,7 +203,7 @@ export default function LoginModal({ onClose }) {
 
         {/* Debug info - remover en producción */}
         {process.env.NODE_ENV === 'development' && (
-          <div style={{ fontSize: '10px', color: '#666', marginBottom: '10px' }}>
+          <div style={{ fontSize: '10px', color: '#706f6fff', marginBottom: '10px' }}>
             Estado: {step} | Loading: {loading ? 'Sí' : 'No'}
           </div>
         )}

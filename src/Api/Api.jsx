@@ -1,8 +1,7 @@
 import axios from "axios";
 
 // Configuración del backend
-const API_URL = "http://192.168.1.64:8080"; // Cambiado a localhost
-// Si tu backend está en otra IP, cámbiala aquí: "http://192.168.1.64:8080"
+const API_URL = "http://192.168.1.64:8080";
 
 // Función para login - endpoint correcto
 export const loginUser = async (email, password) => {
@@ -13,12 +12,14 @@ export const loginUser = async (email, password) => {
     });
     
     console.log("Login exitoso:", response.data);
+    
+    // ✅ Validación ANTES del return
+    if (!response.data.user) {
+      throw new Error('Respuesta inválida del servidor');
+    }
+    
     return response.data;
     
-    if (!response.date.user) {
-      throw new Error ('Respuesta inválida del servidor')
-    }
-    return response.data; // Devuelve { message: "...", user: {...} }
   } catch (error) {
     console.error("Error en login:", error);
     
@@ -34,9 +35,9 @@ export const loginUser = async (email, password) => {
           throw new Error(`Error ${error.response.status}: ${error.response.data?.message || 'Error al iniciar sesión'}`);
       }
     } else if (error.request) {
-      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en http://localhost:8080');
+      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en http://192.168.1.64:8080');
     } else {
-      throw new Error('Error inesperado. Intenta nuevamente.');
+      throw new Error(error.message || 'Error inesperado. Intenta nuevamente.');
     }
   }
 };
@@ -47,6 +48,12 @@ export const registerUser = async (userData) => {
     const response = await axios.post(`${API_URL}/usuario/guardar`, userData);
     
     console.log("Registro exitoso:", response.data);
+    
+    // ✅ Validación opcional según tu backend
+    if (!response.data) {
+      throw new Error('Respuesta inválida del servidor');
+    }
+    
     return response.data;
     
   } catch (error) {
@@ -64,9 +71,9 @@ export const registerUser = async (userData) => {
           throw new Error(`Error ${error.response.status}: ${error.response.data?.message || 'Error al registrar usuario'}`);
       }
     } else if (error.request) {
-      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en http://localhost:8080');
+      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en http://192.168.1.64:8080');
     } else {
-      throw new Error('Error inesperado. Intenta nuevamente.');
+      throw new Error(error.message || 'Error inesperado. Intenta nuevamente.');
     }
   }
 };
@@ -82,11 +89,11 @@ export const checkConnection = async () => {
   }
 };
 
-// Configuración global de axios (opcional)
-axios.defaults.timeout = 10000; // 10 segundos de timeout
+// Configuración global de axios
+axios.defaults.timeout = 10000;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-// Interceptor para manejar errores globalmente (opcional)
+// Interceptor para manejar errores globalmente
 axios.interceptors.response.use(
   response => response,
   error => {
