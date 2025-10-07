@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Configuración del backend
-const API_URL = "http://192.168.1.64:8080";
+const API_URL = "http://10.0.15.66:8080";
 
 // Función para login - endpoint correcto
 export const loginUser = async (email, password) => {
@@ -35,7 +35,7 @@ export const loginUser = async (email, password) => {
           throw new Error(`Error ${error.response.status}: ${error.response.data?.message || 'Error al iniciar sesión'}`);
       }
     } else if (error.request) {
-      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en http://192.168.1.64:8080');
+      throw new Error('No se pudo conectar al servidor. Verifica que el backend esté corriendo en '+ API_URL);
     } else {
       throw new Error(error.message || 'Error inesperado. Intenta nuevamente.');
     }
