@@ -5,8 +5,103 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   margin-bottom: 20px;
   font-family: 'Poppins', sans-serif;
+  position: relative;
 }
 
+/* ⭐ Botón de editar */
+.editButtonContainer {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.editButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.editButton:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.editActions {
+  display: flex;
+  gap: 8px;
+}
+
+.saveButton, .cancelButton {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.saveButton {
+  background: #2ecc71;
+  color: white;
+}
+
+.saveButton:hover {
+  background: #27ae60;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
+}
+
+.cancelButton {
+  background: #e74c3c;
+  color: white;
+}
+
+.cancelButton:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+}
+
+/* ⭐ Campos de edición */
+.editInput, .editInputSmall {
+  padding: 8px 12px;
+  border: 2px solid #3498db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  width: 100%;
+  transition: all 0.3s ease;
+  font-family: 'Poppins', sans-serif;
+}
+
+.editInput:focus, .editInputSmall:focus {
+  outline: none;
+  border-color: #2980b9;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.editInputSmall {
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.editColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+/* Estilos originales */
 .businessInfo {
   display: flex;
   flex-direction: column;
@@ -37,6 +132,11 @@
   flex-wrap: wrap;
 }
 
+.address {
+  display: flex;
+  flex-direction: column;
+}
+
 .addressDetail {
   display: block;
   font-size: 0.8rem;
@@ -57,8 +157,10 @@
   border: 1px solid #ddd;
   background: #fff;
   cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .favButton:hover, .socialButton:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
 }

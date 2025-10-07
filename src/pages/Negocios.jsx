@@ -22,16 +22,18 @@ const defaultGallery = [
   { id: 3, img: "" }
 ];
 
-const Negocios = () => {
+// ⭐ Recibe prop isOwner
+const Negocios = ({ isOwner = false }) => {
   return (
     <div style={{ background: "#f4f5f8", minHeight: "100vh", padding: "24px" }}>
-      <ProfileHeader />
+      {/* ⭐ Pasamos isOwner a cada componente */}
+      <ProfileHeader isOwner={isOwner} />
 
-      <Publications publicaciones={defaultPublications} />
+      <Publications publicaciones={defaultPublications} isOwner={isOwner} />
 
-      <UpcomingEvents events={defaultEvents} />
+      <UpcomingEvents events={defaultEvents} isOwner={isOwner} />
 
-      <Gallery images={defaultGallery} />
+      <Gallery images={defaultGallery} isOwner={isOwner} />
 
       <FloatingChat />
     </div>

@@ -162,11 +162,21 @@ const Navbar = () => {
                 <div
                   className={styles.userMenuItem}
                   onClick={() => {
-                    navigate("/perfil");
+                    navigate("/Profile");
                     setShowMenu(false);
                   }}
                 >
                   Mi cuenta
+                </div>
+                {/* ⭐ NUEVA OPCIÓN: Mi negocio */}
+                <div
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    navigate("/Mycommerce");
+                    setShowMenu(false);
+                  }}
+                >
+                  Mi negocio
                 </div>
                 <div
                   className={styles.userMenuItem}
