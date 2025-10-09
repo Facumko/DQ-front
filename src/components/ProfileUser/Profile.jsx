@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { UserContext } from "../../pages/UserContext";
 import { getUserById, updateUser } from "../../Api/Api";
 import styles from "./Profile.module.css";
-import { User, Mail, Phone, Edit2, Save, X, Lock } from "lucide-react";
+import { User, Mail, Phone, Edit2, Save, X, Lock, Check } from "lucide-react";
 
 const Profile = () => {
   const { user, updateUserContext, logout } = useContext(UserContext);
@@ -12,6 +12,17 @@ const Profile = () => {
   const [success, setSuccess] = useState("");
   const [loadingData, setLoadingData] = useState(true);
 
+  // Estado para los datos originales del usuario
+  const [originalData, setOriginalData] = useState({
+    username: "",
+    name: "",
+    lastname: "",
+    email: "",
+    recoveryEmail: "",
+    phone: ""
+  });
+
+  // Estado para el formulario (datos editables)
   const [formData, setFormData] = useState({
     username: "",
     name: "",
@@ -32,33 +43,49 @@ const Profile = () => {
 
   // Cargar datos del usuario al montar el componente
   useEffect(() => {
-    const loadUserData = async () => {
-      if (!user?.id_user) {
-        setLoadingData(false);
-        return;
-      }
-
-      try {
-        const userData = await getUserById(user.id_user);
-        setFormData({
-          username: userData.username || "",
-          name: userData.name || "",
-          lastname: userData.lastname || "",
-          email: userData.email || "",
-          password: "", // No mostrar la contraseña
-          recoveryEmail: userData.recovery_email || userData.recoveryEmail || "",
-          phone: userData.phone || ""
-        });
-      } catch (err) {
-        console.error("Error al cargar datos del usuario:", err);
-        setError("No se pudieron cargar los datos del usuario");
-      } finally {
-        setLoadingData(false);
-      }
-    };
-
     loadUserData();
-  }, [user]);
+  }, [user?.id_user]);
+
+  const loadUserData = async () => {
+    if (!user?.id_user) {
+      setLoadingData(false);
+      setError("No hay usuario autenticado");
+      return;
+    }
+
+    setLoadingData(true);
+    setError("");
+
+    try {
+      console.log("📥 Cargando datos del usuario:", user.id_user);
+      const userData = await getUserById(user.id_user);
+      console.log("✅ Datos recibidos del backend:", userData);
+
+      const normalizedData = {
+        username: userData.username || "",
+        name: userData.name || "",
+        lastname: userData.lastname || "",
+        email: userData.email || "",
+        recoveryEmail: userData.recovery_email || userData.recoveryEmail || "",
+        phone: userData.phone || ""
+      };
+
+      console.log("📋 Datos normalizados:", normalizedData);
+
+      // Guardar tanto en original como en form
+      setOriginalData(normalizedData);
+      setFormData({
+        ...normalizedData,
+        password: "" // Nunca mostramos la contraseña
+      });
+
+    } catch (err) {
+      console.error("❌ Error al cargar datos:", err);
+      setError(err.message || "No se pudieron cargar los datos del usuario");
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -76,68 +103,69 @@ const Profile = () => {
     setSuccess("");
     setLoading(true);
 
-    // Validaciones
-    if (!formData.username.trim()) {
-      setError("El nombre de usuario es obligatorio");
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.name.trim()) {
-      setError("El nombre es obligatorio");
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.email.trim()) {
-      setError("El correo electrónico es obligatorio");
-      setLoading(false);
-      return;
-    }
-
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError("Por favor ingresa un email válido");
-      setLoading(false);
-      return;
-    }
-
     try {
-      // Preparar datos para enviar
-      const dataToSend = {
-        username: formData.username,
-        name: formData.name,
-        lastname: formData.lastname,
-        email: formData.email,
-        recoveryEmail: formData.recoveryEmail,
-        phone: formData.phone
-      };
+      // ✅ Preparar solo los campos que cambiaron
+      const dataToSend = {};
+      let hasChanges = false;
 
-      // Solo incluir password si se está cambiando
+      // Comparar cada campo con el original
+      Object.keys(originalData).forEach(key => {
+        if (formData[key] !== originalData[key] && formData[key].trim() !== "") {
+          dataToSend[key] = formData[key];
+          hasChanges = true;
+        }
+      });
+
+      // Si se ingresó una nueva contraseña
       if (formData.password && formData.password.trim() !== "") {
+        if (formData.password.length < 6) {
+          setError("La contraseña debe tener al menos 6 caracteres");
+          setLoading(false);
+          return;
+        }
         dataToSend.password = formData.password;
+        hasChanges = true;
       }
 
-      console.log("Enviando datos:", dataToSend);
+      // Validar que al menos un campo haya cambiado
+      if (!hasChanges) {
+        setError("No se detectaron cambios para guardar");
+        setLoading(false);
+        return;
+      }
+
+      // Validaciones de campos obligatorios si se están editando
+      if (dataToSend.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(dataToSend.email)) {
+          setError("Por favor ingresa un email válido");
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (dataToSend.recoveryEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(dataToSend.recoveryEmail)) {
+          setError("Por favor ingresa un email de recuperación válido");
+          setLoading(false);
+          return;
+        }
+      }
+
+      console.log("📤 Enviando solo campos modificados:", dataToSend);
 
       // Llamar al endpoint de actualización
       const updatedUser = await updateUser(user.id_user, dataToSend);
-
-      console.log("Usuario actualizado:", updatedUser);
+      console.log("✅ Usuario actualizado:", updatedUser);
 
       // Actualizar contexto con los nuevos datos
       if (updateUserContext) {
-        updateUserContext({
-          ...user,
-          username: updatedUser.username,
-          name: updatedUser.name,
-          lastname: updatedUser.lastname,
-          email: updatedUser.email,
-          recovery_email: updatedUser.recovery_email || updatedUser.recoveryEmail,
-          phone: updatedUser.phone
-        });
+        updateUserContext(updatedUser);
       }
+
+      // Recargar datos del backend para asegurar sincronización
+      await loadUserData();
 
       setSuccess("✅ Datos actualizados correctamente");
       setIsEditing(false);
@@ -147,8 +175,9 @@ const Profile = () => {
 
       // Limpiar mensaje de éxito después de 3 segundos
       setTimeout(() => setSuccess(""), 3000);
+
     } catch (err) {
-      console.error("Error al actualizar usuario:", err);
+      console.error("❌ Error al actualizar usuario:", err);
       setError(err.message || "Error al actualizar los datos");
     } finally {
       setLoading(false);
@@ -156,23 +185,14 @@ const Profile = () => {
   };
 
   const handleCancel = () => {
+    // Restaurar datos originales
+    setFormData({
+      ...originalData,
+      password: ""
+    });
     setIsEditing(false);
     setError("");
     setSuccess("");
-    // Restaurar datos originales
-    if (user?.id_user) {
-      getUserById(user.id_user).then(userData => {
-        setFormData({
-          username: userData.username || "",
-          name: userData.name || "",
-          lastname: userData.lastname || "",
-          email: userData.email || "",
-          password: "",
-          recoveryEmail: userData.recovery_email || userData.recoveryEmail || "",
-          phone: userData.phone || ""
-        });
-      });
-    }
   };
 
   const handlePasswordChange = async () => {
@@ -198,10 +218,9 @@ const Profile = () => {
     setLoading(true);
 
     try {
-      // Aquí deberías validar la contraseña actual con el backend
-      // Por ahora, solo actualizamos con la nueva contraseña
+      // TODO: Aquí deberías tener un endpoint específico para cambiar contraseña
+      // que valide la contraseña actual. Por ahora solo actualizamos.
       await updateUser(user.id_user, {
-        ...formData,
         password: passwordData.newPassword
       });
 
@@ -222,13 +241,37 @@ const Profile = () => {
     }
   };
 
+  // Verificar si hay cambios pendientes
+  const hasUnsavedChanges = () => {
+    return Object.keys(originalData).some(key => 
+      formData[key] !== originalData[key]
+    ) || (formData.password && formData.password.trim() !== "");
+  };
+
   if (loadingData) {
     return (
       <div className={styles.container}>
         <div className={styles.card}>
-          <p style={{ textAlign: "center", padding: "2rem" }}>
-            Cargando información del usuario...
-          </p>
+          <div style={{ textAlign: "center", padding: "3rem" }}>
+            <div className={styles.spinner}></div>
+            <p style={{ marginTop: "1rem", color: "#666" }}>
+              Cargando información del usuario...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.card}>
+          <div style={{ textAlign: "center", padding: "3rem" }}>
+            <p style={{ color: "#dc2626", fontSize: "1.1rem" }}>
+              No hay sesión activa. Por favor inicia sesión.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -263,7 +306,8 @@ const Profile = () => {
               <button 
                 className={styles.saveButton} 
                 onClick={handleSave}
-                disabled={loading}
+                disabled={loading || !hasUnsavedChanges()}
+                title={!hasUnsavedChanges() ? "No hay cambios para guardar" : ""}
               >
                 <Save size={18} />
                 {loading ? "Guardando..." : "Guardar"}
@@ -293,12 +337,23 @@ const Profile = () => {
           </div>
         )}
 
+        {/* Indicador de cambios pendientes */}
+        {isEditing && hasUnsavedChanges() && (
+          <div className={styles.infoMessage}>
+            <Check size={18} />
+            Tienes cambios sin guardar
+          </div>
+        )}
+
         {/* Formulario de datos */}
         <div className={styles.form}>
           <div className={styles.field}>
             <label className={styles.label}>
               <User size={18} />
               Nombre de usuario
+              {isEditing && originalData.username !== formData.username && (
+                <span className={styles.changedBadge}>Modificado</span>
+              )}
             </label>
             {isEditing ? (
               <input
@@ -319,6 +374,9 @@ const Profile = () => {
             <label className={styles.label}>
               <User size={18} />
               Nombre
+              {isEditing && originalData.name !== formData.name && (
+                <span className={styles.changedBadge}>Modificado</span>
+              )}
             </label>
             {isEditing ? (
               <input
@@ -339,6 +397,9 @@ const Profile = () => {
             <label className={styles.label}>
               <User size={18} />
               Apellido
+              {isEditing && originalData.lastname !== formData.lastname && (
+                <span className={styles.changedBadge}>Modificado</span>
+              )}
             </label>
             {isEditing ? (
               <input
@@ -359,6 +420,9 @@ const Profile = () => {
             <label className={styles.label}>
               <Mail size={18} />
               Correo electrónico
+              {isEditing && originalData.email !== formData.email && (
+                <span className={styles.changedBadge}>Modificado</span>
+              )}
             </label>
             {isEditing ? (
               <input
@@ -379,6 +443,9 @@ const Profile = () => {
             <label className={styles.label}>
               <Mail size={18} />
               Correo de recuperación
+              {isEditing && originalData.recoveryEmail !== formData.recoveryEmail && (
+                <span className={styles.changedBadge}>Modificado</span>
+              )}
             </label>
             {isEditing ? (
               <input
@@ -399,6 +466,9 @@ const Profile = () => {
             <label className={styles.label}>
               <Phone size={18} />
               Teléfono
+              {isEditing && originalData.phone !== formData.phone && (
+                <span className={styles.changedBadge}>Modificado</span>
+              )}
             </label>
             {isEditing ? (
               <input
@@ -420,6 +490,9 @@ const Profile = () => {
               <label className={styles.label}>
                 <Lock size={18} />
                 Nueva contraseña (opcional)
+                {formData.password && formData.password.trim() !== "" && (
+                  <span className={styles.changedBadge}>Modificado</span>
+                )}
               </label>
               <input
                 type="password"
@@ -431,7 +504,7 @@ const Profile = () => {
                 disabled={loading}
               />
               <p className={styles.hint}>
-                Solo completa este campo si deseas cambiar tu contraseña
+                Solo completa este campo si deseas cambiar tu contraseña (mínimo 6 caracteres)
               </p>
             </div>
           )}
@@ -485,6 +558,18 @@ const Profile = () => {
                   />
                 </div>
 
+                {passwordData.confirmPassword && (
+                  <p style={{ 
+                    color: passwordData.newPassword === passwordData.confirmPassword ? "#10b981" : "#dc2626", 
+                    fontSize: "0.9rem",
+                    margin: "0"
+                  }}>
+                    {passwordData.newPassword === passwordData.confirmPassword 
+                      ? "✓ Las contraseñas coinciden" 
+                      : "✗ Las contraseñas no coinciden"}
+                  </p>
+                )}
+
                 <div className={styles.editActions}>
                   <button 
                     className={styles.saveButton}
@@ -502,6 +587,7 @@ const Profile = () => {
                         newPassword: "",
                         confirmPassword: ""
                       });
+                      setError("");
                     }}
                     disabled={loading}
                   >
