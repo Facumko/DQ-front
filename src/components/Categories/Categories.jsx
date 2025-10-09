@@ -20,7 +20,7 @@ const Categories = ({ expanded, onClose }) => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await axios.get("http://192.168.1.64:8080/categoria/traer");
+        const res = await axios.get("http://10.0.15.66:8080/categoria/traer");
         if (res.data && res.data.length > 0) {
           setCategories(res.data);
         }

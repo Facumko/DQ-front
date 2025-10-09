@@ -134,18 +134,20 @@ const Navbar = () => {
           })}
 
           {/* Icono de Categorías */}
-          <div
-            className={styles.iconWrapper}
-            title="Categorías"
-            onClick={() => setShowCategories(!showCategories)}
-          >
-            <FaBars className={styles.outlineIcon} />
+         {/* Icono de Categorías - CON CONTENEDOR RELATIVO */}
+          <div className={styles.categoriesContainer}>
+            <div
+              className={styles.iconWrapper}
+              title="Categorías"
+              onClick={() => setShowCategories(!showCategories)}
+            >
+              <FaBars className={styles.outlineIcon} />
+            </div>
+
+            {/* Dropdown de categorías */}
+            <Categories expanded={showCategories} 
+            onClose={() => setShowCategories(false)}/>
           </div>
-
-          {/* Dropdown de categorías */}
-          <Categories expanded={showCategories} 
-          onClose={() => setShowCategories(false)}/>
-
           {/* Ícono de usuario */}
           <div className={styles.userWrapper} ref={menuRef}>
             <FaRegUser

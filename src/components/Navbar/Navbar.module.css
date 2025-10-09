@@ -145,8 +145,15 @@
 @keyframes bounce { 0% { transform: scale(1); } 50% { transform: scale(1.45);} 100% { transform: scale(1); } }
 
 /* Responsive */
+/* Responsive */
 @media (max-width:900px) { .searchContainer { max-width:280px; margin:0 10px;} .logoText{display:none;} }
 
+/* ⭐ Contenedor de categorías con posición relativa */
+.categoriesContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 .loginButton, .userButton {
   background: white;
   color: #B00020;

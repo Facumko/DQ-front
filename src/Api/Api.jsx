@@ -101,3 +101,113 @@ axios.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// ===== USUARIO =====
+
+/**
+ * Obtener información de un usuario por ID
+ * @param {number} userId - ID del usuario
+ * @returns {Promise} - Datos del usuario
+ */
+export const getUserById = async (userId) => {
+  try {
+    const response = await axios.get(`${API_URL}/usuario/${userId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || "Error al obtener información del usuario"
+    );
+  }
+};
+
+/**
+ * Actualizar información del usuario
+ * @param {number|string} userId - ID del usuario
+ * @param {Object} userData - Datos a actualizar
+ * @param {string} userData.username - Nombre de usuario
+ * @param {string} userData.name - Nombre
+ * @param {string} userData.lastname - Apellido
+ * @param {string} userData.email - Correo electrónico
+ * @param {string} userData.password - Contraseña (opcional)
+ * @param {string} userData.recoveryEmail - Email de recuperación
+ * @param {} userData.phone - Teléfono
+ * @returns {Promise} - Usuario actualizado
+ */
+export const updateUser = async (userId, userData) => {
+  try {
+    const response = await axios.put(
+      `${API_URL}/usuario/editar/${userId}`,
+      userData
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || "Error al actualizar usuario"
+    );
+  }
+};
+
+/**
+ * Eliminar usuario
+ * @param {number} userId - ID del usuario
+ * @returns {Promise}
+ */
+export const deleteUser = async (userId) => {
+  try {
+    const response = await axios.delete(
+      `${API_URL}/usuario/borrar/${userId}`
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || "Error al eliminar usuario"
+    );
+  }
+};
+
+// ===== CATEGORÍAS =====
+export const getCategories = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/categoria/traer`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || "Error al obtener categorías"
+    );
+  }
+};
+
+// ===== IMÁGENES =====
+export const getImages = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/imagen/traer`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || "Error al obtener imágenes"
+    );
+  }
+};
+
+export const uploadImage = async (imageData) => {
+  try {
+    const response = await axios.post(
+      `${API_URL}/imagen/guardar`,
+      imageData
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Error al subir imagen");
+  }
+};
+
+export default {
+  loginUser,
+  registerUser,
+  getUserById,
+  updateUser,
+  deleteUser,
+  getCategories,
+  getImages,
+  uploadImage,
+};
