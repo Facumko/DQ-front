@@ -8,6 +8,7 @@
   position: relative;
 }
 
+
 /* ⭐ Botón de editar */
 .editButtonContainer {
   position: absolute;
@@ -15,6 +16,7 @@
   right: 20px;
   z-index: 10;
 }
+
 
 .editButton {
   display: flex;
@@ -30,16 +32,19 @@
   transition: all 0.3s ease;
 }
 
+
 .editButton:hover {
   background: #2980b9;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
 }
 
+
 .editActions {
   display: flex;
   gap: 8px;
 }
+
 
 .saveButton, .cancelButton {
   padding: 8px 16px;
@@ -50,10 +55,12 @@
   transition: all 0.3s ease;
 }
 
+
 .saveButton {
   background: #2ecc71;
   color: white;
 }
+
 
 .saveButton:hover {
   background: #27ae60;
@@ -61,16 +68,19 @@
   box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
 }
 
+
 .cancelButton {
   background: #e74c3c;
   color: white;
 }
+
 
 .cancelButton:hover {
   background: #c0392b;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
 }
+
 
 /* ⭐ Campos de edición */
 .editInput, .editInputSmall {
@@ -83,16 +93,19 @@
   font-family: 'Poppins', sans-serif;
 }
 
+
 .editInput:focus, .editInputSmall:focus {
   outline: none;
   border-color: #2980b9;
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
+
 .editInputSmall {
   font-size: 0.85rem;
   margin-top: 4px;
 }
+
 
 .editColumn {
   display: flex;
@@ -101,6 +114,7 @@
   flex: 1;
 }
 
+
 /* Estilos originales */
 .businessInfo {
   display: flex;
@@ -108,15 +122,18 @@
   margin-bottom: 16px;
 }
 
+
 .businessName {
   font-size: 2.2rem;
   font-weight: bold;
 }
 
+
 .status {
   font-size: 0.8rem;
   color: #2ecc71;
 }
+
 
 .contactInfo {
   display: flex;
@@ -125,6 +142,7 @@
   margin-bottom: 16px;
 }
 
+
 .row {
   display: flex;
   align-items: center;
@@ -132,10 +150,12 @@
   flex-wrap: wrap;
 }
 
+
 .address {
   display: flex;
   flex-direction: column;
 }
+
 
 .addressDetail {
   display: block;
@@ -143,10 +163,12 @@
   color: #888;
 }
 
+
 .actions {
   display: flex;
   gap: 12px;
 }
+
 
 .favButton, .socialButton {
   display: flex;
@@ -160,7 +182,36 @@
   transition: all 0.3s ease;
 }
 
+
 .favButton:hover, .socialButton:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   transform: translateY(-2px);
 }
+
+
+/* Agrega a ProfileHeader.module.css */
+.createActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+
+.createButton {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+
+.createButton:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+}
+
+

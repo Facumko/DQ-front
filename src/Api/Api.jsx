@@ -106,12 +106,12 @@ axios.interceptors.response.use(
 
 /**
  * Obtener información de un usuario por ID
- * @param {number} userId - ID del usuario
+ * @param {BigInt} idUser - ID del usuario
  * @returns {Promise} - Datos del usuario
  */
-export const getUserById = async (userId) => {
+export const getUserById = async (idUser) => {
   try {
-    const response = await axios.get(`${API_URL}/usuario/${userId}`);
+    const response = await axios.get(`${API_URL}/usuario/${idUser}`);
     return response.data;
   } catch (error) {
     throw new Error(
@@ -122,7 +122,7 @@ export const getUserById = async (userId) => {
 
 /**
  * Actualizar información del usuario
- * @param {number|string} userId - ID del usuario
+ * @param {BigInt} idUser - ID del usuario
  * @param {Object} userData - Datos a actualizar
  * @param {string} userData.username - Nombre de usuario
  * @param {string} userData.name - Nombre
@@ -133,10 +133,10 @@ export const getUserById = async (userId) => {
  * @param {} userData.phone - Teléfono
  * @returns {Promise} - Usuario actualizado
  */
-export const updateUser = async (userId, userData) => {
+export const updateUser = async (idUser, userData) => {
   try {
     const response = await axios.put(
-      `${API_URL}/usuario/editar/${userId}`,
+      `${API_URL}/usuario/editar/${idUser}`,
       userData
     );
     return response.data;
@@ -149,13 +149,13 @@ export const updateUser = async (userId, userData) => {
 
 /**
  * Eliminar usuario
- * @param {number} userId - ID del usuario
+ * @param {BigInt} idUser - ID del usuario
  * @returns {Promise}
  */
-export const deleteUser = async (userId) => {
+export const deleteUser = async (idUser) => {
   try {
     const response = await axios.delete(
-      `${API_URL}/usuario/borrar/${userId}`
+      `${API_URL}/usuario/borrar/${idUser}`
     );
     return response.data;
   } catch (error) {

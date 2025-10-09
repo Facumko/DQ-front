@@ -20,8 +20,28 @@ export function UserProvider({ children }) {
     setError(null);
     
     try {
-      const response = await loginUser(email,password);
-      const userData = response.user || response;
+      const response = await loginUser(email, password);
+      console.log("Respuesta completa del backend:", response);
+      
+      // ✅ NORMALIZAR la respuesta del backend
+      const userData = {
+        id_user: response.idUser || response.id_user || response.user?.idUser || response.user?.id_user,
+        username: response.username || response.user?.username,
+        name: response.name || response.user?.name,
+        lastname: response.lastname || response.user?.lastname,
+        email: response.email || response.user?.email,
+        recovery_email: response.recoveryEmail || response.recovery_email || response.user?.recoveryEmail,
+        phone: response.phone || response.user?.phone,
+        token: response.token || response.user?.token
+      };
+
+      console.log("Usuario normalizado:", userData);
+
+      // ✅ Validar que tengamos el ID
+      if (!userData.id_user) {
+        throw new Error("No se recibió el ID del usuario del servidor");
+      }
+
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
       return { success: true, data: userData };
@@ -41,7 +61,27 @@ export function UserProvider({ children }) {
     
     try {
       const response = await registerUser(userData);
-      const newUser = response.user || response;
+      console.log("Respuesta completa del registro:", response);
+      
+      // ✅ NORMALIZAR la respuesta del backend
+      const newUser = {
+        id_user: response.idUser || response.id_user || response.user?.idUser || response.user?.id_user,
+        username: response.username || response.user?.username,
+        name: response.name || response.user?.name,
+        lastname: response.lastname || response.user?.lastname,
+        email: response.email || response.user?.email,
+        recovery_email: response.recoveryEmail || response.recovery_email || response.user?.recoveryEmail,
+        phone: response.phone || response.user?.phone,
+        token: response.token || response.user?.token
+      };
+
+      console.log("Usuario normalizado:", newUser);
+
+      // ✅ Validar que tengamos el ID
+      if (!newUser.id_user) {
+        throw new Error("No se recibió el ID del usuario del servidor");
+      }
+
       setUser(newUser);
       localStorage.setItem("user", JSON.stringify(newUser));
       return { success: true, data: newUser };
@@ -59,14 +99,27 @@ export function UserProvider({ children }) {
     setUser(null);
     setError(null);
     localStorage.removeItem("user");
-    
-    // Opcional: llamar al backend para invalidar sesión en el servidor
-    // logoutUser().catch(err => console.warn("Error al cerrar sesión en servidor:", err));
   };
 
-  // Función para actualizar datos del usuario
-  const updateUser = (updatedData) => {
-    const newUser = { ...user, ...updatedData };
+  // Función para actualizar datos del usuario en el contexto
+  const updateUserContext = (updatedData) => {
+    console.log("Actualizando contexto con:", updatedData);
+    
+    // ✅ Normalizar los datos actualizados
+    const normalizedData = {
+      id_user: updatedData.idUser || updatedData.id_user || user?.id_user,
+      username: updatedData.username,
+      name: updatedData.name,
+      lastname: updatedData.lastname,
+      email: updatedData.email,
+      recovery_email: updatedData.recoveryEmail || updatedData.recovery_email,
+      phone: updatedData.phone,
+      token: updatedData.token || user?.token
+    };
+
+    const newUser = { ...user, ...normalizedData };
+    console.log("Usuario actualizado:", newUser);
+    
     setUser(newUser);
     localStorage.setItem("user", JSON.stringify(newUser));
   };
@@ -78,7 +131,7 @@ export function UserProvider({ children }) {
 
   // Función para verificar si el usuario está autenticado
   const isAuthenticated = () => {
-    return user !== null;
+    return user !== null && user.id_user !== undefined;
   };
 
   // Verificar sesión al cargar la aplicación
@@ -90,13 +143,13 @@ export function UserProvider({ children }) {
         try {
           const userData = JSON.parse(storedUser);
           
-          // Opcional: verificar en el backend si la sesión sigue siendo válida
-          // const isValid = await validateSession(userData.token);
-          // if (!isValid) {
-          //   localStorage.removeItem("user");
-          //   setUser(null);
-          //   return;
-          // }
+          // ✅ Validar que tenga ID
+          if (!userData.id_user) {
+            console.warn("Usuario sin ID válido, limpiando sesión");
+            localStorage.removeItem("user");
+            setUser(null);
+            return;
+          }
           
           setUser(userData);
         } catch (error) {
@@ -113,7 +166,6 @@ export function UserProvider({ children }) {
   // Función para manejar errores de respuesta de API
   const handleApiError = (error) => {
     if (error.response?.status === 401) {
-      // Token expirado o no válido, cerrar sesión automáticamente
       logout();
       setError("Sesión expirada. Por favor inicia sesión nuevamente.");
     } else {
@@ -123,23 +175,16 @@ export function UserProvider({ children }) {
 
   // Valores que se proporcionan a través del contexto
   const contextValue = {
-    // Estados
     user,
     loading,
     error,
-    
-    // Funciones principales
     login,
     register,
     logout,
-    updateUser,
-    
-    // Funciones de utilidad
+    updateUserContext, // ✅ Cambié el nombre para ser más claro
     clearError,
     isAuthenticated,
     handleApiError,
-    
-    // Estados derivados
     isLoggedIn: isAuthenticated(),
   };
 

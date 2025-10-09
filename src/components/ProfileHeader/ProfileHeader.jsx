@@ -1,11 +1,15 @@
 import React, { useState } from "react";
 import styles from "./ProfileHeader.module.css";
 import { MapPin, Clock, Phone, Mail, Star, ArrowRight, Edit2 } from "lucide-react";
+import CreatePostModal from "./CreatePostModal";
+
 
 const ProfileHeader = ({ isOwner = false }) => {
   const [isEditing, setIsEditing] = useState(false);
-  
-  // Estados para edición (solo si isOwner)
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState("post");
+
+
   const [businessData, setBusinessData] = useState({
     name: "Café Central",
     status: "Abierto ahora",
@@ -17,153 +21,182 @@ const ProfileHeader = ({ isOwner = false }) => {
     social: "@cafecentral"
   });
 
+
   const handleSave = () => {
-    // Aquí harías la llamada al backend para guardar
     console.log("Guardando cambios:", businessData);
     setIsEditing(false);
-    // TODO: Implementar llamada a API
   };
+
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Restaurar datos originales si es necesario
   };
 
+
   return (
-    <div className={styles.headerContainer}>
-      {/* ⭐ Botón de editar (solo para dueño) */}
-      {isOwner && (
-        <div className={styles.editButtonContainer}>
-          {!isEditing ? (
-            <button 
-              className={styles.editButton}
-              onClick={() => setIsEditing(true)}
-              title="Editar información"
-            >
-              <Edit2 size={18} />
-              Editar
-            </button>
-          ) : (
-            <div className={styles.editActions}>
-              <button className={styles.saveButton} onClick={handleSave}>
-                Guardar
+    <>
+      <div className={styles.headerContainer}>
+        {isOwner && (
+          <div className={styles.editButtonContainer}>
+            {!isEditing ? (
+              <button
+                className={styles.editButton}
+                onClick={() => setIsEditing(true)}
+                title="Editar información"
+              >
+                <Edit2 size={18} />
+                Editar
               </button>
-              <button className={styles.cancelButton} onClick={handleCancel}>
-                Cancelar
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className={styles.businessInfo}>
-        {isEditing ? (
-          <input
-            type="text"
-            value={businessData.name}
-            onChange={(e) => setBusinessData({...businessData, name: e.target.value})}
-            className={styles.editInput}
-          />
-        ) : (
-          <h1 className={styles.businessName}>{businessData.name}</h1>
+            ) : (
+              <div className={styles.editActions}>
+                <button className={styles.saveButton} onClick={handleSave}>
+                  Guardar
+                </button>
+                <button className={styles.cancelButton} onClick={handleCancel}>
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
         )}
-        <span className={styles.status}>{businessData.status}</span>
-      </div>
 
-      <div className={styles.contactInfo}>
-        <div className={styles.row}>
-          <MapPin color="#333" size={18} />
-          {isEditing ? (
-            <div className={styles.editColumn}>
-              <input
-                type="text"
-                value={businessData.address}
-                onChange={(e) => setBusinessData({...businessData, address: e.target.value})}
-                className={styles.editInput}
-                placeholder="Dirección"
-              />
-              <input
-                type="text"
-                value={businessData.addressDetail}
-                onChange={(e) => setBusinessData({...businessData, addressDetail: e.target.value})}
-                className={styles.editInputSmall}
-                placeholder="Detalle de ubicación"
-              />
-            </div>
-          ) : (
-            <div className={styles.address}>
-              {businessData.address}
-              <span className={styles.addressDetail}>{businessData.addressDetail}</span>
-            </div>
-          )}
-        </div>
 
-        <div className={styles.row}>
-          <Clock color="#333" size={18} />
+        <div className={styles.businessInfo}>
           {isEditing ? (
             <input
               type="text"
-              value={businessData.schedule}
-              onChange={(e) => setBusinessData({...businessData, schedule: e.target.value})}
+              value={businessData.name}
+              onChange={(e) => setBusinessData({ ...businessData, name: e.target.value })}
               className={styles.editInput}
-              placeholder="Horarios"
             />
           ) : (
-            <span>{businessData.schedule}</span>
+            <h1 className={styles.businessName}>{businessData.name}</h1>
           )}
+          <span className={styles.status}>{businessData.status}</span>
         </div>
 
-        <div className={styles.row}>
-          <Phone color="#333" size={18} />
-          {isEditing ? (
-            <input
-              type="tel"
-              value={businessData.phone}
-              onChange={(e) => setBusinessData({...businessData, phone: e.target.value})}
-              className={styles.editInput}
-              placeholder="Teléfono"
-            />
-          ) : (
-            <span>{businessData.phone}</span>
-          )}
 
-          <Mail color="#333" size={18} />
-          {isEditing ? (
-            <input
-              type="email"
-              value={businessData.email}
-              onChange={(e) => setBusinessData({...businessData, email: e.target.value})}
-              className={styles.editInput}
-              placeholder="Email"
-            />
-          ) : (
-            <span>{businessData.email}</span>
-          )}
-        </div>
-      </div>
+        <div className={styles.contactInfo}>
+          <div className={styles.row}>
+            <MapPin color="#333" size={18} />
+            {isEditing ? (
+              <div className={styles.editColumn}>
+                <input
+                  type="text"
+                  value={businessData.address}
+                  onChange={(e) => setBusinessData({ ...businessData, address: e.target.value })}
+                  className={styles.editInput}
+                  placeholder="Dirección"
+                />
+                <input
+                  type="text"
+                  value={businessData.addressDetail}
+                  onChange={(e) => setBusinessData({ ...businessData, addressDetail: e.target.value })}
+                  className={styles.editInputSmall}
+                  placeholder="Detalle de ubicación"
+                />
+              </div>
+            ) : (
+              <div className={styles.address}>
+                {businessData.address}
+                <span className={styles.addressDetail}>{businessData.addressDetail}</span>
+              </div>
+            )}
+          </div>
 
-      {!isEditing && (
-        <div className={styles.actions}>
-          <button className={styles.favButton}><Star color="#e74c3c" /> Favorito</button>
-          <button className={styles.socialButton}>
+
+          <div className={styles.row}>
+            <Clock color="#333" size={18} />
             {isEditing ? (
               <input
                 type="text"
-                value={businessData.social}
-                onChange={(e) => setBusinessData({...businessData, social: e.target.value})}
+                value={businessData.schedule}
+                onChange={(e) => setBusinessData({ ...businessData, schedule: e.target.value })}
                 className={styles.editInput}
-                placeholder="Usuario de red social"
+                placeholder="Horarios"
               />
             ) : (
-              <>
-                {businessData.social} <ArrowRight size={16}/>
-              </>
+              <span>{businessData.schedule}</span>
             )}
-          </button>
+          </div>
+
+
+          <div className={styles.row}>
+            <Phone color="#333" size={18} />
+            {isEditing ? (
+              <input
+                type="tel"
+                value={businessData.phone}
+                onChange={(e) => setBusinessData({ ...businessData, phone: e.target.value })}
+                className={styles.editInput}
+                placeholder="Teléfono"
+              />
+            ) : (
+              <span>{businessData.phone}</span>
+            )}
+
+
+            <Mail color="#333" size={18} />
+            {isEditing ? (
+              <input
+                type="email"
+                value={businessData.email}
+                onChange={(e) => setBusinessData({ ...businessData, email: e.target.value })}
+                className={styles.editInput}
+                placeholder="Email"
+              />
+            ) : (
+              <span>{businessData.email}</span>
+            )}
+          </div>
         </div>
-      )}
-    </div>
+
+
+        {!isEditing && (
+          <div className={styles.actions}>
+            <button className={styles.favButton}><Star color="#e74c3c" /> Favorito</button>
+            <button className={styles.socialButton}>
+              {businessData.social} <ArrowRight size={16} />
+            </button>
+          </div>
+        )}
+
+
+        {isOwner && (
+          <div className={styles.createActions}>
+            <button
+              className={styles.createButton}
+              onClick={() => {
+                setModalType("post");
+                setShowModal(true);
+              }}
+            >
+              + Publicación
+            </button>
+            <button
+              className={styles.createButton}
+              onClick={() => {
+                setModalType("event");
+                setShowModal(true);
+              }}
+            >
+              + Evento
+            </button>
+          </div>
+        )}
+      </div>
+
+
+      <CreatePostModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={(data) => console.log("Nueva publicación:", data)}
+        type={modalType}
+      />
+    </>
   );
 };
 
+
 export default ProfileHeader;
+
