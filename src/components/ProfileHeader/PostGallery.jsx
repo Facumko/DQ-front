@@ -2,10 +2,9 @@ import React, { useState, useEffect } from "react";
 import styles from "./PostGallery.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-const PostGallery = ({ images }) => {
+const PostGallery = ({ images, showThumbnails = false }) => { // ✅ NUEVO parámetro
   const [index, setIndex] = useState(0);
   
-  // Reset index cuando cambian las imágenes
   useEffect(() => {
     setIndex(0);
   }, [images]);
@@ -15,7 +14,6 @@ const PostGallery = ({ images }) => {
   const next = () => setIndex((i) => (i + 1) % images.length);
   const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
 
-  // Navegación con teclado
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') prev();
@@ -26,13 +24,11 @@ const PostGallery = ({ images }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [images.length]);
 
-  // Navegación por puntos/thumbnails (opcional)
   const goToImage = (newIndex) => setIndex(newIndex);
 
   return (
     <div className={styles.gallery}>
       <div className={styles.mainWrapper}>
-        {/* Flecha izquierda */}
         {images.length > 1 && (
           <button 
             className={`${styles.navBtn} ${styles.navLeft}`} 
@@ -43,7 +39,6 @@ const PostGallery = ({ images }) => {
           </button>
         )}
 
-        {/* Imagen principal con área clickeable para navegación */}
         <div className={styles.imageContainer}>
           <img 
             src={images[index]} 
@@ -52,7 +47,6 @@ const PostGallery = ({ images }) => {
             loading="lazy"
           />
           
-          {/* Áreas clickeables para navegación en pantallas táctiles */}
           {images.length > 1 && (
             <>
               <div 
@@ -69,7 +63,6 @@ const PostGallery = ({ images }) => {
           )}
         </div>
 
-        {/* Flecha derecha */}
         {images.length > 1 && (
           <button 
             className={`${styles.navBtn} ${styles.navRight}`} 
@@ -80,7 +73,6 @@ const PostGallery = ({ images }) => {
           </button>
         )}
 
-        {/* Contador */}
         {images.length > 1 && (
           <div className={styles.counter}>
             {index + 1} / {images.length}
@@ -88,8 +80,8 @@ const PostGallery = ({ images }) => {
         )}
       </div>
 
-      {/* Miniaturas (opcional - para muchas imágenes) */}
-      {images.length > 1 && images.length <= 10 && (
+      {/* ✅ CORREGIDO: Solo mostrar miniaturas si showThumbnails es true */}
+      {showThumbnails && images.length > 1 && images.length <= 10 && (
         <div className={styles.thumbnails}>
           {images.map((img, i) => (
             <button
@@ -104,8 +96,8 @@ const PostGallery = ({ images }) => {
         </div>
       )}
 
-      {/* Indicadores de puntos para muchas imágenes */}
-      {images.length > 10 && (
+      {/* ✅ CORREGIDO: Solo mostrar dots si showThumbnails es true */}
+      {showThumbnails && images.length > 10 && (
         <div className={styles.dots}>
           {images.map((_, i) => (
             <button

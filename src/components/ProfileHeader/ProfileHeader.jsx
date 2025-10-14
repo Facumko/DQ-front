@@ -398,29 +398,26 @@ const ProfileHeader = ({ isOwner = false }) => {
   };
 
  const handleSubmitPost = (data) => {
-  console.log("📤 Datos recibidos:", data); // Para debug
+  console.log("📤 Datos recibidos:", data);
   
   if (editingPost) {
+    // Modo edición
     setPosts((prev) =>
       prev.map((p) => (p.id === editingPost.id ? { ...p, ...data } : p))
     );
   } else {
-    // ✅ CORREGIDO: Asegurar que las imágenes sean un array limpio sin duplicados
-    const cleanImages = Array.isArray(data.images) 
-      ? [...new Set(data.images)] // Eliminar duplicados
-      : [];
-    
+    // ✅ CORREGIDO: Crear nueva publicación sin duplicar imágenes
     const newPost = { 
-      ...data, 
-      images: cleanImages, // ✅ Usar imágenes limpias
+      ...data,
       businessName: businessData.name, 
       createdAt: new Date().toISOString(), 
       id: Date.now()
     };
     
-    console.log("🆕 Nueva publicación:", newPost); // Para debug
+    console.log("🆕 Nueva publicación:", newPost);
     setPosts((prev) => [newPost, ...prev]);
   }
+  
   setEditingPost(null);
 };
   // ============================================
