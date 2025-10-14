@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useContext } from "react";
+import { UserContext } from "./UserContext";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
 import Publications from "../components/Publications/Publications";
 import UpcomingEvents from "../components/UpcomingEvents/UpcomingEvents";
@@ -22,11 +23,14 @@ const defaultGallery = [
   { id: 3, img: "" }
 ];
 
-// ⭐ Recibe prop isOwner
-const Negocios = ({ isOwner = false }) => {
+const Negocios = () => {
+  const { user } = useContext(UserContext);
+  
+  // El usuario logueado siempre es el dueño de su propio negocio
+  const isOwner = !!user;
+
   return (
     <div style={{ background: "#f4f5f8", minHeight: "100vh", padding: "24px" }}>
-      {/* ⭐ Pasamos isOwner a cada componente */}
       <ProfileHeader isOwner={isOwner} />
 
       <Publications publicaciones={defaultPublications} isOwner={isOwner} />
