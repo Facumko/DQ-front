@@ -1,17 +1,17 @@
-// src/components/CreatePostModal.jsx
 import React, { useState, useEffect } from "react";
 import styles from "./CreatePostModal.module.css";
-import { X, Calendar, Image, MapPin, Clock, User } from "lucide-react";
+import { X, Calendar, Image, MapPin, Clock, User, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
+const MAX_IMAGES = 10;
 
 const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null }) => {
   const [text, setText] = useState("");
   const [images, setImages] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [taggedBusiness, setTaggedBusiness] = useState("");
-
 
   useEffect(() => {
     if (isOpen) {
@@ -22,6 +22,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
         setTime(initialData.time || "");
         setLocation(initialData.location || "");
         setTaggedBusiness(initialData.taggedBusiness || "");
+        setActiveIndex(0);
       } else {
         setText("");
         setImages([]);
@@ -29,35 +30,53 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
         setTime("");
         setLocation("");
         setTaggedBusiness("");
+        setActiveIndex(0);
       }
     }
   }, [isOpen, initialData]);
 
-
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      setImages(files);
+    const available = MAX_IMAGES - images.length;
+    
+    if (files.length > available) {
+      alert(`Solo puedes agregar ${available} imágenes más (máximo ${MAX_IMAGES}).`);
+      return;
+    }
+    
+    const newUrls = files.map((file) => URL.createObjectURL(file));
+    setImages((prev) => [...prev, ...newUrls]);
+    setActiveIndex(images.length);
+  };
+
+  const handleRemoveImage = (index) => {
+    URL.revokeObjectURL(images[index]);
+    const newImages = images.filter((_, i) => i !== index);
+    setImages(newImages);
+    if (activeIndex >= newImages.length && newImages.length > 0) {
+      setActiveIndex(newImages.length - 1);
     }
   };
 
+  const nextImage = () => setActiveIndex((prev) => (prev + 1) % images.length);
+  const prevImage = () => setActiveIndex((prev) => (prev - 1 + images.length) % images.length);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (images.length === 0) return alert("Debes subir al menos una imagen.");
+    
     const payload = {
       text,
       images,
       type,
       ...(type === "event" && { date, time, location, taggedBusiness }),
     };
+    
     onSubmit(payload);
     onClose();
   };
 
-
   if (!isOpen) return null;
-
 
   return (
     <div className={styles.overlay}>
@@ -66,9 +85,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
           <X size={20} />
         </button>
 
-
-        <h2>{type === "event" ? "Crear Evento" : "Crear Publicación"}</h2>
-
+        <h2>{initialData ? "Editar" : type === "event" ? "Crear Evento" : "Crear Publicación"}</h2>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <textarea
@@ -80,78 +97,63 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
           />
           <div className={styles.charCount}>{text.length}/1000</div>
 
+          {/* Miniaturas */}
+          {images.length > 0 && (
+            <div className={styles.thumbs}>
+              {images.map((img, i) => (
+                <div key={i} className={`${styles.thumb} ${i === activeIndex ? styles.active : ""}`}>
+                  <img src={img} alt={`thumb-${i}`} onClick={() => setActiveIndex(i)} />
+                  <button type="button" className={styles.removeThumb} onClick={() => handleRemoveImage(i)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
+          {/* Agregar más */}
           <label className={styles.fileLabel}>
             <Image size={18} />
-            {images.length > 0 ? images.map((f) => f.name).join(", ") : "Subir imagen"}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-              className={styles.fileInput}
+            {images.length === 0 ? "Subir imagen" : `Agregar más (${MAX_IMAGES - images.length} disponibles)`}
+            <input 
+              type="file" 
+              accept="image/*" 
+              multiple 
+              onChange={handleImageChange} 
+              className={styles.fileInput} 
+              disabled={images.length >= MAX_IMAGES} 
             />
           </label>
 
-
+          {/* Campos de evento */}
           {type === "event" && (
             <>
               <div className={styles.row}>
                 <label>
                   <Calendar size={16} />
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                  />
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
                 </label>
                 <label>
                   <Clock size={16} />
-                  <input
-                    type="time"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    required
-                  />
+                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
                 </label>
               </div>
-
-
               <label>
                 <MapPin size={16} />
-                <input
-                  type="text"
-                  placeholder="Lugar del evento"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  required
-                />
+                <input type="text" placeholder="Lugar del evento" value={location} onChange={(e) => setLocation(e.target.value)} required />
               </label>
-
-
               <label>
                 <User size={16} />
-                <input
-                  type="text"
-                  placeholder="Etiquetar otro comercio (opcional)"
-                  value={taggedBusiness}
-                  onChange={(e) => setTaggedBusiness(e.target.value)}
-                />
+                <input type="text" placeholder="Etiquetar otro comercio (opcional)" value={taggedBusiness} onChange={(e) => setTaggedBusiness(e.target.value)} />
               </label>
             </>
           )}
-
-
           <button type="submit" className={styles.submitButton}>
-            Publicar
+            {initialData ? "Guardar cambios" : "Publicar"}
           </button>
         </form>
       </div>
     </div>
   );
 };
-
-
 export default CreatePostModal;
-

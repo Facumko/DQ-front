@@ -11,8 +11,8 @@ import styles from "./ProfileHeader.module.css";
 import {
   MapPin, Clock, Phone, Mail, Star, ArrowRight, Edit2,
   User, Camera, Image, Plus, Calendar,
-  Loader, AlertCircle, Check, Link2, Trash2,
-  ChevronLeft, ChevronRight
+  Loader, AlertCircle, Check, Link2,
+  ChevronLeft, ChevronRight, Info, MessageCircle, Bookmark
 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
@@ -33,17 +33,6 @@ const timeAgo = (date) => {
   if (hours < 24) return `hace ${hours} h`;
   const days = Math.floor(hours / 24);
   return `hace ${days} d`;
-};
-
-// Mapeo días español -> inglés (Java DayOfWeek enum)
-const DAY_MAP = {
-  "Lun": "MONDAY",
-  "Mar": "TUESDAY",
-  "Mie": "WEDNESDAY",
-  "Jue": "THURSDAY",
-  "Vie": "FRIDAY",
-  "Sab": "SATURDAY",
-  "Dom": "SUNDAY"
 };
 
 // Normalizar datos del backend
@@ -98,21 +87,22 @@ const getCurrentStatus = (sch) => {
 const ProfileHeader = ({ isOwner = false }) => {
   const { user } = useContext(UserContext);
   
-  // Estados de carga y error
+  // Estados de carga y error (del Header 2)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   
-  // Estados de UI
+  // Estados de UI (combinados)
   const [isEditing, setIsEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("post");
   const [posts, setPosts] = useState([]);
   const [showFullSchedule, setShowFullSchedule] = useState(false);
+  const [activeTab, setActiveTab] = useState("posts"); // Del Header 1
 
-  // Datos del negocio
+  // Datos del negocio (del Header 2)
   const [businessId, setBusinessId] = useState(null);
   const [businessData, setBusinessData] = useState({
     name: "",
@@ -124,7 +114,7 @@ const ProfileHeader = ({ isOwner = false }) => {
     coverImage: null,
   });
 
-  // Horarios (UI solamente, backend después)
+  // Horarios (del Header 1 - estructura visual)
   const [schedule, setSchedule] = useState({
     Lun: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
     Mar: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
@@ -140,12 +130,12 @@ const ProfileHeader = ({ isOwner = false }) => {
   const [editingPost, setEditingPost] = useState(null);
   const [status, setStatus] = useState("");
 
-  // Archivos temporales para subir
+  // Archivos temporales para subir (del Header 2)
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [coverImageFile, setCoverImageFile] = useState(null);
 
   // ============================================
-  // CARGAR DATOS
+  // CARGAR DATOS (del Header 2)
   // ============================================
   
   useEffect(() => {
@@ -205,7 +195,7 @@ const ProfileHeader = ({ isOwner = false }) => {
   };
 
   // ============================================
-  // SUBIR IMÁGENES
+  // SUBIR IMÁGENES (del Header 2)
   // ============================================
 
   const handleProfileImageUpload = async (file) => {
@@ -222,7 +212,6 @@ const ProfileHeader = ({ isOwner = false }) => {
       const result = await uploadProfileImage(businessId, file);
       console.log("✅ Imagen de perfil subida:", result);
 
-      // Actualizar businessData con la nueva URL
       setBusinessData(prev => ({
         ...prev,
         profileImage: result.profileImage
@@ -268,7 +257,7 @@ const ProfileHeader = ({ isOwner = false }) => {
   };
 
   // ============================================
-  // EDICIÓN Y GUARDADO
+  // EDICIÓN Y GUARDADO (combinado)
   // ============================================
 
   const handleEdit = () => {
@@ -383,11 +372,13 @@ const ProfileHeader = ({ isOwner = false }) => {
   };
 
   // ============================================
-  // PUBLICACIONES
+  // PUBLICACIONES (del Header 1 - estructura visual)
   // ============================================
 
-  const sortedPosts = useMemo(() => 
-    [...posts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), 
+  const sortedEvents = useMemo(() => posts.filter((p) => p.type === "event"), [posts]);
+
+  const sortedPosts = useMemo(
+    () => [...posts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
     [posts]
   );
 
@@ -421,7 +412,7 @@ const ProfileHeader = ({ isOwner = false }) => {
   };
 
   // ============================================
-  // RENDERIZADO
+  // RENDERIZADO (Header 1 visual + Header 2 funcionalidad)
   // ============================================
 
   if (loading) {
@@ -440,7 +431,7 @@ const ProfileHeader = ({ isOwner = false }) => {
   return (
     <>
       <div className={styles.headerContainer}>
-        {/* MENSAJES */}
+        {/* MENSAJES (del Header 2) */}
         {error && (
           <div className={styles.errorBanner}>
             <AlertCircle size={18} />
@@ -462,7 +453,7 @@ const ProfileHeader = ({ isOwner = false }) => {
           </div>
         )}
 
-        {/* BOTONES DE EDICIÓN */}
+        {/* BOTONES DE EDICIÓN (Header 1 visual + Header 2 funcionalidad) */}
         {isOwner && (
           <div className={styles.editButtonContainer}>
             {!isEditing ? (
@@ -497,11 +488,10 @@ const ProfileHeader = ({ isOwner = false }) => {
           </div>
         )}
 
-        {/* LAYOUT PRINCIPAL */}
+        {/* LAYOUT PRINCIPAL (Header 1 visual) */}
         <div className={styles.layoutModern}>
-          {/* COLUMNA IZQUIERDA */}
           <div className={styles.leftColumnModern}>
-            {/* PERFIL */}
+            {/* PERFIL (Header 1 visual + Header 2 funcionalidad) */}
             <div className={styles.profileHeaderModern}>
               {isEditing ? (
                 <label className={styles.profilePicEditModern}>
@@ -561,7 +551,7 @@ const ProfileHeader = ({ isOwner = false }) => {
               </div>
             </div>
 
-            {/* DESCRIPCIÓN */}
+            {/* DESCRIPCIÓN (Header 1 visual + Header 2 validaciones) */}
             <div className={styles.descriptionSectionModern}>
               {isEditing ? (
                 <>
@@ -583,7 +573,7 @@ const ProfileHeader = ({ isOwner = false }) => {
               )}
             </div>
 
-            {/* HORARIOS */}
+            {/* HORARIOS (Header 1 visual) */}
             {!isEditing && (
               <div className={styles.horarioClienteModern}>
                 <button
@@ -608,16 +598,8 @@ const ProfileHeader = ({ isOwner = false }) => {
               </div>
             )}
 
-            {/* CONTACTO */}
+            {/* CONTACTO (Header 1 visual + Header 2 campos) */}
             <div className={styles.contactInfoModern}>
-              {/* DIRECCIÓN - PRÓXIMAMENTE */}
-              <div className={styles.rowModern}>
-                <MapPin color="#999" size={18} />
-                <div className={styles.comingSoonText}>
-                  Sin dirección - Próximamente
-                </div>
-              </div>
-
               {/* TELÉFONO */}
               <div className={styles.rowModern}>
                 <Phone color="#333" size={18} />
@@ -667,7 +649,7 @@ const ProfileHeader = ({ isOwner = false }) => {
                 )}
               </div>
 
-              {/* LINK */}
+              {/* LINK (Header 2) */}
               <div className={styles.rowModern}>
                 <Link2 color="#333" size={18} />
                 {isEditing ? (
@@ -685,7 +667,7 @@ const ProfileHeader = ({ isOwner = false }) => {
               </div>
             </div>
 
-            {/* HORARIOS - EDICIÓN */}
+            {/* HORARIOS - EDICIÓN (Header 1 visual) */}
             {isEditing && (
               <div className={styles.horarioSectionModern}>
                 <div className={styles.horarioHeaderModern}>
@@ -825,10 +807,10 @@ const ProfileHeader = ({ isOwner = false }) => {
             )}
           </div>
 
-          {/* COLUMNA DERECHA - PORTADA */}
+          {/* COLUMNA DERECHA - PORTADA (Header 1 visual + Header 2 funcionalidad) */}
           <div className={styles.rightColumnModern}>
             {isEditing && (
-              <div className={styles.coverEditToolsModern}>
+              <div className={styles.coverPreviewModern}>
                 <label className={styles.coverButtonModern}>
                   <Image size={20} />
                   {draft.coverImage ? "Cambiar portada" : "Subir portada"}
@@ -846,34 +828,27 @@ const ProfileHeader = ({ isOwner = false }) => {
                   />
                 </label>
                 {draft.coverImage && (
-                  <button 
-                    className={styles.removeCoverButtonModern} 
-                    onClick={() => {
-                      setDraft({ ...draft, coverImage: null });
-                      setCoverImageFile(null);
-                    }}
-                  >
-                    Eliminar portada
-                  </button>
+                  <img src={draft.coverImage} alt="Vista previa" className={styles.coverPreviewImgModern} />
                 )}
               </div>
             )}
-
-            <div className={styles.coverDisplayModern}>
-              {businessData.coverImage ? (
-                <img src={businessData.coverImage} alt="Portada" className={styles.coverImageModern} />
-              ) : (
-                <div className={styles.coverPlaceholderModern}>
-                  <Image size={48} color="#ccc" />
-                  <span>Sin portada</span>
-                </div>
-              )}
-            </div>
+            {!isEditing && (
+              <div className={styles.coverDisplayModern}>
+                {businessData.coverImage ? (
+                  <img src={businessData.coverImage} alt="Portada" className={styles.coverImageModern} />
+                ) : (
+                  <div className={styles.coverPlaceholderModern}>
+                    <Image size={48} color="#ccc" />
+                    <span>Sin portada</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ACCIONES EXTERNAS */}
+      {/* ACCIONES EXTERNAS (Header 1 visual + Header 2 lógica) */}
       <div className={styles.externalActionsModern}>
         {!isEditing && (
           <div className={styles.actionsModern}>
@@ -925,12 +900,25 @@ const ProfileHeader = ({ isOwner = false }) => {
         )}
       </div>
 
-      {/* PUBLICACIONES */}
-      <div className={styles.postsSectionModern}>
-        <h3 className={styles.postsTitleModern}>Publicaciones y Eventos</h3>
-        {sortedPosts.length === 0 ? (
-          <p className={styles.noPostsModern}>Aún no hay publicaciones.</p>
-        ) : (
+      {/* PESTAÑAS (Header 1 visual) */}
+      <div className={styles.tabBarModern}>
+        <button
+          className={`${styles.tabButtonModern} ${activeTab === "posts" ? styles.activeTabModern : ""}`}
+          onClick={() => setActiveTab("posts")}
+        >
+          Publicaciones
+        </button>
+        <button
+          className={`${styles.tabButtonModern} ${activeTab === "events" ? styles.activeTabModern : ""}`}
+          onClick={() => setActiveTab("events")}
+        >
+          Eventos
+        </button>
+      </div>
+
+      {/* CONTENIDO SEGÚN PESTAÑA (Header 1 visual) */}
+      <div className={styles.tabContentModern}>
+        {activeTab === "posts" && (
           <div className={styles.postsCenteredWrapper}>
             <div className={styles.postsStackModern}>
               {sortedPosts.map((post) => (
@@ -940,10 +928,8 @@ const ProfileHeader = ({ isOwner = false }) => {
                       typeof img === 'string' ? img : URL.createObjectURL(img)
                     )} />
                   )}
-
                   <div className={styles.postContentModern}>
                     <p className={styles.postTextModern}>{post.text}</p>
-
                     {post.type === "event" && (
                       <div className={styles.eventDetailsModern}>
                         {post.date && <span><Calendar size={14} /> {post.date}</span>}
@@ -952,23 +938,47 @@ const ProfileHeader = ({ isOwner = false }) => {
                         {post.taggedBusiness && <span><User size={14} /> Con: {post.taggedBusiness}</span>}
                       </div>
                     )}
-
                     <span className={styles.postDateModern}>{timeAgo(post.createdAt)}</span>
-
                     {isOwner && (
                       <div className={styles.postActionsModern}>
-                        <button 
-                          onClick={() => handleEditPost(post)} 
-                          className={styles.editPostButtonModern}
-                        >
-                          Editar
-                        </button>
-                        <button 
-                          onClick={() => handleDeletePost(post.id)} 
-                          className={styles.deletePostButtonModern}
-                        >
-                          Eliminar
-                        </button>
+                        <button onClick={() => handleEditPost(post)} className={styles.editPostButtonModern}>Editar</button>
+                        <button onClick={() => handleDeletePost(post.id)} className={styles.deletePostButtonModern}>Eliminar</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "events" && (
+          <div className={styles.eventsCenteredWrapper}>
+            <div className={styles.eventsStackModern}>
+              {sortedEvents.map((event) => (
+                <div key={event.id} className={styles.eventCardModern}>
+                  {event.images && event.images.length > 0 && (
+                    <PostGallery images={event.images.map(img => 
+                      typeof img === 'string' ? img : URL.createObjectURL(img)
+                    )} />
+                  )}
+
+                  <div className={styles.eventContentModern}>
+                    <h3 className={styles.eventTitleModern}>{event.text}</h3>
+
+                    <div className={styles.eventMetaModern}>
+                      {event.date && <span><Calendar size={14} /> {event.date}</span>}
+                      {event.time && <span><Clock size={14} /> {event.time}</span>}
+                      {event.location && <span><MapPin size={14} /> {event.location}</span>}
+                      {event.taggedBusiness && <span><User size={14} /> Con: {event.taggedBusiness}</span>}
+                    </div>
+
+                    <span className={styles.eventDateModern}>{timeAgo(event.createdAt)}</span>
+
+                    {isOwner && (
+                      <div className={styles.eventActionsModern}>
+                        <button onClick={() => handleEditPost(event)} className={styles.editPostButtonModern}>Editar</button>
+                        <button onClick={() => handleDeletePost(event.id)} className={styles.deletePostButtonModern}>Eliminar</button>
                       </div>
                     )}
                   </div>
