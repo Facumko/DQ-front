@@ -2,7 +2,7 @@ import React from "react";
 import {BrowserRouter as Router, Routes, Route} from "react-router-dom";
 import Navbar from "../components/Navbar/Navbar";
 import Home from "../pages/Home";
-import Negocios from "../pages/Negocios";
+import Negocios from "../pages/Negocios";   
 import Eventos from "../pages/Eventos";
 import Login from "../pages/Login";
 import Profile from "../pages/Profile"; // ← Este import

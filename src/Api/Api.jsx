@@ -31,6 +31,7 @@ const ENDPOINTS = {
   GET_IMAGES: '/imagen/traer',
   UPLOAD_IMAGE: '/imagen/guardar',
   
+  // Comercios
   GET_BUSINESS_BY_USER: (userId) => `/comercio/traer/usuario/${userId}`,
   GET_BUSINESS: (businessId) => `/comercio/traer/${businessId}`,
   UPDATE_BUSINESS: (businessId) => `/comercio/editar/${businessId}`,
@@ -49,34 +50,22 @@ axios.defaults.headers.common['Accept'] = 'application/json';
 // FUNCIONES AUXILIARES
 // ============================================
 
-/**
- * Generar username único desde email
- */
 export const generateUsername = (email) => {
   const baseName = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
   const randomSuffix = Math.random().toString(36).substring(2, 6);
   return `${baseName}${randomSuffix}`;
 };
 
-/**
- * Capitalizar primera letra
- */
 export const capitalizeFirstLetter = (str) => {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
-/**
- * Validar formato de email
- */
 export const validateEmail = (email) => {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 };
 
-/**
- * Validar fuerza de contraseña
- */
 export const validatePasswordStrength = (password) => {
   if (!password) return { strength: 'none', message: '' };
   
@@ -199,9 +188,6 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
 // FUNCIONES DE AUTENTICACIÓN
 // ============================================
 
-/**
- * Iniciar sesión
- */
 export const loginUser = async (email, password) => {
   validateParams({ email, password }, ['email', 'password']);
   
@@ -222,29 +208,20 @@ export const loginUser = async (email, password) => {
   }
 };
 
-/**
- * Registrar nuevo usuario
- */
 export const registerUser = async (userData) => {
   validateParams(userData, ['email', 'password']);
   
-  // Validar email
   if (!validateEmail(userData.email)) {
     throw new Error('Por favor ingresa un email válido');
   }
   
-  // Validar contraseña mínima
   if (userData.password.length < 6) {
     throw new Error('La contraseña debe tener al menos 6 caracteres');
   }
   
-  // Generar username automáticamente si no existe
   const username = userData.username || generateUsername(userData.email);
-  
-  // Generar name desde email si no existe
   const name = userData.name || capitalizeFirstLetter(userData.email.split('@')[0]);
   
-  // Preparar datos para el backend
   const registrationData = {
     email: userData.email,
     password: userData.password,
@@ -263,7 +240,6 @@ export const registerUser = async (userData) => {
     
     return response;
   } catch (error) {
-    // Si el error es de username duplicado, reintentar con nuevo username
     if (error.message.includes('duplicado') || error.message.includes('409')) {
       if (isDevelopment) {
         console.log('Username duplicado, reintentando con nuevo username...');
@@ -283,15 +259,11 @@ export const registerUser = async (userData) => {
   }
 };
 
-/**
- * Cerrar sesión
- */
 export const logoutUser = async (userId) => {
   try {
     const response = await apiRequest('POST', ENDPOINTS.LOGOUT, { userId });
     return response;
   } catch (error) {
-    // Aunque falle el logout en backend, limpiamos sesión local
     if (isDevelopment) {
       console.warn('Error en logout del backend, limpiando sesión local:', error.message);
     }
@@ -340,36 +312,7 @@ export const uploadImage = async (imageData) => {
 };
 
 // ============================================
-// FUNCIÓN DE HEALTH CHECK
-// ============================================
-
-export const checkConnection = async () => {
-  try {
-    const response = await apiRequest('GET', ENDPOINTS.HEALTH);
-    
-    if (isDevelopment) {
-      console.log("✅ Backend disponible:", response);
-    }
-    
-    return {
-      available: true,
-      data: response,
-      timestamp: new Date().toISOString()
-    };
-  } catch (error) {
-    if (isDevelopment) {
-      console.warn("⚠️ Backend no disponible:", error.message);
-    }
-    
-    return {
-      available: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    };
-  }
-};
-// ============================================
-// FUNCIONES DE NEGOCIOS (agregar al final)
+// FUNCIONES DE NEGOCIOS (ADAPTADAS AL BACKEND)
 // ============================================
 
 /**
@@ -381,23 +324,21 @@ export const getBusinessByUserId = async (userId) => {
   try {
     const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS_BY_USER(userId));
     
-    // Normalizar respuesta del backend
+    if (isDevelopment) {
+      console.log("📦 Respuesta del backend:", response);
+    }
+    
+    // Normalizar respuesta del backend a formato del frontend
     if (response) {
       return {
-        id_business: response.idBusiness || response.id_business,
-        id_user: response.idUser || response.id_user,
+        id_business: response.idCommerce,
+        id_user: response.idOwner,
         name: response.name || '',
         description: response.description || '',
         email: response.email || '',
         phone: response.phone || '',
-        social: response.social || '',
-        address: response.address || '',
-        address_detail: response.addressDetail || response.address_detail || '',
-        profile_image: response.profileImage || response.profile_image || null,
-        cover_image: response.coverImage || response.cover_image || null,
-        schedule: response.schedule ? JSON.parse(response.schedule) : getDefaultSchedule(),
-        created_at: response.createdAt || response.created_at,
-        updated_at: response.updatedAt || response.updated_at,
+        link: response.link || '', // El backend usa "link" en lugar de "social"
+        branchOf: response.branchOf || null,
       };
     }
     
@@ -405,6 +346,9 @@ export const getBusinessByUserId = async (userId) => {
   } catch (error) {
     // Si es 404, el usuario no tiene negocio
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
+      if (isDevelopment) {
+        console.log("ℹ️ El usuario no tiene negocio creado");
+      }
       return null;
     }
     throw error;
@@ -421,20 +365,14 @@ export const getBusinessById = async (businessId) => {
   
   // Normalizar respuesta
   return {
-    id_business: response.idBusiness || response.id_business,
-    id_user: response.idUser || response.id_user,
+    id_business: response.idCommerce,
+    id_user: response.idOwner,
     name: response.name || '',
     description: response.description || '',
     email: response.email || '',
     phone: response.phone || '',
-    social: response.social || '',
-    address: response.address || '',
-    address_detail: response.addressDetail || response.address_detail || '',
-    profile_image: response.profileImage || response.profile_image || null,
-    cover_image: response.coverImage || response.cover_image || null,
-    schedule: response.schedule ? JSON.parse(response.schedule) : getDefaultSchedule(),
-    created_at: response.createdAt || response.created_at,
-    updated_at: response.updatedAt || response.updated_at,
+    link: response.link || '',
+    branchOf: response.branchOf || null,
   };
 };
 
@@ -457,39 +395,37 @@ export const createBusiness = async (businessData) => {
     throw new Error('El ID de usuario es obligatorio');
   }
   
-  // Preparar datos para el backend (snake_case)
+  // Preparar datos para el backend (nombres exactos que espera)
   const dataToSend = {
-    id_user: businessData.id_user,
+    idOwner: businessData.id_user,
     name: businessData.name.trim(),
     description: businessData.description.trim(),
     email: businessData.email?.trim() || '',
     phone: businessData.phone?.trim() || '',
-    social: businessData.social?.trim() || '',
-    address: businessData.address?.trim() || '',
-    address_detail: businessData.address_detail?.trim() || '',
-    profile_image: businessData.profile_image || null,
-    cover_image: businessData.cover_image || null,
-    schedule: businessData.schedule ? JSON.stringify(businessData.schedule) : JSON.stringify(getDefaultSchedule()),
+    link: businessData.link?.trim() || '', // Backend usa "link"
+    branchOf: businessData.branchOf || null,
   };
+  
+  if (isDevelopment) {
+    console.log("📤 Enviando al backend:", dataToSend);
+  }
   
   const response = await apiRequest('POST', ENDPOINTS.CREATE_BUSINESS, dataToSend);
   
+  if (isDevelopment) {
+    console.log("📦 Respuesta del backend:", response);
+  }
+  
   // Normalizar respuesta
   return {
-    id_business: response.idBusiness || response.id_business,
-    id_user: response.idUser || response.id_user,
+    id_business: response.idCommerce,
+    id_user: response.idOwner,
     name: response.name,
     description: response.description,
     email: response.email,
     phone: response.phone,
-    social: response.social,
-    address: response.address,
-    address_detail: response.addressDetail || response.address_detail,
-    profile_image: response.profileImage || response.profile_image,
-    cover_image: response.coverImage || response.cover_image,
-    schedule: response.schedule ? JSON.parse(response.schedule) : getDefaultSchedule(),
-    created_at: response.createdAt || response.created_at,
-    updated_at: response.updatedAt || response.updated_at,
+    link: response.link,
+    branchOf: response.branchOf,
   };
 };
 
@@ -508,54 +444,38 @@ export const updateBusiness = async (businessId, businessData) => {
     throw new Error('La descripción del negocio no puede estar vacía');
   }
   
-  // Preparar datos para el backend (snake_case)
+  // Preparar datos para el backend (nombres exactos)
   const dataToSend = {};
   
   if (businessData.name !== undefined) dataToSend.name = businessData.name.trim();
   if (businessData.description !== undefined) dataToSend.description = businessData.description.trim();
   if (businessData.email !== undefined) dataToSend.email = businessData.email.trim();
   if (businessData.phone !== undefined) dataToSend.phone = businessData.phone.trim();
-  if (businessData.social !== undefined) dataToSend.social = businessData.social.trim();
-  if (businessData.address !== undefined) dataToSend.address = businessData.address.trim();
-  if (businessData.address_detail !== undefined) dataToSend.address_detail = businessData.address_detail.trim();
-  if (businessData.profile_image !== undefined) dataToSend.profile_image = businessData.profile_image;
-  if (businessData.cover_image !== undefined) dataToSend.cover_image = businessData.cover_image;
-  if (businessData.schedule !== undefined) dataToSend.schedule = JSON.stringify(businessData.schedule);
+  if (businessData.link !== undefined) dataToSend.link = businessData.link.trim(); // Backend usa "link"
+  if (businessData.branchOf !== undefined) dataToSend.branchOf = businessData.branchOf;
+  
+  if (isDevelopment) {
+    console.log("📤 Actualizando negocio:", businessId, dataToSend);
+  }
   
   const response = await apiRequest('PUT', ENDPOINTS.UPDATE_BUSINESS(businessId), dataToSend);
   
+  if (isDevelopment) {
+    console.log("📦 Respuesta del backend:", response);
+  }
+  
   // Normalizar respuesta
   return {
-    id_business: response.idBusiness || response.id_business,
-    id_user: response.idUser || response.id_user,
+    id_business: response.idCommerce,
+    id_user: response.idOwner,
     name: response.name,
     description: response.description,
     email: response.email,
     phone: response.phone,
-    social: response.social,
-    address: response.address,
-    address_detail: response.addressDetail || response.address_detail,
-    profile_image: response.profileImage || response.profile_image,
-    cover_image: response.coverImage || response.cover_image,
-    schedule: response.schedule ? JSON.parse(response.schedule) : getDefaultSchedule(),
-    created_at: response.createdAt || response.created_at,
-    updated_at: response.updatedAt || response.updated_at,
+    link: response.link,
+    branchOf: response.branchOf,
   };
 };
-
-/**
- * Horario por defecto
- */
-const getDefaultSchedule = () => ({
-  Lun: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Mar: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Mie: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Jue: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Vie: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Sab: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Dom: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "22:00" } },
-});
-
 
 // ============================================
 // EXPORTACIÓN POR DEFECTO
@@ -579,15 +499,15 @@ export default {
   getImages,
   uploadImage,
   
-  // Utilidades
-  checkConnection,
-  generateUsername,
-  capitalizeFirstLetter,
-  validateEmail,
-  validatePasswordStrength,
   // Negocios
   getBusinessByUserId,
   getBusinessById,
   createBusiness,
   updateBusiness,
+  
+  // Utilidades
+  generateUsername,
+  capitalizeFirstLetter,
+  validateEmail,
+  validatePasswordStrength,
 };

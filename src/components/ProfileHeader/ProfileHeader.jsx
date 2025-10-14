@@ -5,7 +5,7 @@ import styles from "./ProfileHeader.module.css";
 import {
   MapPin, Clock, Phone, Mail, Star, ArrowRight, Edit2,
   User, Camera, Image, Plus, Calendar,
-  Loader, AlertCircle, Check
+  Loader, AlertCircle, Check, Link as LinkIcon
 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 
@@ -23,16 +23,6 @@ const timeAgo = (date) => {
   return `hace ${days} d`;
 };
 
-const getDefaultSchedule = () => ({
-  Lun: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Mar: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Mie: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Jue: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Vie: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Sab: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
-  Dom: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "22:00" } },
-});
-
 const ProfileHeader = ({ isOwner = false }) => {
   const { user } = useContext(UserContext);
   
@@ -47,28 +37,19 @@ const ProfileHeader = ({ isOwner = false }) => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("post");
   const [posts, setPosts] = useState([]);
-  const [showFullSchedule, setShowFullSchedule] = useState(false);
-  const [status, setStatus] = useState("");
 
-  // Datos del negocio
+  // Datos del negocio (SOLO CAMPOS QUE EXISTEN EN BACKEND)
   const [businessId, setBusinessId] = useState(null);
   const [businessData, setBusinessData] = useState({
     name: "",
     email: "",
     phone: "",
-    social: "",
-    address: "",
-    addressDetail: "",
+    link: "", // Backend usa "link" no "social"
     description: "",
-    profileImage: null,
-    coverImage: null,
   });
-
-  const [schedule, setSchedule] = useState(getDefaultSchedule());
 
   // Borradores para edición
   const [draft, setDraft] = useState(businessData);
-  const [draftSchedule, setDraftSchedule] = useState(schedule);
   const [editingPost, setEditingPost] = useState(null);
 
   // ============================================
@@ -102,16 +83,12 @@ const ProfileHeader = ({ isOwner = false }) => {
           name: business.name || "",
           email: business.email || user.email || "",
           phone: business.phone || user.phone || "",
-          social: business.social || "",
-          address: business.address || "",
-          addressDetail: business.address_detail || "",
+          link: business.link || "",
           description: business.description || "",
-          profileImage: business.profile_image || null,
-          coverImage: business.cover_image || null,
         };
         
         setBusinessData(loadedData);
-        setSchedule(business.schedule || getDefaultSchedule());
+        setDraft(loadedData);
       } else {
         console.log("⚠️ El usuario no tiene negocio creado");
         
@@ -120,16 +97,12 @@ const ProfileHeader = ({ isOwner = false }) => {
           name: user.name ? `${user.name}${user.lastname ? ' ' + user.lastname : ''}` : "",
           email: user.email || "",
           phone: user.phone || "",
-          social: "",
-          address: "",
-          addressDetail: "",
+          link: "",
           description: "",
-          profileImage: null,
-          coverImage: null,
         };
         
         setBusinessData(defaultData);
-        setSchedule(getDefaultSchedule());
+        setDraft(defaultData);
       }
     } catch (err) {
       console.error("❌ Error al cargar negocio:", err);
@@ -145,7 +118,6 @@ const ProfileHeader = ({ isOwner = false }) => {
 
   const handleEdit = () => {
     setDraft(businessData);
-    setDraftSchedule(schedule);
     setIsEditing(true);
     setError("");
     setSuccess("");
@@ -193,12 +165,7 @@ const ProfileHeader = ({ isOwner = false }) => {
         description: draft.description.trim(),
         email: draft.email.trim(),
         phone: draft.phone.trim(),
-        social: draft.social.trim(),
-        address: draft.address.trim(),
-        address_detail: draft.addressDetail.trim(),
-        profile_image: draft.profileImage,
-        cover_image: draft.coverImage,
-        schedule: draftSchedule,
+        link: draft.link.trim(),
       };
 
       let result;
@@ -224,15 +191,10 @@ const ProfileHeader = ({ isOwner = false }) => {
         name: result.name,
         email: result.email,
         phone: result.phone,
-        social: result.social,
-        address: result.address,
-        addressDetail: result.address_detail,
+        link: result.link,
         description: result.description,
-        profileImage: result.profile_image,
-        coverImage: result.cover_image,
       });
       
-      setSchedule(result.schedule);
       setIsEditing(false);
       setSuccess("✅ Datos guardados correctamente");
 
@@ -246,50 +208,10 @@ const ProfileHeader = ({ isOwner = false }) => {
   };
 
   const handleCancel = () => {
+    setDraft(businessData);
     setIsEditing(false);
     setError("");
     setSuccess("");
-  };
-
-  // ============================================
-  // ESTADO DEL NEGOCIO
-  // ============================================
-
-  useEffect(() => {
-    const info = getCurrentStatus(schedule);
-    setStatus(info.label);
-  }, [schedule]);
-
-  const getCurrentStatus = (sch) => {
-    const now = new Date();
-    const day = now.toLocaleDateString("es-ES", { weekday: "short" });
-    const dayMap = { lun: "Lun", mar: "Mar", mié: "Mie", jue: "Jue", vie: "Vie", sáb: "Sab", dom: "Dom" };
-    const today = dayMap[day.toLowerCase()];
-    
-    if (!today) return { isOpen: false, label: "Cerrado", color: "statusClosed" };
-    
-    const hoy = sch[today];
-    if (hoy.cerrado) return { isOpen: false, label: "Cerrado", color: "statusClosed" };
-    
-    const ahora = now.toTimeString().slice(0, 5);
-    let isOpen = false, label = "";
-    
-    if (hoy.deCorrido) {
-      isOpen = ahora >= hoy.open && ahora <= hoy.close;
-      label = isOpen ? `Abierto` : `Abre a las ${hoy.open}`;
-    } else {
-      const openM = ahora >= hoy.manana.open && ahora <= hoy.manana.close;
-      const openT = ahora >= hoy.tarde.open && ahora <= hoy.tarde.close;
-      isOpen = openM || openT;
-      
-      if (openM) label = `Abierto`;
-      else if (openT) label = `Abierto`;
-      else if (ahora < hoy.manana.open) label = `Abre a las ${hoy.manana.open}`;
-      else if (ahora < hoy.tarde.open) label = `Abre a las ${hoy.tarde.open}`;
-      else label = `Abre a las ${hoy.manana.open}`;
-    }
-    
-    return { isOpen, label, color: isOpen ? "statusOpenModern" : "statusNeutralModern" };
   };
 
   // ============================================
@@ -388,29 +310,10 @@ const ProfileHeader = ({ isOwner = false }) => {
           <div className={styles.leftColumnModern}>
             {/* Perfil */}
             <div className={styles.profileHeaderModern}>
-              {isEditing ? (
-                <label className={styles.profilePicEditModern}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setDraft({ ...draft, profileImage: URL.createObjectURL(e.target.files[0]) })}
-                    className={styles.fileInputModern}
-                  />
-                  {draft.profileImage ? (
-                    <img src={draft.profileImage} alt="Perfil" className={styles.profilePicModern} />
-                  ) : (
-                    <Camera size={28} color="#999" />
-                  )}
-                </label>
-              ) : (
-                <div className={styles.profilePicDisplayModern}>
-                  {businessData.profileImage ? (
-                    <img src={businessData.profileImage} alt="Perfil" className={styles.profilePicModern} />
-                  ) : (
-                    <User size={40} color="#999" />
-                  )}
-                </div>
-              )}
+              {/* Imagen de perfil - PLACEHOLDER POR AHORA */}
+              <div className={styles.profilePicDisplayModern}>
+                <User size={40} color="#999" />
+              </div>
 
               <div className={styles.nameStatusModern}>
                 {isEditing ? (
@@ -422,7 +325,7 @@ const ProfileHeader = ({ isOwner = false }) => {
                       className={styles.editInputModern}
                       placeholder="Nombre del negocio *"
                     />
-                    <span style={{ fontSize: "0.75rem", color: "#665" }}>
+                    <span style={{ fontSize: "0.75rem", color: "#666" }}>
                       {draft.name.length}/100 caracteres
                     </span>
                   </>
@@ -431,7 +334,9 @@ const ProfileHeader = ({ isOwner = false }) => {
                     <h1 className={styles.businessNameModern}>
                       {businessData.name || "Sin nombre"}
                     </h1>
-                    <span className={styles[getCurrentStatus(schedule).color]}>{status}</span>
+                    <span className={styles.statusNeutralModern}>
+                      Negocio activo
+                    </span>
                   </>
                 )}
               </div>
@@ -459,71 +364,31 @@ const ProfileHeader = ({ isOwner = false }) => {
               )}
             </div>
 
-            {/* Horarios (solo lectura) */}
+            {/* HORARIOS - PRÓXIMAMENTE */}
             {!isEditing && (
               <div className={styles.horarioClienteModern}>
-                <button
-                  className={styles.toggleScheduleModern}
-                  onClick={() => setShowFullSchedule(!showFullSchedule)}
-                >
+                <div className={styles.comingSoonBadge}>
                   <Clock size={16} />
-                  Ver horarios
-                </button>
-                {showFullSchedule && (
-                  <div className={styles.tablaHorariosModern}>
-                    {Object.entries(schedule).map(([day, hoy]) => (
-                      <div key={day} className={styles.filaClienteModern}>
-                        <span className={styles.diaClienteModern}>{day}</span>
-                        <span className={styles.horarioClienteTextModern}>
-                          {hoy.cerrado 
-                            ? "Cerrado" 
-                            : hoy.deCorrido 
-                            ? `${hoy.open} – ${hoy.close}` 
-                            : `Mañana: ${hoy.manana.open} – ${hoy.manana.close} | Tarde: ${hoy.tarde.open} – ${hoy.tarde.close}`
-                          }
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  <span>Horarios - Próximamente</span>
+                </div>
               </div>
             )}
 
             {/* Contacto */}
             <div className={styles.contactInfoModern}>
+              {/* DIRECCIÓN - PRÓXIMAMENTE */}
               <div className={styles.rowModern}>
-                <MapPin color="#333" size={18} />
-                {isEditing ? (
-                  <div className={styles.editColumnModern}>
-                    <input
-                      type="text"
-                      value={draft.address}
-                      onChange={(e) => setDraft({ ...draft, address: e.target.value })}
-                      className={styles.editInputModern}
-                      placeholder="Dirección"
-                    />
-                    <input
-                      type="text"
-                      value={draft.addressDetail}
-                      onChange={(e) => setDraft({ ...draft, addressDetail: e.target.value })}
-                      className={styles.editInputSmallModern}
-                      placeholder="Detalle de ubicación"
-                    />
-                  </div>
-                ) : (
-                  <div className={styles.addressModern}>
-                    {businessData.address || "Sin dirección"}
-                    {businessData.addressDetail && (
-                      <span className={styles.addressDetailModern}>{businessData.addressDetail}</span>
-                    )}
-                  </div>
-                )}
+                <MapPin color="#999" size={18} />
+                <div className={styles.comingSoonText}>
+                  Sin dirección - Próximamente
+                </div>
               </div>
 
+              {/* TELÉFONO */}
               <div className={styles.rowModern}>
                 <Phone color="#333" size={18} />
                 {isEditing ? (
-                  <>
+                  <div style={{ flex: 1 }}>
                     {!isValidPhone(draft.phone) && draft.phone !== "" && (
                       <span className={styles.errorMsgModern}>Número incompleto (faltan dígitos)</span>
                     )}
@@ -538,16 +403,17 @@ const ProfileHeader = ({ isOwner = false }) => {
                       className={`${styles.editInputModern} ${!isValidPhone(draft.phone) && draft.phone !== "" ? styles.invalidModern : ""}`}
                       placeholder="(123) 456-7890"
                     />
-                  </>
+                  </div>
                 ) : (
                   <span>{businessData.phone || "Sin teléfono"}</span>
                 )}
               </div>
 
+              {/* EMAIL */}
               <div className={styles.rowModern}>
                 <Mail color="#333" size={18} />
                 {isEditing ? (
-                  <>
+                  <div style={{ flex: 1 }}>
                     {!isValidEmail(draft.email) && draft.email !== "" && (
                       <span className={styles.errorMsgModern}>Correo inválido</span>
                     )}
@@ -559,190 +425,37 @@ const ProfileHeader = ({ isOwner = false }) => {
                       placeholder="ejemplo@dominio.com"
                       maxLength={100}
                     />
-                  </>
+                  </div>
                 ) : (
                   <span>{businessData.email || "Sin email"}</span>
                 )}
               </div>
-            </div>
 
-            {/* Edición de Horarios */}
-            {isEditing && (
-              <div className={styles.horarioSectionModern}>
-                <div className={styles.horarioHeaderModern}>
-                  <Clock size={16} />
-                  <span>Horarios de atención</span>
-                  <span className={styles.editHintModern}>Marcá "Cerrado" si no abrís ese día</span>
-                </div>
-                <div className={styles.horarioEditModern}>
-                  {Object.entries(draftSchedule).map(([day, hoy]) => (
-                    <div key={day} className={styles.diaFilaModern}>
-                      <span className={styles.diaNombreModern}>{day}</span>
-                      <div className={styles.diaContenidoModern}>
-                        <label className={styles.chkCerradoModern}>
-                          <input 
-                            type="checkbox" 
-                            checked={hoy.cerrado} 
-                            onChange={(e) =>
-                              setDraftSchedule((s) => ({ 
-                                ...s, 
-                                [day]: { ...s[day], cerrado: e.target.checked } 
-                              }))
-                            } 
-                          />
-                          Cerrado
-                        </label>
-                        {!hoy.cerrado && (
-                          <div className={styles.turnosDiaModern}>
-                            {hoy.deCorrido ? (
-                              <div className={styles.corridoFilaModern}>
-                                <span className={styles.turnoLabelModern}>De corrido</span>
-                                <input 
-                                  type="time" 
-                                  value={hoy.open} 
-                                  onChange={(e) =>
-                                    setDraftSchedule((s) => ({ 
-                                      ...s, 
-                                      [day]: { ...s[day], open: e.target.value } 
-                                    }))
-                                  } 
-                                />
-                                <span className={styles.sepModern}>a</span>
-                                <input 
-                                  type="time" 
-                                  value={hoy.close} 
-                                  onChange={(e) =>
-                                    setDraftSchedule((s) => ({ 
-                                      ...s, 
-                                      [day]: { ...s[day], close: e.target.value } 
-                                    }))
-                                  } 
-                                />
-                              </div>
-                            ) : (
-                              <>
-                                <div className={styles.turnoFilaModern}>
-                                  <span className={styles.turnoLabelModern}>Mañana</span>
-                                  <input 
-                                    type="time" 
-                                    value={hoy.manana.open} 
-                                    onChange={(e) =>
-                                      setDraftSchedule((s) => ({ 
-                                        ...s, 
-                                        [day]: { 
-                                          ...s[day], 
-                                          manana: { ...s[day].manana, open: e.target.value } 
-                                        } 
-                                      }))
-                                    } 
-                                  />
-                                  <span className={styles.sepModern}>a</span>
-                                  <input 
-                                    type="time" 
-                                    value={hoy.manana.close} 
-                                    onChange={(e) =>
-                                      setDraftSchedule((s) => ({ 
-                                        ...s, 
-                                        [day]: { 
-                                          ...s[day], 
-                                          manana: { ...s[day].manana, close: e.target.value } 
-                                        } 
-                                      }))
-                                    } 
-                                  />
-                                </div>
-                                <div className={styles.turnoFilaModern}>
-                                  <span className={styles.turnoLabelModern}>Tarde</span>
-                                  <input 
-                                    type="time" 
-                                    value={hoy.tarde.open} 
-                                    onChange={(e) =>
-                                      setDraftSchedule((s) => ({ 
-                                        ...s, 
-                                        [day]: { 
-                                          ...s[day], 
-                                          tarde: { ...s[day].tarde, open: e.target.value } 
-                                        } 
-                                      }))
-                                    } 
-                                  />
-                                  <span className={styles.sepModern}>a</span>
-                                  <input 
-                                    type="time" 
-                                    value={hoy.tarde.close} 
-                                    onChange={(e) =>
-                                      setDraftSchedule((s) => ({ 
-                                        ...s, 
-                                        [day]: { 
-                                          ...s[day], 
-                                          tarde: { ...s[day].tarde, close: e.target.value } 
-                                        } 
-                                      }))
-                                    } 
-                                  />
-                                </div>
-                              </>
-                            )}
-                            <label className={styles.chkCorridoModern}>
-                              <input 
-                                type="checkbox" 
-                                checked={hoy.deCorrido} 
-                                onChange={(e) =>
-                                  setDraftSchedule((s) => ({ 
-                                    ...s, 
-                                    [day]: { ...s[day], deCorrido: e.target.checked } 
-                                  }))
-                                } 
-                              />
-                              De corrido
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* COLUMNA DERECHA - PORTADA */}
-          <div className={styles.rightColumnModern}>
-            {isEditing && (
-              <div className={styles.coverEditToolsModern}>
-                <label className={styles.coverButtonModern}>
-                  <Image size={20} />
-                  {draft.coverImage ? "Cambiar portada" : "Subir portada"}
+              {/* LINK/RED SOCIAL */}
+              <div className={styles.rowModern}>
+                <LinkIcon color="#333" size={18} />
+                {isEditing ? (
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) setDraft({ ...draft, coverImage: URL.createObjectURL(file) });
-                    }}
-                    className={styles.fileInputModern}
+                    type="url"
+                    value={draft.link}
+                    onChange={(e) => setDraft({ ...draft, link: e.target.value.slice(0, 200) })}
+                    className={styles.editInputModern}
+                    placeholder="https://tusitio.com o @tured"
                   />
-                </label>
-                {draft.coverImage && (
-                  <button 
-                    className={styles.removeCoverButtonModern} 
-                    onClick={() => setDraft({ ...draft, coverImage: null })}
-                  >
-                    Eliminar portada
-                  </button>
+                ) : (
+                  <span>{businessData.link || "Sin link"}</span>
                 )}
               </div>
-            )}
+            </div>
+          </div>
 
+          {/* COLUMNA DERECHA - PORTADA PLACEHOLDER */}
+          <div className={styles.rightColumnModern}>
             <div className={styles.coverDisplayModern}>
-              {businessData.coverImage ? (
-                <img src={businessData.coverImage} alt="Portada" className={styles.coverImageModern} />
-              ) : (
-                <div className={styles.coverPlaceholderModern}>
-                  <Image size={48} color="#ccc" />
-                  <span>Sin portada</span>
-                </div>
-              )}
+              <div className={styles.coverPlaceholderModern}>
+                <Image size={48} color="#ccc" />
+                <span>Portada - Próximamente</span>
+              </div>
             </div>
           </div>
         </div>
@@ -755,9 +468,17 @@ const ProfileHeader = ({ isOwner = false }) => {
             <button className={styles.favButtonModern}>
               <Star color="#e74c3c" /> Favorito
             </button>
-            <button className={styles.socialButtonModern}>
-              {businessData.social || "@usuario"} <ArrowRight size={16} />
-            </button>
+            {businessData.link && (
+              <a 
+                href={businessData.link.startsWith('http') ? businessData.link : `https://${businessData.link}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.socialButtonModern}
+                style={{ textDecoration: 'none' }}
+              >
+                {businessData.link} <ArrowRight size={16} />
+              </a>
+            )}
           </div>
         )}
 
@@ -876,3 +597,16 @@ const ProfileHeader = ({ isOwner = false }) => {
 };
 
 export default ProfileHeader;
+
+/* NOTA PARA DESARROLLADORES:
+ * 
+ * CAMPOS DESHABILITADOS TEMPORALMENTE:
+ * - Dirección: Esperando FK de address
+ * - Horarios: Esperando endpoint /comercio/traer/horarios/${idCommerce}
+ * - Imágenes: Esperando implementación de upload
+ * 
+ * Para habilitar cuando el backend esté listo:
+ * 1. Descomentar código en Api.jsx (buscar "FUTURO:")
+ * 2. Descomentar secciones en este componente
+ * 3. Activar endpoints correspondientes
+ */
