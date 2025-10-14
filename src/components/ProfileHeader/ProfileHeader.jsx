@@ -44,7 +44,7 @@ const ProfileHeader = ({ isOwner = false }) => {
     name: "",
     email: "",
     phone: "",
-    link: "", // Backend usa "link" no "social"
+    link: "",
     description: "",
   });
 
@@ -57,11 +57,16 @@ const ProfileHeader = ({ isOwner = false }) => {
   // ============================================
   
   useEffect(() => {
-    loadBusinessData();
+    if (user?.id_user) {
+      loadBusinessData();
+    } else {
+      setLoading(false);
+    }
   }, [user?.id_user]);
 
   const loadBusinessData = async () => {
     if (!user?.id_user) {
+      console.warn("⚠️ No hay usuario autenticado");
       setLoading(false);
       setError("No hay usuario autenticado");
       return;
@@ -74,6 +79,8 @@ const ProfileHeader = ({ isOwner = false }) => {
       console.log("📥 Cargando negocio del usuario:", user.id_user);
       const business = await getBusinessByUserId(user.id_user);
       
+      console.log("📦 Respuesta getBusinessByUserId:", business);
+      
       if (business) {
         console.log("✅ Negocio encontrado:", business);
         
@@ -81,25 +88,29 @@ const ProfileHeader = ({ isOwner = false }) => {
         
         const loadedData = {
           name: business.name || "",
-          email: business.email || user.email || "",
-          phone: business.phone || user.phone || "",
+          email: business.email || "",
+          phone: business.phone || "",
           link: business.link || "",
           description: business.description || "",
         };
         
+        console.log("📝 Datos procesados:", loadedData);
+        
         setBusinessData(loadedData);
         setDraft(loadedData);
       } else {
-        console.log("⚠️ El usuario no tiene negocio creado");
+        console.log("⚠️ El usuario no tiene negocio creado, usando valores por defecto");
         
-        // Prellenar con datos del usuario
+        // Prellenar con datos del usuario (solo nombre)
         const defaultData = {
           name: user.name ? `${user.name}${user.lastname ? ' ' + user.lastname : ''}` : "",
-          email: user.email || "",
-          phone: user.phone || "",
+          email: "",
+          phone: "",
           link: "",
           description: "",
         };
+        
+        console.log("📝 Datos por defecto:", defaultData);
         
         setBusinessData(defaultData);
         setDraft(defaultData);
@@ -109,6 +120,7 @@ const ProfileHeader = ({ isOwner = false }) => {
       setError(err.message || "Error al cargar los datos del negocio");
     } finally {
       setLoading(false);
+      console.log("✅ Carga finalizada");
     }
   };
 
@@ -468,7 +480,7 @@ const ProfileHeader = ({ isOwner = false }) => {
             <button className={styles.favButtonModern}>
               <Star color="#e74c3c" /> Favorito
             </button>
-            {businessData.link && (
+            {businessData.link && businessData.link.trim() !== "" && (
               <a 
                 href={businessData.link.startsWith('http') ? businessData.link : `https://${businessData.link}`}
                 target="_blank"
@@ -597,16 +609,3 @@ const ProfileHeader = ({ isOwner = false }) => {
 };
 
 export default ProfileHeader;
-
-/* NOTA PARA DESARROLLADORES:
- * 
- * CAMPOS DESHABILITADOS TEMPORALMENTE:
- * - Dirección: Esperando FK de address
- * - Horarios: Esperando endpoint /comercio/traer/horarios/${idCommerce}
- * - Imágenes: Esperando implementación de upload
- * 
- * Para habilitar cuando el backend esté listo:
- * 1. Descomentar código en Api.jsx (buscar "FUTURO:")
- * 2. Descomentar secciones en este componente
- * 3. Activar endpoints correspondientes
- */

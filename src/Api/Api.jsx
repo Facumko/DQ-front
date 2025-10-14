@@ -325,29 +325,46 @@ export const getBusinessByUserId = async (userId) => {
     const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS_BY_USER(userId));
     
     if (isDevelopment) {
-      console.log("📦 Respuesta del backend:", response);
+      console.log("📦 Respuesta del backend (raw):", response);
+    }
+    
+    // El backend devuelve un ARRAY, tomamos el primer elemento
+    const business = Array.isArray(response) ? response[0] : response;
+    
+    if (isDevelopment) {
+      console.log("📦 Negocio extraído:", business);
+    }
+    
+    // Si no hay negocio
+    if (!business) {
+      if (isDevelopment) {
+        console.log("ℹ️ El usuario no tiene negocio creado");
+      }
+      return null;
     }
     
     // Normalizar respuesta del backend a formato del frontend
-    if (response) {
-      return {
-        id_business: response.idCommerce,
-        id_user: response.idOwner,
-        name: response.name || '',
-        description: response.description || '',
-        email: response.email || '',
-        phone: response.phone || '',
-        link: response.link || '', // El backend usa "link" en lugar de "social"
-        branchOf: response.branchOf || null,
-      };
+    const normalized = {
+      id_business: business.idCommerce,
+      id_user: business.idOwner,
+      name: business.name || '',
+      description: business.description || '',
+      email: business.email || '',
+      phone: business.phone || '',
+      link: business.link || '',
+      branchOf: business.branchOf || null,
+    };
+    
+    if (isDevelopment) {
+      console.log("✅ Negocio normalizado:", normalized);
     }
     
-    return null;
+    return normalized;
   } catch (error) {
     // Si es 404, el usuario no tiene negocio
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
       if (isDevelopment) {
-        console.log("ℹ️ El usuario no tiene negocio creado");
+        console.log("ℹ️ El usuario no tiene negocio creado (404)");
       }
       return null;
     }
@@ -363,16 +380,23 @@ export const getBusinessById = async (businessId) => {
   
   const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS(businessId));
   
+  // El backend puede devolver array o objeto
+  const business = Array.isArray(response) ? response[0] : response;
+  
+  if (!business) {
+    throw new Error('Negocio no encontrado');
+  }
+  
   // Normalizar respuesta
   return {
-    id_business: response.idCommerce,
-    id_user: response.idOwner,
-    name: response.name || '',
-    description: response.description || '',
-    email: response.email || '',
-    phone: response.phone || '',
-    link: response.link || '',
-    branchOf: response.branchOf || null,
+    id_business: business.idCommerce,
+    id_user: business.idOwner,
+    name: business.name || '',
+    description: business.description || '',
+    email: business.email || '',
+    phone: business.phone || '',
+    link: business.link || '',
+    branchOf: business.branchOf || null,
   };
 };
 

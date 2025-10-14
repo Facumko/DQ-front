@@ -8,225 +8,6 @@
   position: relative;
 }
 
-
-/* ⭐ Botón de editar */
-.editButtonContainer {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 10;
-}
-
-
-.editButton {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #3498db;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-
-.editButton:hover {
-  background: #2980b9;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
-}
-
-
-.editActions {
-  display: flex;
-  gap: 8px;
-}
-
-
-.saveButton, .cancelButton {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-
-.saveButton {
-  background: #2ecc71;
-  color: white;
-}
-
-
-.saveButton:hover {
-  background: #27ae60;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
-}
-
-
-.cancelButton {
-  background: #e74c3c;
-  color: white;
-}
-
-
-.cancelButton:hover {
-  background: #c0392b;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
-}
-
-
-/* ⭐ Campos de edición */
-.editInput, .editInputSmall {
-  padding: 8px 12px;
-  border: 2px solid #3498db;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  width: 100%;
-  transition: all 0.3s ease;
-  font-family: 'Poppins', sans-serif;
-}
-
-
-.editInput:focus, .editInputSmall:focus {
-  outline: none;
-  border-color: #2980b9;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-}
-
-
-.editInputSmall {
-  font-size: 0.85rem;
-  margin-top: 4px;
-}
-
-
-.editColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-}
-
-
-/* Estilos originales */
-.businessInfo {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 16px;
-}
-
-
-.businessName {
-  font-size: 2.2rem;
-  font-weight: bold;
-}
-
-
-.status {
-  font-size: 0.8rem;
-  color: #2ecc71;
-}
-
-
-.contactInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-
-.address {
-  display: flex;
-  flex-direction: column;
-}
-
-
-.addressDetail {
-  display: block;
-  font-size: 0.8rem;
-  color: #888;
-}
-
-
-.actions {
-  display: flex;
-  gap: 12px;
-}
-
-
-.favButton, .socialButton {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 50px;
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  background: #fff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-
-.favButton:hover, .socialButton:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  transform: translateY(-2px);
-}
-
-
-/* Agrega a ProfileHeader.module.css */
-.createActions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-
-.createButton {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-
-.createButton:hover {
-  background: #2980b9;
-  transform: translateY(-2px);
-}
-
-
-/* ----------  Estilo moderno al estilo de Instagram  ---------- */
-.headerContainer {
-  background: #ffffff;
-  padding: 24px;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  margin-bottom: 24px;
-  font-family: 'Poppins', sans-serif;
-  position: relative;
-}
-
-
 /* ----------  Layout moderno  ---------- */
 .layoutModern {
   display: grid;
@@ -235,13 +16,11 @@
   align-items: start;
 }
 
-
 .leftColumnModern {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-
 
 .rightColumnModern {
   display: flex;
@@ -249,14 +28,12 @@
   align-items: center;
 }
 
-
 /* ----------  Perfil: foto + nombre  ---------- */
 .profileHeaderModern {
   display: flex;
   align-items: center;
   gap: 16px;
 }
-
 
 .profilePicEditModern,
 .profilePicDisplayModern {
@@ -273,24 +50,21 @@
   transition: border-color 0.2s;
 }
 
-
 .profilePicModern {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-
 .fileInputModern {
   display: none;
 }
 
-
 .nameStatusModern {
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
-
 
 .businessNameModern {
   font-size: 2rem;
@@ -298,30 +72,28 @@
   margin: 0;
 }
 
-
 .statusOpenModern {
   color: #2ecc71;
   font-weight: 400;
+  font-size: 0.9rem;
 }
-
 
 .statusNeutralModern {
-  color: #333;
+  color: #666;
   font-weight: 400;
+  font-size: 0.9rem;
 }
-
 
 .statusClosedModern {
   color: #e74c3c;
   font-weight: 400;
+  font-size: 0.9rem;
 }
-
 
 /* ----------  Descripción  ---------- */
 .descriptionSectionModern {
   margin-top: 12px;
 }
-
 
 .textareaModern {
   width: 100%;
@@ -333,14 +105,13 @@
   resize: vertical;
   background: #fafafa;
   transition: border-color 0.2s;
+  font-family: 'Poppins', sans-serif;
 }
-
 
 .textareaModern:focus {
   border-color: #3498db;
   outline: none;
 }
-
 
 .descriptionTextModern {
   font-size: 1rem;
@@ -348,65 +119,38 @@
   line-height: 1.5;
 }
 
-
-/* ----------  Horarios: VISUALIZACIÓN LIMPIA  ---------- */
+/* ----------  Horarios - Próximamente  ---------- */
 .horarioClienteModern {
   margin-top: 16px;
 }
 
-
-.toggleScheduleModern {
-  background: none;
-  border: none;
-  cursor: pointer;
+.comingSoonBadge {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #3498db;
-  font-size: 0.95rem;
+  padding: 10px 14px;
+  background: #f5f5f5;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  color: #999;
+  font-size: 0.9rem;
   font-weight: 500;
+  cursor: not-allowed;
 }
 
-
-.tablaHorariosModern {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.comingSoonText {
+  color: #999;
+  font-style: italic;
+  font-size: 0.9rem;
 }
-
-
-.filaClienteModern {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 0.95rem;
-}
-
-
-.diaClienteModern {
-  font-weight: 600;
-  color: #333;
-  min-width: 40px;
-}
-
-
-.horarioClienteTextModern {
-  color: #555;
-  text-align: right;
-  line-height: 1.4;
-}
-
 
 /* ----------  Contacto  ---------- */
 .contactInfoModern {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 12px;
 }
-
 
 .rowModern {
   display: flex;
@@ -415,26 +159,12 @@
   flex-wrap: wrap;
 }
 
-
-.addressModern {
-  display: flex;
-  flex-direction: column;
-}
-
-
-.addressDetailModern {
-  display: block;
-  font-size: 0.85rem;
-  color: #777;
-}
-
-
 .editColumnModern {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
 }
-
 
 .editInputModern,
 .editInputSmallModern {
@@ -447,191 +177,29 @@
   font-family: 'Poppins', sans-serif;
 }
 
-
 .editInputModern:focus,
 .editInputSmallModern:focus {
   border-color: #3498db;
   outline: none;
 }
 
-
 .editInputSmallModern {
   font-size: 0.85rem;
 }
-
 
 .errorMsgModern {
   color: #e74c3c;
   font-size: 0.8rem;
   margin-top: 4px;
+  display: block;
 }
-
 
 .invalidModern {
   border-color: #e74c3c !important;
   background-color: #ffecec !important;
 }
 
-
-/* ----------  Horarios: EDICIÓN LIMPIA  ---------- */
-.horarioSectionModern {
-  margin-top: 20px;
-}
-
-
-.horarioHeaderModern {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
-  color: #555;
-  margin-bottom: 12px;
-}
-
-
-.editHintModern {
-  font-size: 0.8rem;
-  color: #888;
-  margin-left: auto;
-}
-
-
-.horarioEditModern {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-
-.diaFilaModern {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: 14px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-
-.diaNombreModern {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #333;
-}
-
-
-.diaContenidoModern {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-
-.chkCerradoModern,
-.chkCorridoModern {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: #666;
-}
-
-
-.chkCerradoModern input,
-.chkCorridoModern input {
-  margin: 0;
-}
-
-
-.turnosDiaModern {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-
-.corridoFilaModern,
-.turnoFilaModern {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-}
-
-
-.turnoLabelModern {
-  min-width: 60px;
-  color: #555;
-}
-
-
-input[type="time"] {
-  padding: 4px 6px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-
-
-.sepModern {
-  font-size: 0.85rem;
-  color: #666;
-}
-
-
 /* ----------  Portada  ---------- */
-.coverEditToolsModern {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-
-.removeCoverButtonModern {
-  padding: 8px 14px;
-  background: #e74c3c;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: background .2s;
-}
-
-
-.removeCoverButtonModern:hover {
-  background: #c0392b;
-}
-
-
-.coverSectionModern {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-
-.coverButtonModern {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: #f5f5f5;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #555;
-  transition: background 0.2s;
-}
-
-
-.coverButtonModern:hover {
-  background: #e9e9e9;
-}
-
-
 .coverDisplayModern {
   width: 100%;
   max-width: 600px;
@@ -644,14 +212,12 @@ input[type="time"] {
   justify-content: center;
 }
 
-
 .coverImageModern {
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 16px;
 }
-
 
 .coverPlaceholderModern {
   display: flex;
@@ -662,136 +228,13 @@ input[type="time"] {
   font-size: 0.9rem;
 }
 
-
-/* ----------  Botones fuera del recuadro  ---------- */
-.externalActionsModern {
-  margin-top: 24px;
-  display: flex;
-  justify-content: flex-start;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-
-.actionsModern,
-.createActionsModern {
-  display: flex;
-  gap: 12px;
-}
-
-
-.favButtonModern,
-.socialButtonModern,
-.createButtonModern {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-
-.favButtonModern,
-.socialButtonModern {
-  border: 1px solid #ddd;
-  background: #fff;
-}
-
-
-.createButtonModern {
-  background: #3498db;
-  color: white;
-  border: none;
-}
-
-
-.favButtonModern:hover,
-.socialButtonModern:hover,
-.createButtonModern:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-
-/* ----------  Publicaciones: estilo Instagram  ---------- */
-.postsSectionModern {
-  margin-top: 32px;
-}
-
-
-.postsTitleModern {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin-bottom: 16px;
-  color: #333;
-}
-
-
-.postsGridModern {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px;
-}
-
-
-.postCardModern {
-  background: #fff;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s;
-}
-
-
-.postCardModern:hover {
-  transform: translateY(-4px);
-}
-
-
-.postImageModern {
-  width: 100%;
-  height: 350px; /* más grandes */
-  object-fit: cover;
-}
-
-
-.postContentModern {
-  padding: 16px;
-}
-
-
-.postTextModern {
-  font-size: 0.95rem;
-  color: #333;
-  margin: 0 0 6px 0;
-  white-space: pre-wrap;
-  font-weight: 400; /* sin negritas */
-}
-
-
-.postDateModern {
-  font-size: 0.85rem;
-  color: #777;
-}
-
-
-.noPostsModern {
-  color: #777;
-  font-size: 0.95rem;
-}
-
-
-/* ----------  Generales  ---------- */
+/* ----------  Botones de edición  ---------- */
 .editButtonContainer {
   position: absolute;
   top: 20px;
   right: 20px;
   z-index: 10;
 }
-
 
 .editButtonModern {
   display: flex;
@@ -806,19 +249,16 @@ input[type="time"] {
   transition: all 0.3s ease;
 }
 
-
 .editButtonModern:hover {
   background: #f5f5f5;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-
 .editActionsModern {
   display: flex;
   gap: 8px;
 }
-
 
 .saveButtonModern,
 .cancelButtonModern {
@@ -828,34 +268,150 @@ input[type="time"] {
   cursor: pointer;
   font-weight: 500;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-
 
 .saveButtonModern {
   background: #2ecc71;
   color: white;
 }
 
-
-.saveButtonModern:hover {
+.saveButtonModern:hover:not(:disabled) {
   background: #27ae60;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
 }
 
+.saveButtonModern:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .cancelButtonModern {
   background: #e74c3c;
   color: white;
 }
 
-
-.cancelButtonModern:hover {
+.cancelButtonModern:hover:not(:disabled) {
   background: #c0392b;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
 }
 
+.cancelButtonModern:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ----------  Acciones externas  ---------- */
+.externalActionsModern {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionsModern,
+.createActionsModern {
+  display: flex;
+  gap: 12px;
+}
+
+.favButtonModern,
+.socialButtonModern,
+.createButtonModern {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.favButtonModern,
+.socialButtonModern {
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
+}
+
+.createButtonModern {
+  background: #3498db;
+  color: white;
+  border: none;
+}
+
+.favButtonModern:hover,
+.socialButtonModern:hover,
+.createButtonModern:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ----------  Publicaciones  ---------- */
+.postsSectionModern {
+  margin-top: 32px;
+}
+
+.postsTitleModern {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.postsGridModern {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.postCardModern {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s;
+}
+
+.postCardModern:hover {
+  transform: translateY(-4px);
+}
+
+.postImageModern {
+  width: 100%;
+  height: 350px;
+  object-fit: cover;
+}
+
+.postContentModern {
+  padding: 16px;
+}
+
+.postTextModern {
+  font-size: 0.95rem;
+  color: #333;
+  margin: 0 0 6px 0;
+  white-space: pre-wrap;
+  font-weight: 400;
+}
+
+.postDateModern {
+  font-size: 0.85rem;
+  color: #777;
+  display: block;
+  margin-top: 8px;
+}
+
+.noPostsModern {
+  color: #777;
+  font-size: 0.95rem;
+}
 
 .eventDetailsModern {
   display: flex;
@@ -866,20 +422,17 @@ input[type="time"] {
   margin-top: 8px;
 }
 
-
 .eventDetailsModern span {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-
 .postActionsModern {
   margin-top: 10px;
   display: flex;
   gap: 10px;
 }
-
 
 .editPostButtonModern,
 .deletePostButtonModern {
@@ -891,23 +444,19 @@ input[type="time"] {
   transition: background 0.2s;
 }
 
-
 .editPostButtonModern {
   background: #f0f0f0;
   color: #333;
 }
 
-
 .editPostButtonModern:hover {
   background: #e0e0e0;
 }
-
 
 .deletePostButtonModern {
   background: #ffecec;
   color: #e74c3c;
 }
-
 
 .deletePostButtonModern:hover {
   background: #fdd;
@@ -957,4 +506,16 @@ input[type="time"] {
 
 .spinnerIcon {
   animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .layoutModern {
+    grid-template-columns: 1fr;
+  }
+  
+  .coverDisplayModern {
+    max-width: 100%;
+    height: 250px;
+  }
 }
