@@ -377,10 +377,13 @@ const ProfileHeader = ({ isOwner = false }) => {
 
   const sortedEvents = useMemo(() => posts.filter((p) => p.type === "event"), [posts]);
 
-  const sortedPosts = useMemo(
-    () => [...posts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-    [posts]
-  );
+ const sortedPosts = useMemo(() => 
+  [...posts]
+    .filter((p) => p.type !== "event") // ← EXCLUIR eventos
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), 
+  [posts]
+);
+
 
   const handleDeletePost = (id) => {
     if (window.confirm("¿Estás seguro de eliminar esta publicación?")) {
@@ -394,23 +397,32 @@ const ProfileHeader = ({ isOwner = false }) => {
     setShowModal(true);
   };
 
-  const handleSubmitPost = (data) => {
-    if (editingPost) {
-      setPosts((prev) =>
-        prev.map((p) => (p.id === editingPost.id ? { ...p, ...data } : p))
-      );
-    } else {
-      const newPost = { 
-        ...data, 
-        businessName: businessData.name, 
-        createdAt: new Date().toISOString(), 
-        id: Date.now() 
-      };
-      setPosts((prev) => [newPost, ...prev]);
-    }
-    setEditingPost(null);
-  };
-
+ const handleSubmitPost = (data) => {
+  console.log("📤 Datos recibidos:", data); // Para debug
+  
+  if (editingPost) {
+    setPosts((prev) =>
+      prev.map((p) => (p.id === editingPost.id ? { ...p, ...data } : p))
+    );
+  } else {
+    // ✅ CORREGIDO: Asegurar que las imágenes sean un array limpio sin duplicados
+    const cleanImages = Array.isArray(data.images) 
+      ? [...new Set(data.images)] // Eliminar duplicados
+      : [];
+    
+    const newPost = { 
+      ...data, 
+      images: cleanImages, // ✅ Usar imágenes limpias
+      businessName: businessData.name, 
+      createdAt: new Date().toISOString(), 
+      id: Date.now()
+    };
+    
+    console.log("🆕 Nueva publicación:", newPost); // Para debug
+    setPosts((prev) => [newPost, ...prev]);
+  }
+  setEditingPost(null);
+};
   // ============================================
   // RENDERIZADO (Header 1 visual + Header 2 funcionalidad)
   // ============================================
@@ -638,10 +650,10 @@ const ProfileHeader = ({ isOwner = false }) => {
                     <input
                       type="email"
                       value={draft.email}
-                      onChange={(e) => setDraft({ ...draft, email: e.target.value.slice(0, 100) })}
+                      onChange={(e) => setDraft({ ...draft, email: e.target.value.slice(0, 60) })}
                       className={`${styles.editInputModern} ${!isValidEmail(draft.email) && draft.email !== "" ? styles.invalidModern : ""}`}
                       placeholder="ejemplo@dominio.com"
-                      maxLength={100}
+                      maxLength={60}
                     />
                   </div>
                 ) : (
@@ -924,9 +936,7 @@ const ProfileHeader = ({ isOwner = false }) => {
               {sortedPosts.map((post) => (
                 <div key={post.id} className={styles.postCardModern}>
                   {post.images && post.images.length > 0 && (
-                    <PostGallery images={post.images.map(img => 
-                      typeof img === 'string' ? img : URL.createObjectURL(img)
-                    )} />
+                    <PostGallery images={post.images} /> //
                   )}
                   <div className={styles.postContentModern}>
                     <p className={styles.postTextModern}>{post.text}</p>
@@ -958,10 +968,8 @@ const ProfileHeader = ({ isOwner = false }) => {
               {sortedEvents.map((event) => (
                 <div key={event.id} className={styles.eventCardModern}>
                   {event.images && event.images.length > 0 && (
-                    <PostGallery images={event.images.map(img => 
-                      typeof img === 'string' ? img : URL.createObjectURL(img)
-                    )} />
-                  )}
+                    <PostGallery images={event.images} /> //
+                    )}
 
                   <div className={styles.eventContentModern}>
                     <h3 className={styles.eventTitleModern}>{event.text}</h3>

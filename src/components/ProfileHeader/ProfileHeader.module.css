@@ -509,19 +509,35 @@ input[type="time"]:focus {
   cursor: not-allowed;
 }
 
-/* ---------- Acciones Externas ---------- */
+/* ---------- Acciones Externas Mejoradas ---------- */
 .externalActionsModern {
   margin-top: 24px;
   display: flex;
-  justify-content: flex-start;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
 }
 
-.actionsModern,
+.actionsModern {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .createActionsModern {
   display: flex;
   gap: 12px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Separación adicional cuando hay ambos tipos de acciones */
+.actionsModern + .createActionsModern {
+  margin-top: 8px;
 }
 
 .favButtonModern,
@@ -535,26 +551,60 @@ input[type="time"]:focus {
   cursor: pointer;
   font-weight: 500;
   transition: all 0.3s ease;
+  text-decoration: none;
+  border: none;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.95rem;
 }
 
-.favButtonModern,
-.socialButtonModern {
+.favButtonModern {
   border: 1px solid #ddd;
   background: #fff;
   color: #333;
 }
 
+.socialButtonModern {
+  border: 1px solid #e9ecef;
+  background: #f8f9fa;
+  color: #495057;
+  font-weight: 500;
+}
+
 .createButtonModern {
   background: #3498db;
   color: white;
-  border: none;
+  border: 1px solid #3498db;
 }
 
 .favButtonModern:hover,
-.socialButtonModern:hover,
-.createButtonModern:hover {
+.socialButtonModern:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.createButtonModern:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  background: #2980b9;
+  border-color: #2980b9;
+}
+
+/* Estados de foco para accesibilidad */
+.favButtonModern:focus,
+.socialButtonModern:focus,
+.createButtonModern:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+/* Estilo específico para el enlace social cuando está presente */
+.socialButtonModern {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Pestañas ---------- */
@@ -756,6 +806,7 @@ input[type="time"]:focus {
   background: #e3f2fd;
   color: #1976d2;
   border: 1px solid #bbdefb;
+  width: 100%;
 }
 
 /* ---------- Spinner ---------- */
@@ -812,6 +863,30 @@ input[type="time"]:focus {
   }
 }
 
+@media (max-width: 768px) {
+  .externalActionsModern {
+    align-items: center;
+  }
+  
+  .actionsModern,
+  .createActionsModern {
+    flex-direction: column;
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .favButtonModern,
+  .socialButtonModern,
+  .createButtonModern {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .socialButtonModern {
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 480px) {
   .headerContainer {
     padding: 16px;
@@ -833,5 +908,22 @@ input[type="time"]:focus {
   .postContentModern,
   .eventContentModern {
     padding: 16px;
+  }
+
+  .externalActionsModern {
+    margin-top: 20px;
+    gap: 8px;
+  }
+  
+  .createActionsModern {
+    padding-top: 12px;
+    border-top-width: 2px;
+  }
+  
+  .favButtonModern,
+  .socialButtonModern,
+  .createButtonModern {
+    padding: 12px 16px;
+    font-size: 0.9rem;
   }
 }

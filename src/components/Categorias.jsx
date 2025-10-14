@@ -5,7 +5,7 @@ const Categorias = () => {
   const [categorias, setCategorias] = useState([]);
 
   useEffect(() => {
-    axios.get("http://192.168.1.3:8080/categoria/traer")
+    axios.get("http://10.0.15.66:8080/categoria/traer")
       .then(res => setCategorias(res.data))
       .catch(err => console.error("Error al traer categorías:", err));
   }, []);

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import styles from "./CreatePostModal.module.css";
-import { X, Calendar, Image, MapPin, Clock, User, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Calendar, Image, MapPin, Clock, User, Trash2, ChevronLeft, ChevronRight } from "lucide-react"; // ✅ Añadidos ChevronLeft y ChevronRight
 
 const MAX_IMAGES = 10;
 
 const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null }) => {
   const [text, setText] = useState("");
   const [images, setImages] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]); // ✅ NUEVO: Guardar archivos reales
   const [activeIndex, setActiveIndex] = useState(0);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -18,6 +19,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       if (initialData) {
         setText(initialData.text || "");
         setImages(initialData.images || []);
+        setImageFiles([]); // ✅ Para edición, no tenemos los archivos originales
         setDate(initialData.date || "");
         setTime(initialData.time || "");
         setLocation(initialData.location || "");
@@ -26,6 +28,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       } else {
         setText("");
         setImages([]);
+        setImageFiles([]);
         setDate("");
         setTime("");
         setLocation("");
@@ -44,37 +47,61 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       return;
     }
     
+    // ✅ CORREGIDO: Crear URLs temporales solo para preview
     const newUrls = files.map((file) => URL.createObjectURL(file));
     setImages((prev) => [...prev, ...newUrls]);
+    setImageFiles((prev) => [...prev, ...files]); // ✅ Guardar archivos reales
     setActiveIndex(images.length);
   };
 
   const handleRemoveImage = (index) => {
-    URL.revokeObjectURL(images[index]);
+    // ✅ CORREGIDO: Liberar memoria de la URL temporal
+    if (images[index] && images[index].startsWith('blob:')) {
+      URL.revokeObjectURL(images[index]);
+    }
+    
     const newImages = images.filter((_, i) => i !== index);
+    const newFiles = imageFiles.filter((_, i) => i !== index);
+    
     setImages(newImages);
+    setImageFiles(newFiles);
+    
     if (activeIndex >= newImages.length && newImages.length > 0) {
       setActiveIndex(newImages.length - 1);
+    } else if (newImages.length === 0) {
+      setActiveIndex(0);
     }
   };
 
   const nextImage = () => setActiveIndex((prev) => (prev + 1) % images.length);
   const prevImage = () => setActiveIndex((prev) => (prev - 1 + images.length) % images.length);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (images.length === 0) return alert("Debes subir al menos una imagen.");
-    
-    const payload = {
-      text,
-      images,
-      type,
-      ...(type === "event" && { date, time, location, taggedBusiness }),
-    };
-    
-    onSubmit(payload);
-    onClose();
+const handleSubmit = (e) => {
+  e.preventDefault();
+  if (images.length === 0) return alert("Debes subir al menos una imagen.");
+  
+  // ✅ CORREGIDO: Siempre enviar las URLs para mostrar, no los archivos
+  const payload = {
+    text,
+    images: images, // Enviar las URLs que ya tenemos para display
+    type,
+    ...(type === "event" && { date, time, location, taggedBusiness }),
   };
+  
+  onSubmit(payload);
+  onClose();
+};
+
+  // ✅ CORREGIDO: Limpiar URLs temporales cuando se cierra el modal
+  useEffect(() => {
+    return () => {
+      images.forEach(img => {
+        if (img && img.startsWith('blob:')) {
+          URL.revokeObjectURL(img);
+        }
+      });
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -148,6 +175,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
               </label>
             </>
           )}
+
           <button type="submit" className={styles.submitButton}>
             {initialData ? "Guardar cambios" : "Publicar"}
           </button>
@@ -156,4 +184,5 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     </div>
   );
 };
+
 export default CreatePostModal;
