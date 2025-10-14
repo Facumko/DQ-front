@@ -28,13 +28,21 @@ const timeAgo = (date) => {
 };
 
 // Normalizar datos del backend (convertir null a strings vacíos)
-const normalizeBusinessData = (data) => ({
-  name: data?.name || "",
-  email: data?.email || "",
-  phone: data?.phone || "",
-  link: data?.link || "",
-  description: data?.description || "",
-});
+const normalizeBusinessData = (data) => {
+  // Asegurar que link sea siempre un string
+  let linkValue = "";
+  if (data?.link !== null && data?.link !== undefined) {
+    linkValue = String(data.link);
+  }
+  
+  return {
+    name: data?.name || "",
+    email: data?.email || "",
+    phone: data?.phone || "",
+    link: linkValue,
+    description: data?.description || "",
+  };
+};
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -203,31 +211,27 @@ const ProfileHeader = ({ isOwner = false }) => {
         link: (draft.link || "").trim(),
       };
 
-      let result;
-
       if (businessId) {
         // Actualizar negocio existente
         console.log("📤 Actualizando negocio:", businessId, dataToSend);
-        result = await updateBusiness(businessId, dataToSend);
-        console.log("✅ Negocio actualizado (raw):", result);
-        console.log("🔍 Tipo de result.link:", typeof result.link, "Valor:", result.link);
+        await updateBusiness(businessId, dataToSend);
+        console.log("✅ Negocio actualizado, recargando datos...");
+        
+        // RECARGAR datos del backend después de actualizar
+        await loadBusinessData();
       } else {
         // Crear nuevo negocio
         console.log("📤 Creando nuevo negocio:", dataToSend);
-        result = await createBusiness({
+        const result = await createBusiness({
           ...dataToSend,
           id_user: user.id_user,
         });
         console.log("✅ Negocio creado:", result);
         setBusinessId(result.id_business);
+        
+        // Cargar datos del negocio recién creado
+        await loadBusinessData();
       }
-
-      // Actualizar estado local (normalizar valores)
-      const updatedData = normalizeBusinessData(result);
-      console.log("📝 Datos normalizados después de guardar:", updatedData);
-      
-      setBusinessData(updatedData);
-      setDraft(updatedData);
       
       setIsEditing(false);
       setSuccess("✅ Datos guardados correctamente");
@@ -492,14 +496,14 @@ const ProfileHeader = ({ isOwner = false }) => {
                 {isEditing ? (
                   <input
                     type="url"
-                    value={draft.link}
+                    value={String(draft.link || "")}
                     onChange={(e) => setDraft({ ...draft, link: e.target.value.slice(0, 200) })}
                     className={styles.editInputModern}
                     placeholder="https://tusitio.com o @tured"
                     maxLength={200}
                   />
                 ) : (
-                  <span>{businessData.link || "Sin link"}</span>
+                  <span>{String(businessData.link || "") || "Sin link"}</span>
                 )}
               </div>
             </div>
@@ -526,13 +530,13 @@ const ProfileHeader = ({ isOwner = false }) => {
             </button>
             {businessData.link && String(businessData.link).trim() !== "" && (
               <a 
-                href={String(businessData.link).startsWith('http') ? businessData.link : `https://${businessData.link}`}
+                href={String(businessData.link).startsWith('http') ? String(businessData.link) : `https://${String(businessData.link)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.socialButtonModern}
                 style={{ textDecoration: 'none' }}
               >
-                {businessData.link} <ArrowRight size={16} />
+                {String(businessData.link)} <ArrowRight size={16} />
               </a>
             )}
           </div>
