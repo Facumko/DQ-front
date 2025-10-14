@@ -1,103 +1,182 @@
-import { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import { UserContext } from "../../pages/UserContext";
+import { validateEmail, validatePasswordStrength } from "../../Api/Api";
 import "./LoginModal.css";
-import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaGoogle, FaFacebook, FaApple } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaGoogle, FaFacebook, FaApple, FaCheckCircle } from "react-icons/fa";
 
 export default function LoginModal({ onClose }) {
-  const { login, register, loading, error, clearError } = useContext(UserContext);
-  const [step, setStep] = useState("email");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { login, register, loading, error, clearError, isLocked } = useContext(UserContext);
+  
+  // Tabs
+  const [activeTab, setActiveTab] = useState("login"); // "login" o "register"
+  const [step, setStep] = useState("main"); // "main", "forgot", "resetCode"
+  
+  // Login fields
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  
+  // Register fields
+  const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [localError, setLocalError] = useState('');
-
-  // Restablecer contraseña
+  
+  // Reset password
+  const [resetEmail, setResetEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
-
+  
+  // UI states
+  const [localError, setLocalError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [emailValidation, setEmailValidation] = useState({ valid: null, message: '' });
+  const [passwordStrength, setPasswordStrength] = useState({ strength: 'none', message: '', color: '' });
+  const [lockCountdown, setLockCountdown] = useState(0);
+  
+  // Refs para focus automático
+  const loginEmailRef = useRef(null);
+  const registerEmailRef = useRef(null);
+  
+  // Focus automático al abrir
+  useEffect(() => {
+    if (activeTab === "login" && loginEmailRef.current) {
+      loginEmailRef.current.focus();
+    } else if (activeTab === "register" && registerEmailRef.current) {
+      registerEmailRef.current.focus();
+    }
+  }, [activeTab]);
+  
   // Limpiar errores al cambiar inputs
   useEffect(() => {
-    if (localError && (email || password || registerPassword)) {
+    if (localError) {
       setLocalError('');
     }
-  }, [email, password, registerPassword, localError]);
-
-  // Limpiar errores del contexto al cerrar modal
+  }, [loginEmail, loginPassword, registerEmail, registerPassword, confirmPassword]);
+  
+  // Limpiar errores del contexto al desmontar
   useEffect(() => {
     return () => {
       if (clearError) clearError();
     };
   }, [clearError]);
-
-  const checkEmail = (e) => {
-    e.preventDefault();
-    setLocalError('');
+  
+  // Cerrar modal con ESC
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+  
+  // Auto-limpiar mensajes de éxito
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+  
+  // Countdown para bloqueo
+  useEffect(() => {
+    if (isLocked && isLocked.locked) {
+      setLockCountdown(isLocked.remainingSeconds);
+      
+      const interval = setInterval(() => {
+        setLockCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isLocked]);
+  
+  // Validación email en tiempo real
+  const handleEmailChange = (email, isLogin = true) => {
+    if (isLogin) {
+      setLoginEmail(email);
+    } else {
+      setRegisterEmail(email);
+    }
     
-    if (!email.trim()) {
-      setLocalError('Por favor ingresa tu correo electrónico');
+    if (!email) {
+      setEmailValidation({ valid: null, message: '' });
       return;
     }
     
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setLocalError('Por favor ingresa un email válido');
-      return;
-    }
-
-    // Para pruebas: cualquier email va al login
-    // En producción podrías verificar en el backend si el email existe
-    setStep("login");
+    const isValid = validateEmail(email);
+    setEmailValidation({
+      valid: isValid,
+      message: isValid ? '✓ Email válido' : '✗ Email inválido'
+    });
   };
-
-  // --- LOGIN MEJORADO ---
+  
+  // Validación password strength en tiempo real
+  const handlePasswordChange = (password) => {
+    setRegisterPassword(password);
+    
+    if (!password) {
+      setPasswordStrength({ strength: 'none', message: '', color: '' });
+      return;
+    }
+    
+    const strength = validatePasswordStrength(password);
+    setPasswordStrength(strength);
+  };
+  
+  // --- LOGIN ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setLocalError('');
-    
     if (clearError) clearError();
     
-    // Validaciones básicas
-    if (!email.trim() || !password.trim()) {
+    // Validaciones
+    if (!loginEmail.trim() || !loginPassword.trim()) {
       setLocalError('Por favor completa todos los campos');
       return;
     }
     
-    // Validación de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!validateEmail(loginEmail)) {
       setLocalError('Por favor ingresa un email válido');
       return;
     }
-
-    console.log("Intentando login con:", { email, password: "***" });
-
-    // Usar la función login del contexto
-    const result = await login(email, password);
+    
+    const result = await login(loginEmail, loginPassword);
     
     if (result.success) {
-      console.log("Login exitoso, cerrando modal");
-      onClose(); // Cierra modal solo si es exitoso
+      setSuccessMessage('¡Bienvenido de vuelta! 🎉');
+      setTimeout(() => onClose(), 1500);
     } else {
-      console.log("Error en login:", result.error);
       setLocalError(result.error);
     }
   };
-
-  // --- REGISTRO MEJORADO ---
+  
+  // --- REGISTRO ---
   const handleRegister = async (e) => {
     e.preventDefault();
     setLocalError('');
     if (clearError) clearError();
     
     // Validaciones
-    if (!email.trim() || !registerPassword.trim() || !confirmPassword.trim()) {
+    if (!registerEmail.trim() || !registerPassword.trim() || !confirmPassword.trim()) {
       setLocalError('Por favor completa todos los campos');
+      return;
+    }
+    
+    if (!validateEmail(registerEmail)) {
+      setLocalError('Por favor ingresa un email válido');
       return;
     }
     
@@ -110,48 +189,39 @@ export default function LoginModal({ onClose }) {
       setLocalError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
-
-    console.log("Intentando registro con:", { email, password: "***" });
-
-    // Usar la función register del contexto
+    
     const result = await register({
-      email,
+      email: registerEmail,
       password: registerPassword,
-      // Agrega otros campos que tu backend requiera:
-      name: email.split('@')[0], // nombre por defecto
-      username: email.split('@')[0] + Date.now(), // username único
     });
     
     if (result.success) {
-      console.log("Registro exitoso, cerrando modal");
-      onClose(); // Cierra modal y hace login automático
+      setSuccessMessage('¡Cuenta creada exitosamente! ✅');
+      setTimeout(() => onClose(), 1500);
     } else {
-      console.log("Error en registro:", result.error);
       setLocalError(result.error);
     }
   };
-
+  
   // --- OLVIDÉ CONTRASEÑA ---
   const handleForgotPassword = (e) => {
     e.preventDefault();
     setLocalError('');
     
-    if (!email.trim()) {
+    if (!resetEmail.trim()) {
       setLocalError('Por favor ingresa tu correo electrónico');
       return;
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    
+    if (!validateEmail(resetEmail)) {
       setLocalError('Por favor ingresa un email válido');
       return;
     }
-
-    // Simulación de envío de código
-    alert(`Se envió un código de confirmación a ${email}`);
+    
+    setSuccessMessage(`Código enviado a ${resetEmail} ✉️`);
     setStep("resetCode");
   };
-
+  
   const handleResetPassword = (e) => {
     e.preventDefault();
     setLocalError('');
@@ -171,250 +241,267 @@ export default function LoginModal({ onClose }) {
       return;
     }
     
-    alert("Contraseña restablecida correctamente ✅");
-    setStep("login");
-    setResetCode("");
-    setNewPassword("");
-    setConfirmNewPassword("");
+    setSuccessMessage("Contraseña restablecida correctamente ✅");
+    setTimeout(() => {
+      setStep("main");
+      setActiveTab("login");
+      setResetCode("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setResetEmail("");
+    }, 1500);
   };
-
+  
   // Social logins
-  const loginWithGoogle = () => {
-    alert("Login con Google - Funcionalidad en desarrollo");
+  const handleSocialLogin = (provider) => {
+    setLocalError(`${provider} estará disponible próximamente `);
   };
-  const loginWithFacebook = () => {
-    alert("Login con Facebook - Funcionalidad en desarrollo");
-  };
-  const loginWithApple = () => {
-    alert("Login con Apple - Funcionalidad en desarrollo");
-  };
-
+  
   return (
-    <div className="modal-overlay">
-      <div className="modal-card">
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>✕</button>
-
-        {/* Logo / Título */}
+        
+        {/* Logo */}
         <div className="modal-logo">
           <FaMapMarkerAlt className="logo-icon" />
           <span className="logo-text">Dónde Queda?</span>
         </div>
-        <h2 className="modal-title">Bienvenido a Dónde Queda</h2>
-
-        {/* Debug info - remover en producción */}
-        {process.env.NODE_ENV === 'development' && (
-          <div style={{ fontSize: '10px', color: '#706f6fff', marginBottom: '10px' }}>
-            Estado: {step} | Loading: {loading ? 'Sí' : 'No'}
+        
+        {/* Mensaje de éxito */}
+        {successMessage && (
+          <div className="success-banner">
+            <FaCheckCircle /> {successMessage}
           </div>
         )}
+        
 
-        {/* Paso: ingreso de email */}
-        {step === "email" && (
+        {step === "main" && (
           <>
-            <p className="modal-subtitle">Inicia sesión y sé parte de nuestra comunidad</p>
-            <form onSubmit={checkEmail} className="modal-form">
-              {/* Mostrar errores locales */}
-              {localError && (
-                <div className="error-message">
-                  {localError}
-                </div>
-              )}
-              
-              <input
-                type="email"
-                placeholder="Correo electrónico"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="modal-input"
-                disabled={loading}
-              />
-              <button 
-                type="submit" 
-                className="modal-button login-btn"
-                disabled={loading}
+            <h2 className="modal-title">Bienvenido a Dónde Queda</h2>
+            
+            {/* Tabs */}
+            <div className="tabs-container">
+              <button
+                className={`tab ${activeTab === "login" ? "active" : ""}`}
+                onClick={() => setActiveTab("login")}
               >
-                {loading ? 'Verificando...' : 'Continuar'}
+                Iniciar Sesión
               </button>
-
-              <div className="separator">o</div>
-
-              <button type="button" className="modal-button google-btn" onClick={loginWithGoogle}>
-                <FaGoogle /> Continuar con Google
+              <button
+                className={`tab ${activeTab === "register" ? "active" : ""}`}
+                onClick={() => setActiveTab("register")}
+              >
+                Crear Cuenta
               </button>
-              <button type="button" className="modal-button facebook-btn" onClick={loginWithFacebook}>
-                <FaFacebook /> Continuar con Facebook
-              </button>
-              <button type="button" className="modal-button apple-btn" onClick={loginWithApple}>
-                <FaApple /> Continuar con Apple
-              </button>
-            </form>
-          </>
-        )}
-
-        {/* Paso: login */}
-        {step === "login" && (
-          <form onSubmit={handleLogin} className="modal-form">
-            {/* Mostrar errores */}
+            </div>
+            
+            {/* Errores */}
             {(error || localError) && (
               <div className="error-message">
                 {localError || error}
               </div>
             )}
             
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="modal-input"
-              disabled={loading}
-            />
-            
-            <div className="password-container">
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="modal-input password-input"
-                disabled={loading}
-              />
-              <span className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            </div>
-            
-            <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); setStep("forgot"); }}>
-              Olvidé mi contraseña
-            </a>
-            
-            <button 
-              type="submit" 
-              className="modal-button login-btn"
-              disabled={loading}
-            >
-              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-            </button>
-            
-            <p style={{ marginTop: "0.5rem", cursor: "pointer", color: "blue" }} onClick={() => setStep("register")}>
-              ¿No tienes cuenta? Regístrate
-            </p>
-          </form>
-        )}
-
-        {/* Paso: registro */}
-        {step === "register" && (
-          <>
-            <p className="modal-subtitle">Regístrate y sé parte de nuestra comunidad</p>
-            <form onSubmit={handleRegister} className="modal-form">
-              {/* Mostrar errores */}
-              {(error || localError) && (
-                <div className="error-message">
-                  {localError || error}
+            {/* TAB LOGIN */}
+            {activeTab === "login" && (
+              <form onSubmit={handleLogin} className="modal-form">
+                <div className="input-group">
+                  <input
+                    ref={loginEmailRef}
+                    type="email"
+                    placeholder="Correo electrónico"
+                    value={loginEmail}
+                    onChange={(e) => handleEmailChange(e.target.value, true)}
+                    className={`modal-input ${emailValidation.valid === true ? 'valid' : emailValidation.valid === false ? 'invalid' : ''}`}
+                    disabled={loading || (isLocked && isLocked.locked)}
+                  />
+                  {loginEmail && (
+                    <span className={`validation-icon ${emailValidation.valid ? 'valid' : 'invalid'}`}>
+                      {emailValidation.message}
+                    </span>
+                  )}
                 </div>
-              )}
-              
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="modal-input"
-                disabled={loading}
-              />
-              
-              <div className="password-container">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Crea una contraseña"
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  className="modal-input password-input"
-                  disabled={loading}
-                />
-                <span className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </span>
-              </div>
-
-              <div className="password-container">
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Repite tu contraseña"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="modal-input password-input"
-                  disabled={loading}
-                />
-                <span className="toggle-password" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                </span>
-              </div>
-
-              {confirmPassword && (
-                <p style={{ color: registerPassword === confirmPassword ? "green" : "red", fontSize: "0.85rem" }}>
-                  {registerPassword === confirmPassword ? "Las contraseñas coinciden" : "Las contraseñas no coinciden"}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                className="modal-button register-btn"
-                disabled={loading || !registerPassword || !confirmPassword || registerPassword !== confirmPassword}
-              >
-                {loading ? 'Registrando...' : 'Regístrate'}
-              </button>
-              
-              <p style={{ marginTop: "0.5rem", cursor: "pointer", color: "blue" }} onClick={() => setStep("login")}>
-                ¿Ya tienes cuenta? Inicia sesión
-              </p>
-            </form>
+                
+                <div className="password-container">
+                  <input
+                    type={showLoginPassword ? "text" : "password"}
+                    placeholder="Contraseña"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="modal-input password-input"
+                    disabled={loading || (isLocked && isLocked.locked)}
+                  />
+                  <span className="toggle-password" onClick={() => setShowLoginPassword(!showLoginPassword)}>
+                    {showLoginPassword ? <FaEyeSlash /> : <FaEye />}
+                  </span>
+                </div>
+                
+                <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); setStep("forgot"); }}>
+                  Olvidé mi contraseña
+                </a>
+                
+                <button
+                  type="submit"
+                  className="modal-button login-btn"
+                  disabled={loading || (isLocked && isLocked.locked)}
+                >
+                  {loading ? (
+                    <span className="spinner"></span>
+                  ) : (
+                    'Iniciar sesión'
+                  )}
+                </button>
+                
+                <div className="separator">o continúa con</div>
+                
+                <div className="social-buttons">
+                  <button type="button" className="social-btn google" onClick={() => handleSocialLogin('Google')} title="Próximamente">
+                    <FaGoogle />
+                  </button>
+                  <button type="button" className="social-btn facebook" onClick={() => handleSocialLogin('Facebook')} title="Próximamente">
+                    <FaFacebook />
+                  </button>
+                  <button type="button" className="social-btn apple" onClick={() => handleSocialLogin('Apple')} title="Próximamente">
+                    <FaApple />
+                  </button>
+                </div>
+              </form>
+            )}
+            
+            {/* TAB REGISTRO */}
+            {activeTab === "register" && (
+              <form onSubmit={handleRegister} className="modal-form">
+                <div className="input-group">
+                  <input
+                    ref={registerEmailRef}
+                    type="email"
+                    placeholder="Correo electrónico"
+                    value={registerEmail}
+                    onChange={(e) => handleEmailChange(e.target.value, false)}
+                    className={`modal-input ${emailValidation.valid === true ? 'valid' : emailValidation.valid === false ? 'invalid' : ''}`}
+                    disabled={loading}
+                  />
+                  {registerEmail && (
+                    <span className={`validation-icon ${emailValidation.valid ? 'valid' : 'invalid'}`}>
+                      {emailValidation.message}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="password-container">
+                  <input
+                    type={showRegisterPassword ? "text" : "password"}
+                    placeholder="Crea una contraseña"
+                    value={registerPassword}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    className="modal-input password-input"
+                    disabled={loading}
+                  />
+                  <span className="toggle-password" onClick={() => setShowRegisterPassword(!showRegisterPassword)}>
+                    {showRegisterPassword ? <FaEyeSlash /> : <FaEye />}
+                  </span>
+                </div>
+                
+                {/* Password strength bar */}
+                {registerPassword && (
+                  <div className="password-strength">
+                    <div className="strength-bar">
+                      <div
+                        className={`strength-fill ${passwordStrength.strength}`}
+                        style={{ width: passwordStrength.strength === 'weak' ? '33%' : passwordStrength.strength === 'medium' ? '66%' : '100%', backgroundColor: passwordStrength.color }}
+                      ></div>
+                    </div>
+                    <span className="strength-text" style={{ color: passwordStrength.color }}>
+                      {passwordStrength.message}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="password-container">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirma tu contraseña"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onPaste={(e) => e.preventDefault()}
+                    className="modal-input password-input"
+                    disabled={loading}
+                  />
+                  <span className="toggle-password" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                  </span>
+                </div>
+                
+                {confirmPassword && (
+                  <p className="password-match" style={{ color: registerPassword === confirmPassword ? "#00cc66" : "#ff4444" }}>
+                    {registerPassword === confirmPassword ? "✓ Las contraseñas coinciden" : "✗ Las contraseñas no coinciden"}
+                  </p>
+                )}
+                
+                <button
+                  type="submit"
+                  className="modal-button register-btn"
+                  disabled={loading || !registerPassword || !confirmPassword || registerPassword !== confirmPassword}
+                >
+                  {loading ? (
+                    <span className="spinner"></span>
+                  ) : (
+                    'Crear cuenta'
+                  )}
+                </button>
+              </form>
+            )}
           </>
         )}
-
-        {/* Paso: olvidé contraseña */}
+        
+        {/* OLVIDÉ CONTRASEÑA */}
         {step === "forgot" && (
           <>
-            <p className="modal-subtitle">Ingresa tu correo para restablecer tu contraseña</p>
+            <h2 className="modal-title">Restablecer contraseña</h2>
+            <p className="modal-subtitle">Ingresa tu correo y te enviaremos un código</p>
+            
+            {(error || localError) && (
+              <div className="error-message">
+                {localError || error}
+              </div>
+            )}
+            
             <form onSubmit={handleForgotPassword} className="modal-form">
-              {/* Mostrar errores locales */}
-              {localError && (
-                <div className="error-message">
-                  {localError}
-                </div>
-              )}
-              
               <input
                 type="email"
                 placeholder="Correo electrónico"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
                 className="modal-input"
                 disabled={loading}
+                autoFocus
               />
-              <button 
-                type="submit" 
-                className="modal-button login-btn"
-                disabled={loading}
-              >
-                {loading ? 'Enviando...' : 'Enviar código'}
+              
+              <button type="submit" className="modal-button login-btn" disabled={loading}>
+                {loading ? <span className="spinner"></span> : 'Enviar código'}
+              </button>
+              
+              <button type="button" className="modal-link" onClick={() => setStep("main")}>
+                ← Volver al inicio
               </button>
             </form>
           </>
         )}
-
-        {/* Paso: reset contraseña */}
+        
+        {/* RESET CONTRASEÑA */}
         {step === "resetCode" && (
           <>
-            <p className="modal-subtitle">Ingresa el código de confirmación que enviamos a <b>{email}</b></p>
+            <h2 className="modal-title">Código de confirmación</h2>
+            <p className="modal-subtitle">Revisa tu correo <b>{resetEmail}</b></p>
+            
+            {(error || localError) && (
+              <div className="error-message">
+                {localError || error}
+              </div>
+            )}
+            
             <form onSubmit={handleResetPassword} className="modal-form">
-              {/* Mostrar errores locales */}
-              {localError && (
-                <div className="error-message">
-                  {localError}
-                </div>
-              )}
-              
               <input
                 type="text"
                 placeholder="Código de confirmación"
@@ -422,8 +509,9 @@ export default function LoginModal({ onClose }) {
                 onChange={(e) => setResetCode(e.target.value)}
                 className="modal-input"
                 disabled={loading}
+                autoFocus
               />
-
+              
               <div className="password-container">
                 <input
                   type={showNewPassword ? "text" : "password"}
@@ -437,13 +525,14 @@ export default function LoginModal({ onClose }) {
                   {showNewPassword ? <FaEyeSlash /> : <FaEye />}
                 </span>
               </div>
-
+              
               <div className="password-container">
                 <input
                   type={showConfirmNewPassword ? "text" : "password"}
-                  placeholder="Repite la nueva contraseña"
+                  placeholder="Confirma nueva contraseña"
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  onPaste={(e) => e.preventDefault()}
                   className="modal-input password-input"
                   disabled={loading}
                 />
@@ -451,19 +540,23 @@ export default function LoginModal({ onClose }) {
                   {showConfirmNewPassword ? <FaEyeSlash /> : <FaEye />}
                 </span>
               </div>
-
+              
               {confirmNewPassword && (
-                <p style={{ color: newPassword === confirmNewPassword ? "green" : "red", fontSize: "0.85rem" }}>
-                  {newPassword === confirmNewPassword ? "Las contraseñas coinciden" : "Las contraseñas no coinciden"}
+                <p className="password-match" style={{ color: newPassword === confirmNewPassword ? "#00cc66" : "#ff4444" }}>
+                  {newPassword === confirmNewPassword ? "✓ Las contraseñas coinciden" : "✗ Las contraseñas no coinciden"}
                 </p>
               )}
-
+              
               <button
                 type="submit"
                 className="modal-button login-btn"
                 disabled={loading || !resetCode || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword}
               >
-                {loading ? 'Restableciendo...' : 'Restablecer contraseña'}
+                {loading ? <span className="spinner"></span> : 'Restablecer contraseña'}
+              </button>
+              
+              <button type="button" className="modal-link" onClick={() => setStep("forgot")}>
+                ← Volver
               </button>
             </form>
           </>

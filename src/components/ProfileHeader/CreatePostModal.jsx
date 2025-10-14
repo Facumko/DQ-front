@@ -1,16 +1,37 @@
 // src/components/CreatePostModal.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./CreatePostModal.module.css";
 import { X, Calendar, Image, MapPin, Clock, User } from "lucide-react";
 
 
-const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post" }) => {
+const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null }) => {
   const [text, setText] = useState("");
   const [images, setImages] = useState([]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [taggedBusiness, setTaggedBusiness] = useState("");
+
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setText(initialData.text || "");
+        setImages(initialData.images || []);
+        setDate(initialData.date || "");
+        setTime(initialData.time || "");
+        setLocation(initialData.location || "");
+        setTaggedBusiness(initialData.taggedBusiness || "");
+      } else {
+        setText("");
+        setImages([]);
+        setDate("");
+        setTime("");
+        setLocation("");
+        setTaggedBusiness("");
+      }
+    }
+  }, [isOpen, initialData]);
 
 
   const handleImageChange = (e) => {
@@ -53,14 +74,16 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post" }) => {
           <textarea
             placeholder="Escribe algo..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => setText(e.target.value.slice(0, 1000))}
             className={styles.textarea}
+            maxLength={1000}
           />
+          <div className={styles.charCount}>{text.length}/1000</div>
 
 
           <label className={styles.fileLabel}>
             <Image size={18} />
-            Subir imagen
+            {images.length > 0 ? images.map((f) => f.name).join(", ") : "Subir imagen"}
             <input
               type="file"
               accept="image/*"
