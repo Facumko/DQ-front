@@ -27,7 +27,7 @@ const ENDPOINTS = {
   // Categorías
   GET_CATEGORIES: '/categoria/traer',
   
-  // Imágenes
+  // Imágenes (antiguas)
   GET_IMAGES: '/imagen/traer',
   UPLOAD_IMAGE: '/imagen/guardar',
   
@@ -36,6 +36,11 @@ const ENDPOINTS = {
   GET_BUSINESS: (businessId) => `/comercio/traer/${businessId}`,
   UPDATE_BUSINESS: (businessId) => `/comercio/editar/${businessId}`,
   CREATE_BUSINESS: '/comercio/guardar',
+  
+  // Imágenes de Comercio
+  UPLOAD_PROFILE_IMAGE: (businessId) => `/comercio/establecer/imagen/perfil/${businessId}`,
+  UPLOAD_COVER_IMAGE: (businessId) => `/comercio/establecer/imagen/portada/${businessId}`,
+  UPLOAD_GALLERY_IMAGES: (businessId) => `/comercio/agregar/imagenes/galeria/${businessId}`,
 };
 
 // ============================================
@@ -299,7 +304,7 @@ export const getCategories = async () => {
 };
 
 // ============================================
-// FUNCIONES DE IMÁGENES
+// FUNCIONES DE IMÁGENES (ANTIGUAS)
 // ============================================
 
 export const getImages = async () => {
@@ -312,12 +317,9 @@ export const uploadImage = async (imageData) => {
 };
 
 // ============================================
-// FUNCIONES DE NEGOCIOS (ADAPTADAS AL BACKEND)
+// FUNCIONES DE NEGOCIOS
 // ============================================
 
-/**
- * Obtener negocio por ID de usuario
- */
 export const getBusinessByUserId = async (userId) => {
   validateParams({ userId }, ['userId']);
   
@@ -328,14 +330,8 @@ export const getBusinessByUserId = async (userId) => {
       console.log("📦 Respuesta del backend (raw):", response);
     }
     
-    // El backend devuelve un ARRAY, tomamos el primer elemento
     const business = Array.isArray(response) ? response[0] : response;
     
-    if (isDevelopment) {
-      console.log("📦 Negocio extraído:", business);
-    }
-    
-    // Si no hay negocio
     if (!business) {
       if (isDevelopment) {
         console.log("ℹ️ El usuario no tiene negocio creado");
@@ -343,7 +339,6 @@ export const getBusinessByUserId = async (userId) => {
       return null;
     }
     
-    // Normalizar respuesta del backend a formato del frontend
     const normalized = {
       id_business: business.idCommerce,
       id_user: business.idOwner,
@@ -353,6 +348,8 @@ export const getBusinessByUserId = async (userId) => {
       phone: business.phone || '',
       link: business.link || '',
       branchOf: business.branchOf || null,
+      profileImage: business.profileImage || null,
+      coverImage: business.coverImage || null,
     };
     
     if (isDevelopment) {
@@ -361,7 +358,6 @@ export const getBusinessByUserId = async (userId) => {
     
     return normalized;
   } catch (error) {
-    // Si es 404, el usuario no tiene negocio
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
       if (isDevelopment) {
         console.log("ℹ️ El usuario no tiene negocio creado (404)");
@@ -372,22 +368,17 @@ export const getBusinessByUserId = async (userId) => {
   }
 };
 
-/**
- * Obtener negocio por ID
- */
 export const getBusinessById = async (businessId) => {
   validateParams({ businessId }, ['businessId']);
   
   const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS(businessId));
   
-  // El backend puede devolver array o objeto
   const business = Array.isArray(response) ? response[0] : response;
   
   if (!business) {
     throw new Error('Negocio no encontrado');
   }
   
-  // Normalizar respuesta
   return {
     id_business: business.idCommerce,
     id_user: business.idOwner,
@@ -397,16 +388,14 @@ export const getBusinessById = async (businessId) => {
     phone: business.phone || '',
     link: business.link || '',
     branchOf: business.branchOf || null,
+    profileImage: business.profileImage || null,
+    coverImage: business.coverImage || null,
   };
 };
 
-/**
- * Crear negocio
- */
 export const createBusiness = async (businessData) => {
   validateParams({ businessData }, ['businessData']);
   
-  // Validar campos obligatorios
   if (!businessData.name || businessData.name.trim() === '') {
     throw new Error('El nombre del negocio es obligatorio');
   }
@@ -419,14 +408,13 @@ export const createBusiness = async (businessData) => {
     throw new Error('El ID de usuario es obligatorio');
   }
   
-  // Preparar datos para el backend (nombres exactos que espera)
   const dataToSend = {
     idOwner: businessData.id_user,
     name: businessData.name.trim(),
     description: businessData.description.trim(),
     email: businessData.email?.trim() || '',
     phone: businessData.phone?.trim() || '',
-    link: businessData.link?.trim() || '', // Backend usa "link"
+    link: businessData.link?.trim() || '',
     branchOf: businessData.branchOf || null,
   };
   
@@ -440,7 +428,6 @@ export const createBusiness = async (businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
-  // Normalizar respuesta
   return {
     id_business: response.idCommerce,
     id_user: response.idOwner,
@@ -450,16 +437,14 @@ export const createBusiness = async (businessData) => {
     phone: response.phone,
     link: response.link,
     branchOf: response.branchOf,
+    profileImage: response.profileImage || null,
+    coverImage: response.coverImage || null,
   };
 };
 
-/**
- * Actualizar negocio
- */
 export const updateBusiness = async (businessId, businessData) => {
   validateParams({ businessId, businessData }, ['businessId', 'businessData']);
   
-  // Validar campos obligatorios solo si están presentes
   if (businessData.name !== undefined && businessData.name.trim() === '') {
     throw new Error('El nombre del negocio no puede estar vacío');
   }
@@ -468,14 +453,13 @@ export const updateBusiness = async (businessId, businessData) => {
     throw new Error('La descripción del negocio no puede estar vacía');
   }
   
-  // Preparar datos para el backend (nombres exactos)
   const dataToSend = {};
   
   if (businessData.name !== undefined) dataToSend.name = businessData.name.trim();
   if (businessData.description !== undefined) dataToSend.description = businessData.description.trim();
   if (businessData.email !== undefined) dataToSend.email = businessData.email.trim();
   if (businessData.phone !== undefined) dataToSend.phone = businessData.phone.trim();
-  if (businessData.link !== undefined) dataToSend.link = businessData.link.trim(); // Backend usa "link"
+  if (businessData.link !== undefined) dataToSend.link = businessData.link.trim();
   if (businessData.branchOf !== undefined) dataToSend.branchOf = businessData.branchOf;
   
   if (isDevelopment) {
@@ -488,7 +472,6 @@ export const updateBusiness = async (businessId, businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
-  // Normalizar respuesta
   return {
     id_business: response.idCommerce,
     id_user: response.idOwner,
@@ -498,7 +481,176 @@ export const updateBusiness = async (businessId, businessData) => {
     phone: response.phone,
     link: response.link,
     branchOf: response.branchOf,
+    profileImage: response.profileImage || null,
+    coverImage: response.coverImage || null,
   };
+};
+
+// ============================================
+// FUNCIONES DE IMÁGENES DE COMERCIO
+// ============================================
+
+/**
+ * Subir imagen de perfil y recargar negocio actualizado
+ */
+export const uploadProfileImage = async (businessId, imageFile) => {
+  validateParams({ businessId, imageFile }, ['businessId', 'imageFile']);
+  
+  if (!(imageFile instanceof File)) {
+    throw new Error('Debes proporcionar un archivo de imagen válido');
+  }
+  
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (imageFile.size > maxSize) {
+    throw new Error('La imagen no puede superar los 5MB');
+  }
+  
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!validTypes.includes(imageFile.type)) {
+    throw new Error('Formato de imagen no válido. Usa JPG, PNG o WebP');
+  }
+  
+  const formData = new FormData();
+  formData.append('file', imageFile);
+  
+  try {
+    if (isDevelopment) {
+      console.log('📤 Subiendo imagen de perfil...');
+    }
+    
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.UPLOAD_PROFILE_IMAGE(businessId)}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000,
+      }
+    );
+    
+    if (isDevelopment) {
+      console.log('✅ Imagen de perfil subida:', response.data);
+    }
+    
+    // Recargar negocio para obtener URL actualizada
+    await sleep(500); // Esperar a que el backend procese
+    const updatedBusiness = await getBusinessById(businessId);
+    
+    return {
+      cloudinaryResponse: response.data,
+      profileImage: updatedBusiness.profileImage,
+    };
+  } catch (error) {
+    throw handleApiError(error, 'uploadProfileImage');
+  }
+};
+
+/**
+ * Subir imagen de portada y recargar negocio actualizado
+ */
+export const uploadCoverImage = async (businessId, imageFile) => {
+  validateParams({ businessId, imageFile }, ['businessId', 'imageFile']);
+  
+  if (!(imageFile instanceof File)) {
+    throw new Error('Debes proporcionar un archivo de imagen válido');
+  }
+  
+  const maxSize = 5 * 1024 * 1024;
+  if (imageFile.size > maxSize) {
+    throw new Error('La imagen no puede superar los 5MB');
+  }
+  
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!validTypes.includes(imageFile.type)) {
+    throw new Error('Formato de imagen no válido. Usa JPG, PNG o WebP');
+  }
+  
+  const formData = new FormData();
+  formData.append('file', imageFile);
+  
+  try {
+    if (isDevelopment) {
+      console.log('📤 Subiendo imagen de portada...');
+    }
+    
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.UPLOAD_COVER_IMAGE(businessId)}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000,
+      }
+    );
+    
+    if (isDevelopment) {
+      console.log('✅ Imagen de portada subida:', response.data);
+    }
+    
+    await sleep(500);
+    const updatedBusiness = await getBusinessById(businessId);
+    
+    return {
+      cloudinaryResponse: response.data,
+      coverImage: updatedBusiness.coverImage,
+    };
+  } catch (error) {
+    throw handleApiError(error, 'uploadCoverImage');
+  }
+};
+
+/**
+ * Subir múltiples imágenes a la galería
+ */
+export const uploadGalleryImages = async (businessId, imageFiles) => {
+  validateParams({ businessId, imageFiles }, ['businessId', 'imageFiles']);
+  
+  if (!Array.isArray(imageFiles) || imageFiles.length === 0) {
+    throw new Error('Debes proporcionar al menos una imagen');
+  }
+  
+  if (imageFiles.length > 10) {
+    throw new Error('Máximo 10 imágenes por vez');
+  }
+  
+  const maxSize = 5 * 1024 * 1024;
+  for (const file of imageFiles) {
+    if (file.size > maxSize) {
+      throw new Error(`La imagen "${file.name}" supera los 5MB`);
+    }
+  }
+  
+  const formData = new FormData();
+  imageFiles.forEach((file) => {
+    formData.append('files', file);
+  });
+  
+  try {
+    if (isDevelopment) {
+      console.log(`📤 Subiendo ${imageFiles.length} imágenes a galería...`);
+    }
+    
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.UPLOAD_GALLERY_IMAGES(businessId)}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000,
+      }
+    );
+    
+    if (isDevelopment) {
+      console.log('✅ Imágenes de galería subidas:', response.data);
+    }
+    
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, 'uploadGalleryImages');
+  }
 };
 
 // ============================================
@@ -519,7 +671,7 @@ export default {
   // Categorías
   getCategories,
   
-  // Imágenes
+  // Imágenes (antiguas)
   getImages,
   uploadImage,
   
@@ -528,6 +680,11 @@ export default {
   getBusinessById,
   createBusiness,
   updateBusiness,
+  
+  // Imágenes de Comercio
+  uploadProfileImage,
+  uploadCoverImage,
+  uploadGalleryImages,
   
   // Utilidades
   generateUsername,
