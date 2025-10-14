@@ -5,9 +5,13 @@ import styles from "./ProfileHeader.module.css";
 import {
   MapPin, Clock, Phone, Mail, Star, ArrowRight, Edit2,
   User, Camera, Image, Plus, Calendar,
-  Loader, AlertCircle, Check, Link as LinkIcon
+  Loader, AlertCircle, Check, Link2
 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
+
+// ============================================
+// UTILIDADES
+// ============================================
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isValidPhone = (phone) => phone.replace(/\D/g, "").length === 10;
@@ -22,6 +26,19 @@ const timeAgo = (date) => {
   const days = Math.floor(hours / 24);
   return `hace ${days} d`;
 };
+
+// Normalizar datos del backend (convertir null a strings vacíos)
+const normalizeBusinessData = (data) => ({
+  name: data?.name || "",
+  email: data?.email || "",
+  phone: data?.phone || "",
+  link: data?.link || "",
+  description: data?.description || "",
+});
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 
 const ProfileHeader = ({ isOwner = false }) => {
   const { user } = useContext(UserContext);
@@ -38,7 +55,7 @@ const ProfileHeader = ({ isOwner = false }) => {
   const [modalType, setModalType] = useState("post");
   const [posts, setPosts] = useState([]);
 
-  // Datos del negocio (SOLO CAMPOS QUE EXISTEN EN BACKEND)
+  // Datos del negocio
   const [businessId, setBusinessId] = useState(null);
   const [businessData, setBusinessData] = useState({
     name: "",
@@ -48,8 +65,14 @@ const ProfileHeader = ({ isOwner = false }) => {
     description: "",
   });
 
-  // Borradores para edición
-  const [draft, setDraft] = useState(businessData);
+  // Borradores para edición (inicializar con valores seguros)
+  const [draft, setDraft] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    link: "",
+    description: "",
+  });
   const [editingPost, setEditingPost] = useState(null);
 
   // ============================================
@@ -86,22 +109,16 @@ const ProfileHeader = ({ isOwner = false }) => {
         
         setBusinessId(business.id_business);
         
-        const loadedData = {
-          name: business.name || "",
-          email: business.email || "",
-          phone: business.phone || "",
-          link: business.link || "",
-          description: business.description || "",
-        };
+        const loadedData = normalizeBusinessData(business);
         
         console.log("📝 Datos procesados:", loadedData);
         
         setBusinessData(loadedData);
         setDraft(loadedData);
       } else {
-        console.log("⚠️ El usuario no tiene negocio creado, usando valores por defecto");
+        console.log("⚠️ El usuario no tiene negocio creado");
         
-        // Prellenar con datos del usuario (solo nombre)
+        // Prellenar con datos del usuario
         const defaultData = {
           name: user.name ? `${user.name}${user.lastname ? ' ' + user.lastname : ''}` : "",
           email: "",
@@ -129,7 +146,8 @@ const ProfileHeader = ({ isOwner = false }) => {
   // ============================================
 
   const handleEdit = () => {
-    setDraft(businessData);
+    // Asegurar que draft tenga strings válidos
+    setDraft(normalizeBusinessData(businessData));
     setIsEditing(true);
     setError("");
     setSuccess("");
@@ -137,32 +155,37 @@ const ProfileHeader = ({ isOwner = false }) => {
 
   const handleSave = async () => {
     // Validaciones
-    if (!draft.name || draft.name.trim() === "") {
+    const trimmedName = (draft.name || "").trim();
+    const trimmedDescription = (draft.description || "").trim();
+    const trimmedEmail = (draft.email || "").trim();
+    const trimmedPhone = (draft.phone || "").trim();
+    
+    if (!trimmedName) {
       setError("El nombre del negocio es obligatorio");
       return;
     }
     
-    if (draft.name.length > 100) {
+    if (trimmedName.length > 100) {
       setError("El nombre no puede superar los 100 caracteres");
       return;
     }
     
-    if (!draft.description || draft.description.trim() === "") {
+    if (!trimmedDescription) {
       setError("La descripción del negocio es obligatoria");
       return;
     }
     
-    if (draft.description.length > 500) {
+    if (trimmedDescription.length > 500) {
       setError("La descripción no puede superar los 500 caracteres");
       return;
     }
 
-    if (draft.phone && !isValidPhone(draft.phone)) {
+    if (trimmedPhone && !isValidPhone(trimmedPhone)) {
       setError("El número debe tener 10 dígitos");
       return;
     }
 
-    if (draft.email && !isValidEmail(draft.email)) {
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
       setError("Correo inválido");
       return;
     }
@@ -173,11 +196,11 @@ const ProfileHeader = ({ isOwner = false }) => {
 
     try {
       const dataToSend = {
-        name: draft.name.trim(),
-        description: draft.description.trim(),
-        email: draft.email.trim(),
-        phone: draft.phone.trim(),
-        link: draft.link.trim(),
+        name: trimmedName,
+        description: trimmedDescription,
+        email: trimmedEmail,
+        phone: trimmedPhone,
+        link: (draft.link || "").trim(),
       };
 
       let result;
@@ -186,7 +209,8 @@ const ProfileHeader = ({ isOwner = false }) => {
         // Actualizar negocio existente
         console.log("📤 Actualizando negocio:", businessId, dataToSend);
         result = await updateBusiness(businessId, dataToSend);
-        console.log("✅ Negocio actualizado:", result);
+        console.log("✅ Negocio actualizado (raw):", result);
+        console.log("🔍 Tipo de result.link:", typeof result.link, "Valor:", result.link);
       } else {
         // Crear nuevo negocio
         console.log("📤 Creando nuevo negocio:", dataToSend);
@@ -198,14 +222,12 @@ const ProfileHeader = ({ isOwner = false }) => {
         setBusinessId(result.id_business);
       }
 
-      // Actualizar estado local
-      setBusinessData({
-        name: result.name,
-        email: result.email,
-        phone: result.phone,
-        link: result.link,
-        description: result.description,
-      });
+      // Actualizar estado local (normalizar valores)
+      const updatedData = normalizeBusinessData(result);
+      console.log("📝 Datos normalizados después de guardar:", updatedData);
+      
+      setBusinessData(updatedData);
+      setDraft(updatedData);
       
       setIsEditing(false);
       setSuccess("✅ Datos guardados correctamente");
@@ -220,7 +242,8 @@ const ProfileHeader = ({ isOwner = false }) => {
   };
 
   const handleCancel = () => {
-    setDraft(businessData);
+    // Restaurar draft con datos normalizados
+    setDraft(normalizeBusinessData(businessData));
     setIsEditing(false);
     setError("");
     setSuccess("");
@@ -247,6 +270,23 @@ const ProfileHeader = ({ isOwner = false }) => {
     setShowModal(true);
   };
 
+  const handleSubmitPost = (data) => {
+    if (editingPost) {
+      setPosts((prev) =>
+        prev.map((p) => (p.id === editingPost.id ? { ...p, ...data } : p))
+      );
+    } else {
+      const newPost = { 
+        ...data, 
+        businessName: businessData.name, 
+        createdAt: new Date().toISOString(), 
+        id: Date.now() 
+      };
+      setPosts((prev) => [newPost, ...prev]);
+    }
+    setEditingPost(null);
+  };
+
   // ============================================
   // RENDERIZADO
   // ============================================
@@ -267,7 +307,7 @@ const ProfileHeader = ({ isOwner = false }) => {
   return (
     <>
       <div className={styles.headerContainer}>
-        {/* Mensajes */}
+        {/* ===== MENSAJES ===== */}
         {error && (
           <div className={styles.errorBanner}>
             <AlertCircle size={18} />
@@ -282,7 +322,7 @@ const ProfileHeader = ({ isOwner = false }) => {
           </div>
         )}
 
-        {/* Botones de edición */}
+        {/* ===== BOTONES DE EDICIÓN ===== */}
         {isOwner && (
           <div className={styles.editButtonContainer}>
             {!isEditing ? (
@@ -317,12 +357,12 @@ const ProfileHeader = ({ isOwner = false }) => {
           </div>
         )}
 
+        {/* ===== LAYOUT PRINCIPAL ===== */}
         <div className={styles.layoutModern}>
           {/* COLUMNA IZQUIERDA */}
           <div className={styles.leftColumnModern}>
             {/* Perfil */}
             <div className={styles.profileHeaderModern}>
-              {/* Imagen de perfil - PLACEHOLDER POR AHORA */}
               <div className={styles.profilePicDisplayModern}>
                 <User size={40} color="#999" />
               </div>
@@ -336,6 +376,7 @@ const ProfileHeader = ({ isOwner = false }) => {
                       onChange={(e) => setDraft({ ...draft, name: e.target.value.slice(0, 100) })}
                       className={styles.editInputModern}
                       placeholder="Nombre del negocio *"
+                      maxLength={100}
                     />
                     <span style={{ fontSize: "0.75rem", color: "#666" }}>
                       {draft.name.length}/100 caracteres
@@ -402,7 +443,9 @@ const ProfileHeader = ({ isOwner = false }) => {
                 {isEditing ? (
                   <div style={{ flex: 1 }}>
                     {!isValidPhone(draft.phone) && draft.phone !== "" && (
-                      <span className={styles.errorMsgModern}>Número incompleto (faltan dígitos)</span>
+                      <span className={styles.errorMsgModern}>
+                        Número incompleto (faltan dígitos)
+                      </span>
                     )}
                     <input
                       type="tel"
@@ -445,7 +488,7 @@ const ProfileHeader = ({ isOwner = false }) => {
 
               {/* LINK/RED SOCIAL */}
               <div className={styles.rowModern}>
-                <LinkIcon color="#333" size={18} />
+                <Link2 color="#333" size={18} />
                 {isEditing ? (
                   <input
                     type="url"
@@ -453,6 +496,7 @@ const ProfileHeader = ({ isOwner = false }) => {
                     onChange={(e) => setDraft({ ...draft, link: e.target.value.slice(0, 200) })}
                     className={styles.editInputModern}
                     placeholder="https://tusitio.com o @tured"
+                    maxLength={200}
                   />
                 ) : (
                   <span>{businessData.link || "Sin link"}</span>
@@ -461,7 +505,7 @@ const ProfileHeader = ({ isOwner = false }) => {
             </div>
           </div>
 
-          {/* COLUMNA DERECHA - PORTADA PLACEHOLDER */}
+          {/* COLUMNA DERECHA - PORTADA */}
           <div className={styles.rightColumnModern}>
             <div className={styles.coverDisplayModern}>
               <div className={styles.coverPlaceholderModern}>
@@ -473,16 +517,16 @@ const ProfileHeader = ({ isOwner = false }) => {
         </div>
       </div>
 
-      {/* ACCIONES EXTERNAS */}
+      {/* ===== ACCIONES EXTERNAS ===== */}
       <div className={styles.externalActionsModern}>
         {!isEditing && (
           <div className={styles.actionsModern}>
             <button className={styles.favButtonModern}>
               <Star color="#e74c3c" /> Favorito
             </button>
-            {businessData.link && businessData.link.trim() !== "" && (
+            {businessData.link && String(businessData.link).trim() !== "" && (
               <a 
-                href={businessData.link.startsWith('http') ? businessData.link : `https://${businessData.link}`}
+                href={String(businessData.link).startsWith('http') ? businessData.link : `https://${businessData.link}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.socialButtonModern}
@@ -501,7 +545,7 @@ const ProfileHeader = ({ isOwner = false }) => {
           </div>
         )}
 
-        {isOwner && businessId && (
+        {isOwner && businessId && !isEditing && (
           <div className={styles.createActionsModern}>
             <button 
               className={styles.createButtonModern} 
@@ -525,7 +569,7 @@ const ProfileHeader = ({ isOwner = false }) => {
         )}
       </div>
 
-      {/* PUBLICACIONES */}
+      {/* ===== PUBLICACIONES ===== */}
       <div className={styles.postsSectionModern}>
         <h3 className={styles.postsTitleModern}>Publicaciones y Eventos</h3>
         {sortedPosts.length === 0 ? (
@@ -578,29 +622,14 @@ const ProfileHeader = ({ isOwner = false }) => {
         )}
       </div>
 
-      {/* MODAL DE PUBLICACIÓN */}
+      {/* ===== MODAL DE PUBLICACIÓN ===== */}
       <CreatePostModal
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);
           setEditingPost(null);
         }}
-        onSubmit={(data) => {
-          if (editingPost) {
-            setPosts((prev) =>
-              prev.map((p) => (p.id === editingPost.id ? { ...p, ...data } : p))
-            );
-          } else {
-            const newPost = { 
-              ...data, 
-              businessName: businessData.name, 
-              createdAt: new Date().toISOString(), 
-              id: Date.now() 
-            };
-            setPosts((prev) => [newPost, ...prev]);
-          }
-          setEditingPost(null);
-        }}
+        onSubmit={handleSubmitPost}
         type={modalType}
         initialData={editingPost}
       />
