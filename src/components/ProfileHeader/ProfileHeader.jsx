@@ -518,83 +518,107 @@ const ProfileHeader = ({ isOwner = false }) => {
     [posts]
   );
 
-  const handleSubmitPost = async (data) => {
-    if (!businessId) {
-      showErrorMessage("Necesitas crear el negocio primero");
-      return;
-    }
+const handleSubmitPost = async (data) => {
+  // ✅ VERIFICACIÓN CRÍTICA #1: businessId existe?
+  console.group('🔍 === VERIFICACIÓN DE businessId ===');
+  console.log('businessId:', businessId);
+  console.log('businessId tipo:', typeof businessId);
+  console.log('businessId es null?:', businessId === null);
+  console.log('businessId es undefined?:', businessId === undefined);
+  console.log('businessId es 0?:', businessId === 0);
+  console.log('businessId es string?:', typeof businessId === 'string');
+  console.groupEnd();
 
-    // ✅ VALIDACIÓN CRÍTICA: Verificar que haya imágenes en modo creación
-    if (!editingPost && (!data.imageFiles || data.imageFiles.length === 0)) {
-      showErrorMessage("Debes subir al menos una imagen");
-      return;
-    }
+  if (!businessId) {
+    showErrorMessage("Necesitas crear el negocio primero");
+    return;
+  }
 
-    setLoadingStates(prev => ({ ...prev, creatingPost: true }));
-    setError("");
+  // ✅ CONVERTIR A NÚMERO SI ES STRING
+  const businessIdNumber = typeof businessId === 'string' 
+    ? parseInt(businessId, 10) 
+    : businessId;
 
-    try {
-      if (editingPost) {
-        // ✅ Modo edición: solo actualizar texto
-        setPosts(prev =>
-          prev.map(p => p.id === editingPost.id ? { ...p, text: data.text } : p)
-        );
-        showSuccessMessage("✅ Publicación editada");
-      } else {
-        // ✅ Modo creación: enviar al backend
-        console.log("📤 Enviando al backend:", {
-          description: data.text,
-          idCommerce: businessId,
-          imageCount: data.imageFiles?.length || 0
-        });
-        
-        const response = await createPost(
-          data.text, 
-          businessId, 
-          data.imageFiles
-        );
-        
-        console.log("✅ Respuesta del backend:", response);
-        
-        const newPost = normalizePostFromBackend({
-          idPost: response.idPost,
-          description: data.text,
-          images: response.images || [],
-          nameCommerce: businessData.name,
-          postedAt: response.postedAt || new Date().toISOString(),
-        });
-        
-        setPosts(prev => [newPost, ...prev]);
-        showSuccessMessage("✅ Publicación creada correctamente");
-        setShowModal(false);
-      }
-    } catch (error) {
-      console.error("❌ Error al crear publicación:", error);
-      showErrorMessage(error.message || "Error al crear la publicación");
-    } finally {
-      setLoadingStates(prev => ({ ...prev, creatingPost: false }));
-      setEditingPost(null);
-    }
-  };
+  console.group('🔍 === VERIFICACIÓN DESPUÉS DE CONVERSIÓN ===');
+  console.log('businessIdNumber:', businessIdNumber);
+  console.log('businessIdNumber tipo:', typeof businessIdNumber);
+  console.log('businessIdNumber es NaN?:', isNaN(businessIdNumber));
+  console.groupEnd();
 
-  const handleDeletePost = async (id) => {
-    if (!window.confirm("¿Estás seguro de eliminar esta publicación?")) {
-      return;
+  if (isNaN(businessIdNumber)) {
+    showErrorMessage("ID de comercio inválido");
+    return;
+  }
+
+  console.log("🔍 DEBUG - Payload recibido del modal:", {
+    text: data.text?.slice(0, 50),
+    imageFilesCount: data.imageFiles?.length || 0,
+    imageFilesType: data.imageFiles?.[0]?.constructor?.name,
+    imagesToDelete: data.imagesToDelete?.length || 0,
+    type: modalType
+  });
+
+  // ✅ VALIDACIÓN CRÍTICA: Verificar que haya imágenes en modo creación
+  if (!editingPost && (!data.imageFiles || data.imageFiles.length === 0)) {
+    showErrorMessage("Debes subir al menos una imagen");
+    return;
+  }
+
+  setLoadingStates(prev => ({ ...prev, creatingPost: true }));
+  setError("");
+
+  try {
+    if (editingPost) {
+      // ✅ Modo edición: solo actualizar texto (por ahora)
+      console.log("✏️ Modo edición - solo actualizando texto");
+      setPosts(prev =>
+        prev.map(p => p.id === editingPost.id ? { ...p, text: data.text } : p)
+      );
+      showSuccessMessage("✅ Publicación editada");
+      setShowModal(false);
+    } else {
+      // ✅ Modo creación: enviar al backend
+      console.log("📤 Modo creación - enviando al backend:", {
+        description: data.text,
+        idCommerce: businessIdNumber, // ✅ Usar el número convertido
+        imageFiles: data.imageFiles.map(f => ({
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          isFile: f instanceof File
+        }))
+      });
+
+      // ✅ CRÍTICO: Pasar el ID como número
+      const response = await createPost(
+        data.text,              // description
+        businessIdNumber,       // idCommerce (como número)
+        data.imageFiles         // Array de objetos File
+      );
+
+      console.log("✅ Respuesta del backend:", response);
+
+      // ✅ Normalizar respuesta según lo que devuelva el backend
+      const newPost = normalizePostFromBackend({
+        idPost: response.idPost || response.id || Date.now(),
+        description: data.text,
+        images: response.images || [],
+        nameCommerce: businessData.name,
+        postedAt: response.postedAt || new Date().toISOString(),
+      });
+
+      setPosts(prev => [newPost, ...prev]);
+      showSuccessMessage("✅ Publicación creada correctamente");
+      setShowModal(false);
     }
-    
-    setLoadingStates(prev => ({ ...prev, deletingPost: true }));
-    
-    try {
-      await deletePost(id);
-      setPosts(prev => prev.filter(p => p.id !== id));
-      showSuccessMessage("✅ Publicación eliminada");
-    } catch (error) {
-      console.error("❌ Error al eliminar:", error);
-      showErrorMessage(error.message || "Error al eliminar");
-    } finally {
-      setLoadingStates(prev => ({ ...prev, deletingPost: false }));
-    }
-  };
+  } catch (error) {
+    console.error("❌ Error al crear publicación:", error);
+    showErrorMessage(error.message || "Error al crear la publicación");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, creatingPost: false }));
+    setEditingPost(null);
+  }
+};
 
   const handleEditPost = (post) => {
     setEditingPost(post);

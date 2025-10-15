@@ -131,7 +131,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     }
   };
 
-  const handleSubmit = (e) => {
+   const handleSubmit = (e) => {
     e.preventDefault();
     
     // Validación: al menos una imagen
@@ -140,15 +140,22 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       return;
     }
     
-    // ✅ Payload mejorado para edición
+    // ✅ CORREGIDO: Usar nombres consistentes
     const payload = {
       text,
       type,
-      imagesToAdd: initialData ? imageFiles : imageFiles, // Archivos nuevos a agregar
-      imageIdsToDelete: initialData ? imagesToDelete : [], // IDs a eliminar
-      existingImages: initialData ? existingImages.filter(img => !imagesToDelete.includes(img.id)) : [],
+      imageFiles: imageFiles, // ✅ Nombre correcto para el ProfileHeader
+      imagesToDelete: imagesToDelete, // IDs de imágenes a eliminar
+      existingImages: existingImages.filter(img => !imagesToDelete.includes(img.id)),
       ...(type === "event" && { date, time, location, taggedBusiness }),
     };
+
+    console.log("📤 Modal enviando payload:", {
+      text: payload.text?.slice(0, 50),
+      newImageCount: payload.imageFiles?.length || 0,
+      imagesToDeleteCount: payload.imagesToDelete?.length || 0,
+      existingImageCount: payload.existingImages?.length || 0,
+    });
     
     onSubmit(payload);
     onClose();
