@@ -1,0 +1,943 @@
+/* ============================================
+   🎨 HOME - ESTILOS COMPLETOS
+   ============================================ */
+
+/* ============================================
+   CONTAINER PRINCIPAL
+   ============================================ */
+.homeContainer {
+  width: 100%;
+  min-height: 100vh;
+  background: #fafafa;
+}
+
+.section {
+  width: 100%;
+  padding: 80px 24px;
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
+   🎯 HERO SECTION
+   ============================================ */
+.heroSection {
+  padding: 48px 24px;
+  background: white;
+}
+
+.heroGrid {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 24px;
+}
+
+/* ============================================
+   CAROUSEL PRINCIPAL
+   ============================================ */
+.carouselContainer {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.carousel {
+  position: relative;
+  height: 480px;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slideActive {
+  opacity: 1;
+  z-index: 1;
+}
+
+.slideImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.slideOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0.3) 50%,
+    transparent 100%
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+  color: white;
+}
+
+.slideBadgeContainer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.slideBadge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  animation: slideInFromTop 0.5s ease-out;
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.badgeEvent {
+  background: rgba(25, 118, 210, 0.9);
+}
+
+.badgeFeatured {
+  background: rgba(67, 160, 71, 0.9);
+}
+
+.badgePromotion {
+  background: rgba(229, 57, 53, 0.9);
+}
+
+.badgeDefault {
+  background: rgba(117, 117, 117, 0.9);
+}
+
+.slideContent {
+  max-width: 600px;
+}
+
+.slideMetadata {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.metadataItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discountBadge {
+  background: rgba(255, 255, 255, 0.95);
+  color: #dc2626;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.slideTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  line-height: 1.2;
+}
+
+.slideSubtitle {
+  font-size: 1rem;
+  margin: 0 0 24px 0;
+  opacity: 0.95;
+  line-height: 1.5;
+}
+
+.slideCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: white;
+  color: #B00020;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slideCta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Controles del carousel */
+.carouselBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  border: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.carouselBtn:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.carouselBtnPrev {
+  left: 24px;
+}
+
+.carouselBtnNext {
+  right: 24px;
+}
+
+/* Indicadores */
+.carouselIndicators {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.indicator:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(1.2);
+}
+
+.indicatorActive {
+  width: 24px;
+  border-radius: 4px;
+  background: white;
+}
+
+/* ============================================
+   SIDEBAR - NEGOCIOS DESTACADOS
+   ============================================ */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.businessCard {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.businessCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.businessHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.businessLogo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.businessInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.businessName {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.businessCard:hover .businessName {
+  color: #B00020;
+}
+
+.businessCategory {
+  font-size: 12px;
+  color: #666;
+  margin: 2px 0 0 0;
+}
+
+.businessLocation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 12px;}
+
+.businessPromotion {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ============================================
+   🔍 SECCIÓN DE CATEGORÍAS
+   ============================================ */
+.categoriesSection {
+  background: white;
+}
+
+.sectionHeader {
+  text-align: center;
+  margin-bottom: 48px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sectionTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #222;
+  margin: 0 0 16px 0;
+}
+
+.sectionSubtitle {
+  font-size: 1.125rem;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.categoriesGrid {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+.categoryCard {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.categoryCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+}
+
+.categoryImageContainer {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.categoryImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.categoryCard:hover .categoryImage {
+  transform: scale(1.1);
+}
+
+.categoryOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.categoryIcon {
+  color: white;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  transition: transform 0.3s ease;
+}
+
+.categoryCard:hover .categoryIcon {
+  transform: scale(1.1);
+}
+
+/* Gradientes por categoría */
+.gradientBlue {
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.85), rgba(21, 101, 192, 0.9));
+}
+
+.gradientOrange {
+  background: linear-gradient(135deg, rgba(251, 140, 0, 0.85), rgba(239, 108, 0, 0.9));
+}
+
+.gradientGreen {
+  background: linear-gradient(135deg, rgba(67, 160, 71, 0.85), rgba(56, 142, 60, 0.9));
+}
+
+.gradientPurple {
+  background: linear-gradient(135deg, rgba(142, 36, 170, 0.85), rgba(123, 31, 162, 0.9));
+}
+
+.gradientRed {
+  background: linear-gradient(135deg, rgba(229, 57, 53, 0.85), rgba(198, 40, 40, 0.9));
+}
+
+.gradientPink {
+  background: linear-gradient(135deg, rgba(216, 27, 96, 0.85), rgba(194, 24, 91, 0.9));
+}
+
+.categoryCard:hover .categoryOverlay {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.categoryContent {
+  padding: 24px;
+}
+
+.categoryTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #222;
+  margin: 0 0 8px 0;
+  transition: color 0.3s ease;
+}
+
+.categoryCard:hover .categoryTitle {
+  color: #B00020;
+}
+
+.categoryDescription {
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ============================================
+   📱 SECCIÓN DE PUBLICACIONES
+   ============================================ */
+.postsSection {
+  background: #f9fafb;
+}
+
+.postsFeed {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.postCard {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.3s ease;
+}
+
+.postCard:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Post Header */
+.postHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.postAvatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #f0f0f0;
+}
+
+.postBusinessInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.postBusinessName {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #222;
+  margin: 0 0 6px 0;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.postBusinessName:hover {
+  color: #B00020;
+}
+
+.postMetadata {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.postMetadata svg {
+  flex-shrink: 0;
+}
+
+.postSaveBtn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.postSaveBtn:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.postSaveBtnActive {
+  color: #B00020;
+}
+
+/* Post Content */
+.postContent {
+  padding: 20px 24px;
+}
+
+.postContent p {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* Post Images */
+.postImagesContainer {
+  position: relative;
+  background: #f5f5f5;
+  aspect-ratio: 4/3;
+}
+
+.postImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.postImageBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.postImageBtn:hover {
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.postImageBtnPrev {
+  left: 16px;
+}
+
+.postImageBtnNext {
+  right: 16px;
+}
+
+.postImageIndicators {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.postImageDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transition: all 0.3s ease;
+}
+
+.postImageDotActive {
+  background: white;
+  width: 24px;
+  border-radius: 4px;
+}
+
+/* Post Actions */
+.postActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.postActionsLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.postActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.postActionBtn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.postLikeBtnActive {
+  color: #dc2626;
+  animation: likeAnimation 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes likeAnimation {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.postLikesCount {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Load More Button */
+.loadMoreContainer {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.loadMoreBtn {
+  padding: 14px 32px;
+  background: white;
+  color: #666;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.loadMoreBtn:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================
+   📱 RESPONSIVE
+   ============================================ */
+
+/* Tablets */
+@media (max-width: 1024px) {
+  .heroGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    gap: 12px;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .sidebar::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 3px;
+  }
+
+  .businessCard {
+    min-width: 280px;
+  }
+
+  .categoriesGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+
+  .sectionTitle {
+    font-size: 2rem;
+  }
+
+  .slideTitle {
+    font-size: 2rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .section {
+    padding: 48px 16px;
+  }
+
+  .heroSection {
+    padding: 24px 16px;
+  }
+
+  .heroGrid {
+    gap: 16px;
+  }
+
+  .carousel {
+    height: 400px;
+  }
+
+  .slideTitle {
+    font-size: 1.5rem;
+  }
+
+  .slideSubtitle {
+    font-size: 0.875rem;
+  }
+
+  .slideCta {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  .carouselBtn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .carouselBtnPrev {
+    left: 12px;
+  }
+
+  .carouselBtnNext {
+    right: 12px;
+  }
+
+  .categoriesGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .categoryImageContainer {
+    height: 160px;
+  }
+
+  .categoryIcon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .sectionTitle {
+    font-size: 1.75rem;
+  }
+
+  .sectionSubtitle {
+    font-size: 1rem;
+  }
+
+  .postCard {
+    border-radius: 12px;
+  }
+
+  .postHeader {
+    padding: 16px;
+  }
+
+  .postAvatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .postBusinessName {
+    font-size: 1rem;
+  }
+
+  .postMetadata {
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  .postContent {
+    padding: 16px;
+  }
+
+  .postContent p {
+    font-size: 0.9rem;
+  }
+
+  .postActions {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .postActionsLeft {
+    gap: 12px;
+  }
+
+  .postActionBtn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .postLikesCount {
+    font-size: 0.8rem;
+  }
+
+  .loadMoreBtn {
+    width: 100%;
+    padding: 12px;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .carousel {
+    height: 320px;
+  }
+
+  .slideTitle {
+    font-size: 1.25rem;
+  }
+
+  .slideContent {
+    max-width: 100%;
+  }
+
+  .businessCard {
+    min-width: 240px;
+  }
+
+  .sectionTitle {
+    font-size: 1.5rem;
+  }
+
+  .categoryImageContainer {
+    height: 140px;
+  }
+
+  .categoryContent {
+    padding: 16px;
+  }
+
+  .categoryTitle {
+    font-size: 1rem;
+  }
+}
