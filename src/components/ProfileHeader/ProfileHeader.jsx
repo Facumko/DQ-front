@@ -274,7 +274,7 @@ const ProfileHeader = ({ isOwner = false }) => {
     }
   };
 
-  // ✅ TEMPORAL: Filtrado local hasta que backend tenga el endpoint
+  // ✅ Cargar publicaciones del comercio
   const loadPosts = async (commerceId) => {
     const idToUse = commerceId || businessId;
     
@@ -287,14 +287,6 @@ const ProfileHeader = ({ isOwner = false }) => {
 
     try {
       console.log("📥 Cargando publicaciones del comercio:", idToUse);
-      
-      // ⚠️ OPCIÓN TEMPORAL: Si no tienes getPostsByCommerce
-      // Asumiendo que tienes un getAllPosts() o getPosts()
-      // const allPosts = await getAllPosts(); // Usa tu función existente
-      // const commercePosts = allPosts.filter(post => post.idCommerce === idToUse);
-      
-      // ✅ OPCIÓN IDEAL: Cuando backend tenga el endpoint
-      // Descomenta esto y comenta lo de arriba:
       const commercePosts = await getPostsByCommerce(idToUse);
       
       const normalized = Array.isArray(commercePosts) 
@@ -305,7 +297,6 @@ const ProfileHeader = ({ isOwner = false }) => {
       console.log("✅ Publicaciones cargadas:", normalized.length);
     } catch (err) {
       console.error("❌ Error al cargar publicaciones:", err);
-      // Si falla, dejar array vacío
       setPosts([]);
     } finally {
       setLoadingStates(prev => ({ ...prev, posts: false }));
@@ -525,16 +516,24 @@ const ProfileHeader = ({ isOwner = false }) => {
       return;
     }
 
+    // ✅ VALIDACIÓN CRÍTICA: Verificar que haya imágenes en modo creación
+    if (!editingPost && (!data.imageFiles || data.imageFiles.length === 0)) {
+      showErrorMessage("Debes subir al menos una imagen");
+      return;
+    }
+
     setLoadingStates(prev => ({ ...prev, creatingPost: true }));
     setError("");
 
     try {
       if (editingPost) {
+        // ✅ Modo edición: solo actualizar texto
         setPosts(prev =>
           prev.map(p => p.id === editingPost.id ? { ...p, text: data.text } : p)
         );
         showSuccessMessage("✅ Publicación editada");
       } else {
+        // ✅ Modo creación: enviar al backend
         console.log("📤 Enviando al backend:", {
           description: data.text,
           idCommerce: businessId,
