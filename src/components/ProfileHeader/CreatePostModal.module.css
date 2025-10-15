@@ -234,3 +234,13 @@
   align-items: center;
   justify-content: center;
 }
+
+
+.thumb.active {
+  border-color: #3498db;
+}
+
+.thumb.newImage {
+  border-color: #2ecc71;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.3);
+}

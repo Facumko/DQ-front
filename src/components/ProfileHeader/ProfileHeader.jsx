@@ -50,7 +50,7 @@ const normalizeBusinessData = (data) => {
   };
 };
 
-// ✅ MEJORADO: Normalización compatible con backend actual y futuro
+// ✅ MEJORADO: Normalización con IDs de imágenes para edición
 const normalizePostFromBackend = (post) => {
   // Si el backend ya devuelve el formato correcto (futuro)
   if (post.text && post.images && Array.isArray(post.images) && typeof post.images[0] === 'string') {
@@ -58,6 +58,7 @@ const normalizePostFromBackend = (post) => {
       id: post.id,
       text: post.text,
       images: post.images,
+      imageDetails: [], // No hay detalles en formato simple
       type: "post",
       businessName: post.businessName,
       createdAt: post.createdAt,
@@ -65,20 +66,27 @@ const normalizePostFromBackend = (post) => {
   }
   
   // Formato actual del backend (con objetos de imagen)
+  const sortedImages = post.images
+    ? post.images.sort((a, b) => a.imageOrder - b.imageOrder)
+    : [];
+  
   return {
     id: post.idPost,
     text: post.description,
-    images: post.images
-      ? post.images
-          .sort((a, b) => a.imageOrder - b.imageOrder)
-          .map(img => img.url)
-      : [],
+    images: sortedImages.map(img => img.url), // Solo URLs para el componente de galería
+    imageDetails: sortedImages.map(img => ({ // Detalles completos para edición
+      id: img.idImage,
+      url: img.url,
+      order: img.imageOrder,
+      publicId: img.publicId,
+      originalFileName: img.originalFileName
+    })),
     type: "post",
     businessName: post.nameCommerce,
     createdAt: post.postedAt,
   };
 };
-
+  
 const getCurrentStatus = (sch) => {
   const now = new Date();
   const day = now.toLocaleDateString("es-ES", { weekday: "short" });

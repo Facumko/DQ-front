@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from "react";
 import styles from "./CreatePostModal.module.css";
-import { X, Calendar, Image, MapPin, Clock, User, Trash2 } from "lucide-react";
+import { X, Calendar, Image, MapPin, Clock, User, Trash2, AlertCircle } from "lucide-react";
 
 const MAX_IMAGES = 10;
 
 const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null }) => {
   const [text, setText] = useState("");
-  const [previewUrls, setPreviewUrls] = useState([]); // ✅ URLs para preview
-  const [imageFiles, setImageFiles] = useState([]); // ✅ Archivos reales para enviar
+  const [previewUrls, setPreviewUrls] = useState([]); // URLs para preview
+  const [imageFiles, setImageFiles] = useState([]); // Archivos nuevos
+  const [existingImages, setExistingImages] = useState([]); // Imágenes del servidor {id, url}
+  const [imagesToDelete, setImagesToDelete] = useState([]); // IDs a eliminar
   const [activeIndex, setActiveIndex] = useState(0);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [taggedBusiness, setTaggedBusiness] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // ✅ Resetear estado al abrir/cerrar
   useEffect(() => {
@@ -27,34 +30,59 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       setText("");
       setPreviewUrls([]);
       setImageFiles([]);
+      setExistingImages([]);
+      setImagesToDelete([]);
       setDate("");
       setTime("");
       setLocation("");
       setTaggedBusiness("");
       setActiveIndex(0);
+      setHasUnsavedChanges(false);
     }
   }, [isOpen]);
 
-  // ✅ Cargar datos de edición (sin archivos porque ya están en Cloudinary)
+  // ✅ Cargar datos de edición
   useEffect(() => {
     if (isOpen && initialData) {
       setText(initialData.text || "");
-      setPreviewUrls(initialData.images || []); // URLs de Cloudinary
-      setImageFiles([]); // En edición no tenemos archivos locales
       setDate(initialData.date || "");
       setTime(initialData.time || "");
       setLocation(initialData.location || "");
       setTaggedBusiness(initialData.taggedBusiness || "");
+      
+      // Cargar imágenes existentes con sus IDs
+      if (initialData.imageDetails && initialData.imageDetails.length > 0) {
+        setExistingImages(initialData.imageDetails);
+        setPreviewUrls(initialData.imageDetails.map(img => img.url));
+      } else {
+        setExistingImages([]);
+        setPreviewUrls([]);
+      }
+      
+      setImageFiles([]);
+      setImagesToDelete([]);
       setActiveIndex(0);
+      setHasUnsavedChanges(false);
     }
   }, [isOpen, initialData]);
 
+  // ✅ Detectar cambios sin guardar
+  useEffect(() => {
+    if (isOpen) {
+      const hasChanges = imageFiles.length > 0 || imagesToDelete.length > 0;
+      setHasUnsavedChanges(hasChanges);
+    }
+  }, [imageFiles, imagesToDelete, isOpen]);
+
+  // ✅ Calcular total de imágenes
+  const totalImages = existingImages.length - imagesToDelete.length + imageFiles.length;
+  const availableSlots = MAX_IMAGES - totalImages;
+
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    const available = MAX_IMAGES - previewUrls.length;
     
-    if (files.length > available) {
-      alert(`Solo puedes agregar ${available} imágenes más (máximo ${MAX_IMAGES}).`);
+    if (files.length > availableSlots) {
+      alert(`Solo puedes agregar ${availableSlots} imágenes más (máximo ${MAX_IMAGES} total, actualmente tienes ${totalImages}).`);
       return;
     }
     
@@ -62,38 +90,63 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     const newUrls = files.map(file => URL.createObjectURL(file));
     
     setPreviewUrls(prev => [...prev, ...newUrls]);
-    setImageFiles(prev => [...prev, ...files]); // ✅ Guardar archivos reales
+    setImageFiles(prev => [...prev, ...files]);
     setActiveIndex(previewUrls.length);
   };
 
   const handleRemoveImage = (index) => {
-    // Liberar memoria si es blob temporal
-    if (previewUrls[index]?.startsWith?.('blob:')) {
-      URL.revokeObjectURL(previewUrls[index]);
-    }
+    const isExistingImage = index < existingImages.length - imagesToDelete.length;
     
-    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-    setImageFiles(prev => prev.filter((_, i) => i !== index));
-    
-    if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
-      setActiveIndex(previewUrls.length - 2);
+    if (isExistingImage) {
+      // Es una imagen existente del servidor
+      const actualExistingIndex = index;
+      const imageToDelete = existingImages[actualExistingIndex];
+      
+      if (window.confirm(`¿Eliminar esta imagen? Esta acción se aplicará al guardar.`)) {
+        setImagesToDelete(prev => [...prev, imageToDelete.id]);
+        
+        // Remover del preview
+        setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+        
+        // Ajustar índice activo
+        if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
+          setActiveIndex(previewUrls.length - 2);
+        }
+      }
+    } else {
+      // Es una imagen nueva (archivo local)
+      const fileIndex = index - (existingImages.length - imagesToDelete.length);
+      
+      // Liberar memoria del blob
+      if (previewUrls[index]?.startsWith?.('blob:')) {
+        URL.revokeObjectURL(previewUrls[index]);
+      }
+      
+      setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+      setImageFiles(prev => prev.filter((_, i) => i !== fileIndex));
+      
+      if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
+        setActiveIndex(previewUrls.length - 2);
+      }
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (previewUrls.length === 0) {
-      alert("Debes subir al menos una imagen.");
+    // Validación: al menos una imagen
+    if (totalImages === 0) {
+      alert("Debes tener al menos una imagen.");
       return;
     }
     
-    // ✅ CORREGIDO: Enviar archivos reales al padre
+    // ✅ Payload mejorado para edición
     const payload = {
       text,
       type,
-      imageFiles: initialData ? [] : imageFiles, // Solo archivos en modo creación
-      existingImages: initialData ? previewUrls : [], // URLs de Cloudinary en edición
+      imagesToAdd: initialData ? imageFiles : imageFiles, // Archivos nuevos a agregar
+      imageIdsToDelete: initialData ? imagesToDelete : [], // IDs a eliminar
+      existingImages: initialData ? existingImages.filter(img => !imagesToDelete.includes(img.id)) : [],
       ...(type === "event" && { date, time, location, taggedBusiness }),
     };
     
@@ -101,18 +154,36 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     onClose();
   };
 
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      if (window.confirm("Tienes cambios sin guardar en las imágenes. ¿Deseas salir sin guardar?")) {
+        onClose();
+      }
+    } else {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className={styles.overlay}>
       <div className={styles.modal}>
-        <button className={styles.closeButton} onClick={onClose}>
+        <button className={styles.closeButton} onClick={handleClose}>
           <X size={20} />
         </button>
 
         <h2>{initialData ? "Editar" : type === "event" ? "Crear Evento" : "Crear Publicación"}</h2>
 
-        <form onSubmit={handleSubmit} className={styles.form}>
+        {/* Advertencia de cambios sin guardar */}
+        {hasUnsavedChanges && (
+          <div className={styles.warningBanner}>
+            <AlertCircle size={16} />
+            Tienes cambios sin guardar en las imágenes
+          </div>
+        )}
+
+        <div onSubmit={handleSubmit} className={styles.form}>
           <textarea
             placeholder="Escribe algo..."
             value={text}
@@ -122,7 +193,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
           />
           <div className={styles.charCount}>{text.length}/1000</div>
 
-          {/* ✅ VISTA PREVIA PRINCIPAL - Una sola galería */}
+          {/* ✅ VISTA PREVIA PRINCIPAL */}
           {previewUrls.length > 0 && (
             <div className={styles.mainViewer}>
               <img 
@@ -156,44 +227,66 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
             </div>
           )}
 
-          {/* ✅ MINIATURAS - Solo para navegación */}
+          {/* ✅ MINIATURAS con indicador visual */}
           {previewUrls.length > 1 && (
             <div className={styles.thumbs}>
-              {previewUrls.map((url, i) => (
-                <div 
-                  key={i} 
-                  className={`${styles.thumb} ${i === activeIndex ? styles.active : ""}`}
-                  onClick={() => setActiveIndex(i)}
-                >
-                  <img src={url} alt={`Miniatura ${i + 1}`} />
-                  <button 
-                    type="button" 
-                    className={styles.removeThumb} 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveImage(i);
-                    }}
+              {previewUrls.map((url, i) => {
+                const isExisting = i < existingImages.length - imagesToDelete.length;
+                const isNew = !isExisting;
+                
+                return (
+                  <div 
+                    key={i} 
+                    className={`${styles.thumb} ${i === activeIndex ? styles.active : ""} ${isNew ? styles.newImage : ""}`}
+                    onClick={() => setActiveIndex(i)}
+                    title={isNew ? "Imagen nueva" : "Imagen existente"}
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
+                    <img src={url} alt={`Miniatura ${i + 1}`} />
+                    <button 
+                      type="button" 
+                      className={styles.removeThumb} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveImage(i);
+                      }}
+                      title="Eliminar imagen"
+                    >
+                      −
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
+          {/* Contador de imágenes */}
+          <div className={styles.imageCounter}>
+            <span>Total: {totalImages} / {MAX_IMAGES} imágenes</span>
+            {imagesToDelete.length > 0 && (
+              <span className={styles.deleteCount}>
+                {imagesToDelete.length} a eliminar
+              </span>
+            )}
+            {imageFiles.length > 0 && (
+              <span className={styles.newCount}>
+                {imageFiles.length} nueva{imageFiles.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
           {/* Botón agregar más */}
-          <label className={styles.fileLabel}>
+          <label className={`${styles.fileLabel} ${availableSlots === 0 ? styles.disabled : ""}`}>
             <Image size={18} />
             {previewUrls.length === 0 
               ? "Subir imagen" 
-              : `Agregar más (${MAX_IMAGES - previewUrls.length} disponibles)`}
+              : `Agregar más (${availableSlots} disponibles)`}
             <input 
               type="file" 
               accept="image/*" 
               multiple 
               onChange={handleImageChange} 
               className={styles.fileInput} 
-              disabled={previewUrls.length >= MAX_IMAGES} 
+              disabled={availableSlots === 0} 
             />
           </label>
 
@@ -232,10 +325,10 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
             </>
           )}
 
-          <button type="submit" className={styles.submitButton}>
+          <button onClick={handleSubmit} className={styles.submitButton}>
             {initialData ? "Guardar cambios" : "Publicar"}
           </button>
-        </form>
+        </div>
       </div>
     </div>
   );
