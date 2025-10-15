@@ -1,107 +1,105 @@
 import React, { useState, useEffect } from "react";
 import styles from "./CreatePostModal.module.css";
-import { X, Calendar, Image, MapPin, Clock, User, Trash2, ChevronLeft, ChevronRight } from "lucide-react"; // ✅ Añadidos ChevronLeft y ChevronRight
+import { X, Calendar, Image, MapPin, Clock, User, Trash2 } from "lucide-react";
 
 const MAX_IMAGES = 10;
 
 const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null }) => {
   const [text, setText] = useState("");
-  const [images, setImages] = useState([]);
-  const [imageFiles, setImageFiles] = useState([]); // ✅ NUEVO: Guardar archivos reales
+  const [previewUrls, setPreviewUrls] = useState([]); // ✅ URLs para preview
+  const [imageFiles, setImageFiles] = useState([]); // ✅ Archivos reales para enviar
   const [activeIndex, setActiveIndex] = useState(0);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [taggedBusiness, setTaggedBusiness] = useState("");
 
+  // ✅ Resetear estado al abrir/cerrar
   useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        setText(initialData.text || "");
-        setImages(initialData.images || []);
-        setImageFiles([]); // ✅ Para edición, no tenemos los archivos originales
-        setDate(initialData.date || "");
-        setTime(initialData.time || "");
-        setLocation(initialData.location || "");
-        setTaggedBusiness(initialData.taggedBusiness || "");
-        setActiveIndex(0);
-      } else {
-        setText("");
-        setImages([]);
-        setImageFiles([]);
-        setDate("");
-        setTime("");
-        setLocation("");
-        setTaggedBusiness("");
-        setActiveIndex(0);
-      }
+    if (!isOpen) {
+      // Limpiar URLs temporales al cerrar
+      previewUrls.forEach(url => {
+        if (url?.startsWith?.('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+      
+      setText("");
+      setPreviewUrls([]);
+      setImageFiles([]);
+      setDate("");
+      setTime("");
+      setLocation("");
+      setTaggedBusiness("");
+      setActiveIndex(0);
+    }
+  }, [isOpen]);
+
+  // ✅ Cargar datos de edición (sin archivos porque ya están en Cloudinary)
+  useEffect(() => {
+    if (isOpen && initialData) {
+      setText(initialData.text || "");
+      setPreviewUrls(initialData.images || []); // URLs de Cloudinary
+      setImageFiles([]); // En edición no tenemos archivos locales
+      setDate(initialData.date || "");
+      setTime(initialData.time || "");
+      setLocation(initialData.location || "");
+      setTaggedBusiness(initialData.taggedBusiness || "");
+      setActiveIndex(0);
     }
   }, [isOpen, initialData]);
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    const available = MAX_IMAGES - images.length;
+    const available = MAX_IMAGES - previewUrls.length;
     
     if (files.length > available) {
       alert(`Solo puedes agregar ${available} imágenes más (máximo ${MAX_IMAGES}).`);
       return;
     }
     
-    // ✅ CORREGIDO: Crear URLs temporales solo para preview
-    const newUrls = files.map((file) => URL.createObjectURL(file));
-    setImages((prev) => [...prev, ...newUrls]);
-    setImageFiles((prev) => [...prev, ...files]); // ✅ Guardar archivos reales
-    setActiveIndex(images.length);
+    // Crear URLs temporales para preview
+    const newUrls = files.map(file => URL.createObjectURL(file));
+    
+    setPreviewUrls(prev => [...prev, ...newUrls]);
+    setImageFiles(prev => [...prev, ...files]); // ✅ Guardar archivos reales
+    setActiveIndex(previewUrls.length);
   };
 
   const handleRemoveImage = (index) => {
-    // ✅ CORREGIDO: Liberar memoria de la URL temporal
-    if (images[index] && images[index].startsWith('blob:')) {
-      URL.revokeObjectURL(images[index]);
+    // Liberar memoria si es blob temporal
+    if (previewUrls[index]?.startsWith?.('blob:')) {
+      URL.revokeObjectURL(previewUrls[index]);
     }
     
-    const newImages = images.filter((_, i) => i !== index);
-    const newFiles = imageFiles.filter((_, i) => i !== index);
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
     
-    setImages(newImages);
-    setImageFiles(newFiles);
-    
-    if (activeIndex >= newImages.length && newImages.length > 0) {
-      setActiveIndex(newImages.length - 1);
-    } else if (newImages.length === 0) {
-      setActiveIndex(0);
+    if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
+      setActiveIndex(previewUrls.length - 2);
     }
   };
 
-  const nextImage = () => setActiveIndex((prev) => (prev + 1) % images.length);
-  const prevImage = () => setActiveIndex((prev) => (prev - 1 + images.length) % images.length);
-
-const handleSubmit = (e) => {
-  e.preventDefault();
-  if (images.length === 0) return alert("Debes subir al menos una imagen.");
-  
-  // ✅ CORREGIDO: Siempre enviar las URLs para mostrar, no los archivos
-  const payload = {
-    text,
-    images: images, // Enviar las URLs que ya tenemos para display
-    type,
-    ...(type === "event" && { date, time, location, taggedBusiness }),
-  };
-  
-  onSubmit(payload);
-  onClose();
-};
-
-  // ✅ CORREGIDO: Limpiar URLs temporales cuando se cierra el modal
-  useEffect(() => {
-    return () => {
-      images.forEach(img => {
-        if (img && img.startsWith('blob:')) {
-          URL.revokeObjectURL(img);
-        }
-      });
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    if (previewUrls.length === 0) {
+      alert("Debes subir al menos una imagen.");
+      return;
+    }
+    
+    // ✅ CORREGIDO: Enviar archivos reales al padre
+    const payload = {
+      text,
+      type,
+      imageFiles: initialData ? [] : imageFiles, // Solo archivos en modo creación
+      existingImages: initialData ? previewUrls : [], // URLs de Cloudinary en edición
+      ...(type === "event" && { date, time, location, taggedBusiness }),
     };
-  }, []);
+    
+    onSubmit(payload);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -124,13 +122,58 @@ const handleSubmit = (e) => {
           />
           <div className={styles.charCount}>{text.length}/1000</div>
 
-          {/* Miniaturas */}
-          {images.length > 0 && (
+          {/* ✅ VISTA PREVIA PRINCIPAL - Una sola galería */}
+          {previewUrls.length > 0 && (
+            <div className={styles.mainViewer}>
+              <img 
+                src={previewUrls[activeIndex]} 
+                alt={`Vista previa ${activeIndex + 1}`} 
+                className={styles.mainImg} 
+              />
+              
+              {previewUrls.length > 1 && (
+                <>
+                  <button 
+                    type="button"
+                    className={styles.navBtn}
+                    onClick={() => setActiveIndex((activeIndex - 1 + previewUrls.length) % previewUrls.length)}
+                  >
+                    ‹
+                  </button>
+                  <button 
+                    type="button"
+                    className={styles.navBtn}
+                    style={{ right: '12px', left: 'auto' }}
+                    onClick={() => setActiveIndex((activeIndex + 1) % previewUrls.length)}
+                  >
+                    ›
+                  </button>
+                  <div className={styles.counter}>
+                    {activeIndex + 1} / {previewUrls.length}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ✅ MINIATURAS - Solo para navegación */}
+          {previewUrls.length > 1 && (
             <div className={styles.thumbs}>
-              {images.map((img, i) => (
-                <div key={i} className={`${styles.thumb} ${i === activeIndex ? styles.active : ""}`}>
-                  <img src={img} alt={`thumb-${i}`} onClick={() => setActiveIndex(i)} />
-                  <button type="button" className={styles.removeThumb} onClick={() => handleRemoveImage(i)}>
+              {previewUrls.map((url, i) => (
+                <div 
+                  key={i} 
+                  className={`${styles.thumb} ${i === activeIndex ? styles.active : ""}`}
+                  onClick={() => setActiveIndex(i)}
+                >
+                  <img src={url} alt={`Miniatura ${i + 1}`} />
+                  <button 
+                    type="button" 
+                    className={styles.removeThumb} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveImage(i);
+                    }}
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -138,17 +181,19 @@ const handleSubmit = (e) => {
             </div>
           )}
 
-          {/* Agregar más */}
+          {/* Botón agregar más */}
           <label className={styles.fileLabel}>
             <Image size={18} />
-            {images.length === 0 ? "Subir imagen" : `Agregar más (${MAX_IMAGES - images.length} disponibles)`}
+            {previewUrls.length === 0 
+              ? "Subir imagen" 
+              : `Agregar más (${MAX_IMAGES - previewUrls.length} disponibles)`}
             <input 
               type="file" 
               accept="image/*" 
               multiple 
               onChange={handleImageChange} 
               className={styles.fileInput} 
-              disabled={images.length >= MAX_IMAGES} 
+              disabled={previewUrls.length >= MAX_IMAGES} 
             />
           </label>
 
@@ -167,11 +212,22 @@ const handleSubmit = (e) => {
               </div>
               <label>
                 <MapPin size={16} />
-                <input type="text" placeholder="Lugar del evento" value={location} onChange={(e) => setLocation(e.target.value)} required />
+                <input 
+                  type="text" 
+                  placeholder="Lugar del evento" 
+                  value={location} 
+                  onChange={(e) => setLocation(e.target.value)} 
+                  required 
+                />
               </label>
               <label>
                 <User size={16} />
-                <input type="text" placeholder="Etiquetar otro comercio (opcional)" value={taggedBusiness} onChange={(e) => setTaggedBusiness(e.target.value)} />
+                <input 
+                  type="text" 
+                  placeholder="Etiquetar otro comercio (opcional)" 
+                  value={taggedBusiness} 
+                  onChange={(e) => setTaggedBusiness(e.target.value)} 
+                />
               </label>
             </>
           )}

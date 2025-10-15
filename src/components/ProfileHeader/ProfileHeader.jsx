@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo, useContext } from "react";
+import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import { UserContext } from "../../pages/UserContext";
 import { 
   getBusinessByUserId, 
   updateBusiness, 
   createBusiness,
   uploadProfileImage,
-  uploadCoverImage 
+  uploadCoverImage,
+  createPost,
+  getPostsByCommerce, // ✅ Ahora está disponible
+  deletePost
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import {
@@ -35,7 +38,6 @@ const timeAgo = (date) => {
   return `hace ${days} d`;
 };
 
-// Normalizar datos del backend
 const normalizeBusinessData = (data) => {
   return {
     name: data?.name || "",
@@ -45,6 +47,35 @@ const normalizeBusinessData = (data) => {
     description: data?.description || "",
     profileImage: data?.profileImage || null,
     coverImage: data?.coverImage || null,
+  };
+};
+
+// ✅ MEJORADO: Normalización compatible con backend actual y futuro
+const normalizePostFromBackend = (post) => {
+  // Si el backend ya devuelve el formato correcto (futuro)
+  if (post.text && post.images && Array.isArray(post.images) && typeof post.images[0] === 'string') {
+    return {
+      id: post.id,
+      text: post.text,
+      images: post.images,
+      type: "post",
+      businessName: post.businessName,
+      createdAt: post.createdAt,
+    };
+  }
+  
+  // Formato actual del backend (con objetos de imagen)
+  return {
+    id: post.idPost,
+    text: post.description,
+    images: post.images
+      ? post.images
+          .sort((a, b) => a.imageOrder - b.imageOrder)
+          .map(img => img.url)
+      : [],
+    type: "post",
+    businessName: post.nameCommerce,
+    createdAt: post.postedAt,
   };
 };
 
@@ -80,6 +111,32 @@ const getCurrentStatus = (sch) => {
   return { isOpen, label, color: isOpen ? "statusOpen" : "statusNeutral" };
 };
 
+// ✅ MEJORA 3: Hook personalizado para validaciones
+const useFormValidation = () => {
+  const [errors, setErrors] = useState({});
+
+  const validate = useCallback((field, value, rules) => {
+    let error = "";
+
+    if (rules.required && !value?.trim()) {
+      error = `${field} es obligatorio`;
+    } else if (rules.maxLength && value?.length > rules.maxLength) {
+      error = `Máximo ${rules.maxLength} caracteres`;
+    } else if (rules.email && value && !isValidEmail(value)) {
+      error = "Correo inválido";
+    } else if (rules.phone && value && !isValidPhone(value)) {
+      error = "Número debe tener 10 dígitos";
+    }
+
+    setErrors(prev => ({ ...prev, [field]: error }));
+    return !error;
+  }, []);
+
+  const clearErrors = useCallback(() => setErrors({}), []);
+
+  return { errors, validate, clearErrors };
+};
+
 // ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
@@ -87,22 +144,27 @@ const getCurrentStatus = (sch) => {
 const ProfileHeader = ({ isOwner = false }) => {
   const { user } = useContext(UserContext);
   
-  // Estados de carga y error (del Header 2)
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  // ✅ MEJORA 5: Estados de carga granulares
+  const [loadingStates, setLoadingStates] = useState({
+    business: true,
+    posts: false,
+    profileImage: false,
+    coverImage: false,
+    savingBusiness: false,
+    creatingPost: false,
+    deletingPost: false,
+  });
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   
-  // Estados de UI (combinados)
   const [isEditing, setIsEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("post");
   const [posts, setPosts] = useState([]);
   const [showFullSchedule, setShowFullSchedule] = useState(false);
-  const [activeTab, setActiveTab] = useState("posts"); // Del Header 1
+  const [activeTab, setActiveTab] = useState("posts");
 
-  // Datos del negocio (del Header 2)
   const [businessId, setBusinessId] = useState(null);
   const [businessData, setBusinessData] = useState({
     name: "",
@@ -114,7 +176,6 @@ const ProfileHeader = ({ isOwner = false }) => {
     coverImage: null,
   });
 
-  // Horarios (del Header 1 - estructura visual)
   const [schedule, setSchedule] = useState({
     Lun: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
     Mar: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
@@ -130,19 +191,33 @@ const ProfileHeader = ({ isOwner = false }) => {
   const [editingPost, setEditingPost] = useState(null);
   const [status, setStatus] = useState("");
 
-  // Archivos temporales para subir (del Header 2)
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [coverImageFile, setCoverImageFile] = useState(null);
 
+  // ✅ MEJORA 3: Hook de validación
+  const { errors, validate, clearErrors } = useFormValidation();
+
+  // ✅ MEJORA 2: Limpiar URLs de objeto al desmontar
+  useEffect(() => {
+    return () => {
+      if (draft.profileImage?.startsWith('blob:')) {
+        URL.revokeObjectURL(draft.profileImage);
+      }
+      if (draft.coverImage?.startsWith('blob:')) {
+        URL.revokeObjectURL(draft.coverImage);
+      }
+    };
+  }, [draft.profileImage, draft.coverImage]);
+
   // ============================================
-  // CARGAR DATOS (del Header 2)
+  // CARGAR DATOS
   // ============================================
   
   useEffect(() => {
     if (user?.id_user) {
       loadBusinessData();
     } else {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, business: false }));
     }
   }, [user?.id_user]);
 
@@ -151,14 +226,15 @@ const ProfileHeader = ({ isOwner = false }) => {
     setStatus(info.label);
   }, [schedule]);
 
+  // ✅ CORREGIDO: Estructura del if/else y pasar ID explícitamente
   const loadBusinessData = async () => {
     if (!user?.id_user) {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, business: false }));
       setError("No hay usuario autenticado");
       return;
     }
 
-    setLoading(true);
+    setLoadingStates(prev => ({ ...prev, business: true }));
     setError("");
 
     try {
@@ -172,6 +248,9 @@ const ProfileHeader = ({ isOwner = false }) => {
         const loadedData = normalizeBusinessData(business);
         setBusinessData(loadedData);
         setDraft(loadedData);
+
+        // ✅ CORREGIDO: Pasar ID explícitamente
+        await loadPosts(business.id_business);
       } else {
         console.log("⚠️ El usuario no tiene negocio creado");
         const defaultData = {
@@ -185,17 +264,56 @@ const ProfileHeader = ({ isOwner = false }) => {
         };
         setBusinessData(defaultData);
         setDraft(defaultData);
+        setPosts([]);
       }
     } catch (err) {
       console.error("❌ Error al cargar negocio:", err);
       setError(err.message || "Error al cargar los datos del negocio");
     } finally {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, business: false }));
+    }
+  };
+
+  // ✅ TEMPORAL: Filtrado local hasta que backend tenga el endpoint
+  const loadPosts = async (commerceId) => {
+    const idToUse = commerceId || businessId;
+    
+    if (!idToUse) {
+      console.log("⚠️ No hay businessId, no se cargan publicaciones");
+      return;
+    }
+
+    setLoadingStates(prev => ({ ...prev, posts: true }));
+
+    try {
+      console.log("📥 Cargando publicaciones del comercio:", idToUse);
+      
+      // ⚠️ OPCIÓN TEMPORAL: Si no tienes getPostsByCommerce
+      // Asumiendo que tienes un getAllPosts() o getPosts()
+      // const allPosts = await getAllPosts(); // Usa tu función existente
+      // const commercePosts = allPosts.filter(post => post.idCommerce === idToUse);
+      
+      // ✅ OPCIÓN IDEAL: Cuando backend tenga el endpoint
+      // Descomenta esto y comenta lo de arriba:
+      const commercePosts = await getPostsByCommerce(idToUse);
+      
+      const normalized = Array.isArray(commercePosts) 
+        ? commercePosts.map(normalizePostFromBackend)
+        : [];
+      
+      setPosts(normalized);
+      console.log("✅ Publicaciones cargadas:", normalized.length);
+    } catch (err) {
+      console.error("❌ Error al cargar publicaciones:", err);
+      // Si falla, dejar array vacío
+      setPosts([]);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, posts: false }));
     }
   };
 
   // ============================================
-  // SUBIR IMÁGENES (del Header 2)
+  // SUBIR IMÁGENES
   // ============================================
 
   const handleProfileImageUpload = async (file) => {
@@ -204,7 +322,7 @@ const ProfileHeader = ({ isOwner = false }) => {
       return;
     }
 
-    setUploadingImage(true);
+    setLoadingStates(prev => ({ ...prev, profileImage: true }));
     setError("");
 
     try {
@@ -217,13 +335,13 @@ const ProfileHeader = ({ isOwner = false }) => {
         profileImage: result.profileImage
       }));
 
-      setSuccess("✅ Imagen de perfil actualizada");
-      setTimeout(() => setSuccess(""), 3000);
+      // ✅ MEJORA 6: Toast notification
+      showSuccessMessage("✅ Imagen de perfil actualizada");
     } catch (err) {
       console.error("❌ Error al subir imagen:", err);
-      setError(err.message || "Error al subir imagen de perfil");
+      showErrorMessage(err.message || "Error al subir imagen de perfil");
     } finally {
-      setUploadingImage(false);
+      setLoadingStates(prev => ({ ...prev, profileImage: false }));
     }
   };
 
@@ -233,7 +351,7 @@ const ProfileHeader = ({ isOwner = false }) => {
       return;
     }
 
-    setUploadingImage(true);
+    setLoadingStates(prev => ({ ...prev, coverImage: true }));
     setError("");
 
     try {
@@ -246,18 +364,28 @@ const ProfileHeader = ({ isOwner = false }) => {
         coverImage: result.coverImage
       }));
 
-      setSuccess("✅ Imagen de portada actualizada");
-      setTimeout(() => setSuccess(""), 3000);
+      showSuccessMessage("✅ Imagen de portada actualizada");
     } catch (err) {
       console.error("❌ Error al subir portada:", err);
-      setError(err.message || "Error al subir imagen de portada");
+      showErrorMessage(err.message || "Error al subir imagen de portada");
     } finally {
-      setUploadingImage(false);
+      setLoadingStates(prev => ({ ...prev, coverImage: false }));
     }
   };
 
+  // ✅ MEJORA 6: Funciones helper para mensajes
+  const showSuccessMessage = (msg) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(""), 3000);
+  };
+
+  const showErrorMessage = (msg) => {
+    setError(msg);
+    setTimeout(() => setError(""), 5000);
+  };
+
   // ============================================
-  // EDICIÓN Y GUARDADO (combinado)
+  // EDICIÓN Y GUARDADO
   // ============================================
 
   const handleEdit = () => {
@@ -268,45 +396,42 @@ const ProfileHeader = ({ isOwner = false }) => {
     setSuccess("");
     setProfileImageFile(null);
     setCoverImageFile(null);
+    clearErrors();
   };
 
+  // ✅ CORREGIDO: Estructura if/else y validaciones mejoradas
   const handleSave = async () => {
     const trimmedName = (draft.name || "").trim();
     const trimmedDescription = (draft.description || "").trim();
     const trimmedEmail = (draft.email || "").trim();
     const trimmedPhone = (draft.phone || "").trim();
     
-    if (!trimmedName) {
-      setError("El nombre del negocio es obligatorio");
-      return;
+    // ✅ MEJORA 3: Validaciones con hook
+    let isValid = true;
+    
+    if (!validate("name", trimmedName, { required: true, maxLength: 100 })) {
+      isValid = false;
     }
     
-    if (trimmedName.length > 100) {
-      setError("El nombre no puede superar los 100 caracteres");
-      return;
+    if (!validate("description", trimmedDescription, { required: true, maxLength: 500 })) {
+      isValid = false;
     }
     
-    if (!trimmedDescription) {
-      setError("La descripción del negocio es obligatoria");
-      return;
+    if (trimmedEmail && !validate("email", trimmedEmail, { email: true })) {
+      isValid = false;
     }
     
-    if (trimmedDescription.length > 500) {
-      setError("La descripción no puede superar los 500 caracteres");
+    if (trimmedPhone && !validate("phone", trimmedPhone, { phone: true })) {
+      isValid = false;
+    }
+
+    if (!isValid) {
+      const firstError = Object.values(errors).find(e => e);
+      setError(firstError || "Por favor corrige los errores");
       return;
     }
 
-    if (trimmedPhone && !isValidPhone(trimmedPhone)) {
-      setError("El número debe tener 10 dígitos");
-      return;
-    }
-
-    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
-      setError("Correo inválido");
-      return;
-    }
-
-    setSaving(true);
+    setLoadingStates(prev => ({ ...prev, savingBusiness: true }));
     setError("");
     setSuccess("");
 
@@ -321,9 +446,11 @@ const ProfileHeader = ({ isOwner = false }) => {
 
       let savedBusinessId = businessId;
 
+      // ✅ CORREGIDO: Lógica if/else bien estructurada
       if (businessId) {
         console.log("📤 Actualizando negocio:", businessId, dataToSend);
         await updateBusiness(businessId, dataToSend);
+        savedBusinessId = businessId;
       } else {
         console.log("📤 Creando nuevo negocio:", dataToSend);
         const result = await createBusiness({
@@ -335,7 +462,6 @@ const ProfileHeader = ({ isOwner = false }) => {
         setBusinessId(savedBusinessId);
       }
 
-      // Subir imágenes si hay archivos seleccionados
       if (profileImageFile) {
         await handleProfileImageUpload(profileImageFile);
       }
@@ -344,20 +470,16 @@ const ProfileHeader = ({ isOwner = false }) => {
         await handleCoverImageUpload(coverImageFile);
       }
 
-      // Recargar datos
       await loadBusinessData();
-      
-      // Guardar horarios en estado (backend después)
       setSchedule(draftSchedule);
       
       setIsEditing(false);
-      setSuccess("✅ Datos guardados correctamente");
-      setTimeout(() => setSuccess(""), 4000);
+      showSuccessMessage("✅ Datos guardados correctamente");
     } catch (err) {
       console.error("❌ Error al guardar:", err);
-      setError(err.message || "Error al guardar los datos");
+      showErrorMessage(err.message || "Error al guardar los datos");
     } finally {
-      setSaving(false);
+      setLoadingStates(prev => ({ ...prev, savingBusiness: false }));
     }
   };
 
@@ -369,25 +491,101 @@ const ProfileHeader = ({ isOwner = false }) => {
     setSuccess("");
     setProfileImageFile(null);
     setCoverImageFile(null);
+    clearErrors();
   };
 
+  // ✅ MEJORA 4: Optimizar re-renders con useCallback
+  const handleInputChange = useCallback((field) => (e) => {
+    const value = e.target.value;
+    setDraft(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handlePhoneChange = useCallback((e) => {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 10);
+    const formatted = raw.replace(/(\d{3})(\d{3})(\d{4})/, "($1) $2-$3");
+    setDraft(prev => ({ ...prev, phone: formatted }));
+  }, []);
+
   // ============================================
-  // PUBLICACIONES (del Header 1 - estructura visual)
+  // PUBLICACIONES
   // ============================================
 
   const sortedEvents = useMemo(() => posts.filter((p) => p.type === "event"), [posts]);
 
- const sortedPosts = useMemo(() => 
-  [...posts]
-    .filter((p) => p.type !== "event") // ← EXCLUIR eventos
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), 
-  [posts]
-);
+  const sortedPosts = useMemo(() => 
+    [...posts]
+      .filter((p) => p.type !== "event")
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), 
+    [posts]
+  );
 
+  const handleSubmitPost = async (data) => {
+    if (!businessId) {
+      showErrorMessage("Necesitas crear el negocio primero");
+      return;
+    }
 
-  const handleDeletePost = (id) => {
-    if (window.confirm("¿Estás seguro de eliminar esta publicación?")) {
-      setPosts((prev) => prev.filter((p) => p.id !== id));
+    setLoadingStates(prev => ({ ...prev, creatingPost: true }));
+    setError("");
+
+    try {
+      if (editingPost) {
+        setPosts(prev =>
+          prev.map(p => p.id === editingPost.id ? { ...p, text: data.text } : p)
+        );
+        showSuccessMessage("✅ Publicación editada");
+      } else {
+        console.log("📤 Enviando al backend:", {
+          description: data.text,
+          idCommerce: businessId,
+          imageCount: data.imageFiles?.length || 0
+        });
+        
+        const response = await createPost(
+          data.text, 
+          businessId, 
+          data.imageFiles
+        );
+        
+        console.log("✅ Respuesta del backend:", response);
+        
+        const newPost = normalizePostFromBackend({
+          idPost: response.idPost,
+          description: data.text,
+          images: response.images || [],
+          nameCommerce: businessData.name,
+          postedAt: response.postedAt || new Date().toISOString(),
+        });
+        
+        setPosts(prev => [newPost, ...prev]);
+        showSuccessMessage("✅ Publicación creada correctamente");
+        setShowModal(false);
+      }
+    } catch (error) {
+      console.error("❌ Error al crear publicación:", error);
+      showErrorMessage(error.message || "Error al crear la publicación");
+    } finally {
+      setLoadingStates(prev => ({ ...prev, creatingPost: false }));
+      setEditingPost(null);
+    }
+  };
+
+  const handleDeletePost = async (id) => {
+    if (!window.confirm("¿Estás seguro de eliminar esta publicación?")) {
+      return;
+    }
+    
+    setLoadingStates(prev => ({ ...prev, deletingPost: true }));
+    
+    try {
+      await deletePost(id);
+      setPosts(prev => prev.filter(p => p.id !== id));
+      showSuccessMessage("✅ Publicación eliminada");
+    } catch (error) {
+      console.error("❌ Error al eliminar:", error);
+      showErrorMessage(error.message || "Error al eliminar");
+    } finally {
+      setLoadingStates(prev => ({ ...prev, deletingPost: false }));
     }
   };
 
@@ -397,34 +595,11 @@ const ProfileHeader = ({ isOwner = false }) => {
     setShowModal(true);
   };
 
- const handleSubmitPost = (data) => {
-  console.log("📤 Datos recibidos:", data);
-  
-  if (editingPost) {
-    // Modo edición
-    setPosts((prev) =>
-      prev.map((p) => (p.id === editingPost.id ? { ...p, ...data } : p))
-    );
-  } else {
-    // ✅ CORREGIDO: Crear nueva publicación sin duplicar imágenes
-    const newPost = { 
-      ...data,
-      businessName: businessData.name, 
-      createdAt: new Date().toISOString(), 
-      id: Date.now()
-    };
-    
-    console.log("🆕 Nueva publicación:", newPost);
-    setPosts((prev) => [newPost, ...prev]);
-  }
-  
-  setEditingPost(null);
-};
   // ============================================
-  // RENDERIZADO (Header 1 visual + Header 2 funcionalidad)
+  // RENDERIZADO
   // ============================================
 
-  if (loading) {
+  if (loadingStates.business) {
     return (
       <div className={styles.headerContainer}>
         <div style={{ textAlign: "center", padding: "3rem" }}>
@@ -437,10 +612,12 @@ const ProfileHeader = ({ isOwner = false }) => {
     );
   }
 
+  const isUploading = loadingStates.profileImage || loadingStates.coverImage;
+  const isSaving = loadingStates.savingBusiness || loadingStates.creatingPost;
+
   return (
     <>
       <div className={styles.headerContainer}>
-        {/* MENSAJES (del Header 2) */}
         {error && (
           <div className={styles.errorBanner}>
             <AlertCircle size={18} />
@@ -455,14 +632,20 @@ const ProfileHeader = ({ isOwner = false }) => {
           </div>
         )}
 
-        {uploadingImage && (
+        {isUploading && (
           <div className={styles.infoBanner}>
             <Loader size={18} className={styles.spinnerIcon} />
             Subiendo imagen...
           </div>
         )}
 
-        {/* BOTONES DE EDICIÓN (Header 1 visual + Header 2 funcionalidad) */}
+        {isSaving && (
+          <div className={styles.infoBanner}>
+            <Loader size={18} className={styles.spinnerIcon} />
+            {isEditing ? "Guardando cambios..." : "Creando publicación..."}
+          </div>
+        )}
+
         {isOwner && (
           <div className={styles.editButtonContainer}>
             {!isEditing ? (
@@ -474,9 +657,9 @@ const ProfileHeader = ({ isOwner = false }) => {
                 <button 
                   className={styles.saveButtonModern} 
                   onClick={handleSave}
-                  disabled={saving || uploadingImage}
+                  disabled={isSaving || isUploading}
                 >
-                  {saving ? (
+                  {loadingStates.savingBusiness ? (
                     <>
                       <Loader size={16} className={styles.spinnerIcon} />
                       Guardando...
@@ -488,7 +671,7 @@ const ProfileHeader = ({ isOwner = false }) => {
                 <button 
                   className={styles.cancelButtonModern} 
                   onClick={handleCancel}
-                  disabled={saving || uploadingImage}
+                  disabled={isSaving || isUploading}
                 >
                   Cancelar
                 </button>
@@ -497,10 +680,8 @@ const ProfileHeader = ({ isOwner = false }) => {
           </div>
         )}
 
-        {/* LAYOUT PRINCIPAL (Header 1 visual) */}
         <div className={styles.layoutModern}>
           <div className={styles.leftColumnModern}>
-            {/* PERFIL (Header 1 visual + Header 2 funcionalidad) */}
             <div className={styles.profileHeaderModern}>
               {isEditing ? (
                 <label className={styles.profilePicEditModern}>
@@ -510,6 +691,10 @@ const ProfileHeader = ({ isOwner = false }) => {
                     onChange={(e) => {
                       const file = e.target.files[0];
                       if (file) {
+                        // ✅ MEJORA 2: Limpiar URL anterior
+                        if (draft.profileImage?.startsWith('blob:')) {
+                          URL.revokeObjectURL(draft.profileImage);
+                        }
                         setProfileImageFile(file);
                         setDraft({ ...draft, profileImage: URL.createObjectURL(file) });
                       }
@@ -538,11 +723,15 @@ const ProfileHeader = ({ isOwner = false }) => {
                     <input
                       type="text"
                       value={draft.name}
-                      onChange={(e) => setDraft({ ...draft, name: e.target.value.slice(0, 100) })}
-                      className={styles.editInputModern}
+                      onChange={(e) => {
+                        handleInputChange("name")(e);
+                        validate("name", e.target.value, { required: true, maxLength: 100 });
+                      }}
+                      className={`${styles.editInputModern} ${errors.name ? styles.invalidModern : ""}`}
                       placeholder="Nombre del negocio *"
                       maxLength={100}
                     />
+                    {errors.name && <span className={styles.errorMsgModern}>{errors.name}</span>}
                     <span style={{ fontSize: "0.75rem", color: "#666" }}>
                       {draft.name.length}/100 caracteres
                     </span>
@@ -560,17 +749,20 @@ const ProfileHeader = ({ isOwner = false }) => {
               </div>
             </div>
 
-            {/* DESCRIPCIÓN (Header 1 visual + Header 2 validaciones) */}
             <div className={styles.descriptionSectionModern}>
               {isEditing ? (
                 <>
                   <textarea
                     value={draft.description}
-                    onChange={(e) => setDraft({ ...draft, description: e.target.value.slice(0, 500) })}
-                    className={styles.textareaModern}
+                    onChange={(e) => {
+                      handleInputChange("description")(e);
+                      validate("description", e.target.value, { required: true, maxLength: 500 });
+                    }}
+                    className={`${styles.textareaModern} ${errors.description ? styles.invalidModern : ""}`}
                     placeholder="Descripción del negocio *"
                     maxLength={500}
                   />
+                  {errors.description && <span className={styles.errorMsgModern}>{errors.description}</span>}
                   <span style={{ fontSize: "0.75rem", color: "#666", textAlign: "right", display: "block" }}>
                     {draft.description.length}/500 caracteres
                   </span>
@@ -582,7 +774,6 @@ const ProfileHeader = ({ isOwner = false }) => {
               )}
             </div>
 
-            {/* HORARIOS (Header 1 visual) */}
             {!isEditing && (
               <div className={styles.horarioClienteModern}>
                 <button
@@ -607,65 +798,57 @@ const ProfileHeader = ({ isOwner = false }) => {
               </div>
             )}
 
-            {/* CONTACTO (Header 1 visual + Header 2 campos) */}
             <div className={styles.contactInfoModern}>
-              {/* TELÉFONO */}
               <div className={styles.rowModern}>
                 <Phone color="#333" size={18} />
                 {isEditing ? (
                   <div style={{ flex: 1 }}>
-                    {!isValidPhone(draft.phone) && draft.phone !== "" && (
-                      <span className={styles.errorMsgModern}>
-                        Número incompleto (faltan dígitos)
-                      </span>
-                    )}
                     <input
                       type="tel"
                       value={draft.phone}
                       onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, "").slice(0, 10);
-                        const formatted = raw.replace(/(\d{3})(\d{3})(\d{4})/, "($1) $2-$3");
-                        setDraft({ ...draft, phone: formatted });
+                        handlePhoneChange(e);
+                        validate("phone", e.target.value, { phone: true });
                       }}
-                      className={`${styles.editInputModern} ${!isValidPhone(draft.phone) && draft.phone !== "" ? styles.invalidModern : ""}`}
+                      className={`${styles.editInputModern} ${errors.phone ? styles.invalidModern : ""}`}
                       placeholder="(123) 456-7890"
                     />
+                    {errors.phone && <span className={styles.errorMsgModern}>{errors.phone}</span>}
                   </div>
                 ) : (
                   <span>{businessData.phone || "Sin teléfono"}</span>
                 )}
               </div>
 
-              {/* EMAIL */}
               <div className={styles.rowModern}>
                 <Mail color="#333" size={18} />
                 {isEditing ? (
                   <div style={{ flex: 1 }}>
-                    {!isValidEmail(draft.email) && draft.email !== "" && (
-                      <span className={styles.errorMsgModern}>Correo inválido</span>
-                    )}
                     <input
                       type="email"
                       value={draft.email}
-                      onChange={(e) => setDraft({ ...draft, email: e.target.value.slice(0, 60) })}
-                      className={`${styles.editInputModern} ${!isValidEmail(draft.email) && draft.email !== "" ? styles.invalidModern : ""}`}
+                      onChange={(e) => {
+                        handleInputChange("email")(e);
+                        validate("email", e.target.value, { email: true });
+                      }}
+                      className={`${styles.editInputModern} ${errors.email ? styles.invalidModern : ""}`}
                       placeholder="ejemplo@dominio.com"
                       maxLength={60}
                     />
+                    {errors.email && <span className={styles.errorMsgModern}>{errors.email}</span>}
                   </div>
                 ) : (
                   <span>{businessData.email || "Sin email"}</span>
                 )}
               </div>
 
-              {/* LINK (Header 2) */}
               <div className={styles.rowModern}>
                 <Link2 color="#333" size={18} />
                 {isEditing ? (
                   <input
                     type="url"
                     value={String(draft.link || "")}
-                    onChange={(e) => setDraft({ ...draft, link: e.target.value.slice(0, 200) })}
+                    onChange={handleInputChange("link")}
                     className={styles.editInputModern}
                     placeholder="https://tusitio.com o @tured"
                     maxLength={200}
@@ -676,7 +859,6 @@ const ProfileHeader = ({ isOwner = false }) => {
               </div>
             </div>
 
-            {/* HORARIOS - EDICIÓN (Header 1 visual) */}
             {isEditing && (
               <div className={styles.horarioSectionModern}>
                 <div className={styles.horarioHeaderModern}>
@@ -816,7 +998,6 @@ const ProfileHeader = ({ isOwner = false }) => {
             )}
           </div>
 
-          {/* COLUMNA DERECHA - PORTADA (Header 1 visual + Header 2 funcionalidad) */}
           <div className={styles.rightColumnModern}>
             {isEditing && (
               <div className={styles.coverPreviewModern}>
@@ -829,6 +1010,10 @@ const ProfileHeader = ({ isOwner = false }) => {
                     onChange={(e) => {
                       const file = e.target.files[0];
                       if (file) {
+                        // ✅ MEJORA 2: Limpiar URL anterior
+                        if (draft.coverImage?.startsWith('blob:')) {
+                          URL.revokeObjectURL(draft.coverImage);
+                        }
                         setCoverImageFile(file);
                         setDraft({ ...draft, coverImage: URL.createObjectURL(file) });
                       }
@@ -857,7 +1042,6 @@ const ProfileHeader = ({ isOwner = false }) => {
         </div>
       </div>
 
-      {/* ACCIONES EXTERNAS (Header 1 visual + Header 2 lógica) */}
       <div className={styles.externalActionsModern}>
         {!isEditing && (
           <div className={styles.actionsModern}>
@@ -893,6 +1077,7 @@ const ProfileHeader = ({ isOwner = false }) => {
                 setModalType("post"); 
                 setShowModal(true); 
               }}
+              disabled={loadingStates.creatingPost}
             >
               <Plus size={16} /> <span>Publicación</span>
             </button>
@@ -902,6 +1087,7 @@ const ProfileHeader = ({ isOwner = false }) => {
                 setModalType("event"); 
                 setShowModal(true); 
               }}
+              disabled={loadingStates.creatingPost}
             >
               <Plus size={16} /> <span>Evento</span>
             </button>
@@ -909,92 +1095,118 @@ const ProfileHeader = ({ isOwner = false }) => {
         )}
       </div>
 
-      {/* PESTAÑAS (Header 1 visual) */}
       <div className={styles.tabBarModern}>
         <button
           className={`${styles.tabButtonModern} ${activeTab === "posts" ? styles.activeTabModern : ""}`}
           onClick={() => setActiveTab("posts")}
         >
-          Publicaciones
+          Publicaciones ({sortedPosts.length})
         </button>
         <button
           className={`${styles.tabButtonModern} ${activeTab === "events" ? styles.activeTabModern : ""}`}
           onClick={() => setActiveTab("events")}
         >
-          Eventos
+          Eventos ({sortedEvents.length})
         </button>
       </div>
 
-      {/* CONTENIDO SEGÚN PESTAÑA (Header 1 visual) */}
       <div className={styles.tabContentModern}>
         {activeTab === "posts" && (
           <div className={styles.postsCenteredWrapper}>
-            <div className={styles.postsStackModern}>
-              {sortedPosts.map((post) => (
-                <div key={post.id} className={styles.postCardModern}>
-                  {post.images && post.images.length > 0 && (
-                    <PostGallery images={post.images} /> //
-                  )}
-                  <div className={styles.postContentModern}>
-                    <p className={styles.postTextModern}>{post.text}</p>
-                    {post.type === "event" && (
-                      <div className={styles.eventDetailsModern}>
-                        {post.date && <span><Calendar size={14} /> {post.date}</span>}
-                        {post.time && <span><Clock size={14} /> {post.time}</span>}
-                        {post.location && <span><MapPin size={14} /> {post.location}</span>}
-                        {post.taggedBusiness && <span><User size={14} /> Con: {post.taggedBusiness}</span>}
-                      </div>
+            {loadingStates.posts ? (
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                <Loader size={32} className={styles.spinnerIcon} />
+                <p style={{ marginTop: "1rem", color: "#666" }}>Cargando publicaciones...</p>
+              </div>
+            ) : sortedPosts.length === 0 ? (
+              <div className={styles.noPostsModern}>
+                {isOwner ? "Aún no hay publicaciones. ¡Crea la primera!" : "Este negocio no tiene publicaciones todavía"}
+              </div>
+            ) : (
+              <div className={styles.postsStackModern}>
+                {sortedPosts.map((post) => (
+                  <div key={post.id} className={styles.postCardModern}>
+                    {post.images && post.images.length > 0 && (
+                      <PostGallery images={post.images} showThumbnails={true} />
                     )}
-                    <span className={styles.postDateModern}>{timeAgo(post.createdAt)}</span>
-                    {isOwner && (
-                      <div className={styles.postActionsModern}>
-                        <button onClick={() => handleEditPost(post)} className={styles.editPostButtonModern}>Editar</button>
-                        <button onClick={() => handleDeletePost(post.id)} className={styles.deletePostButtonModern}>Eliminar</button>
-                      </div>
-                    )}
+                    <div className={styles.postContentModern}>
+                      <p className={styles.postTextModern}>{post.text}</p>
+                      <span className={styles.postDateModern}>{timeAgo(post.createdAt)}</span>
+                      {isOwner && (
+                        <div className={styles.postActionsModern}>
+                          <button 
+                            onClick={() => handleEditPost(post)} 
+                            className={styles.editPostButtonModern}
+                            disabled={loadingStates.deletingPost}
+                          >
+                            Editar
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePost(post.id)} 
+                            className={styles.deletePostButtonModern}
+                            disabled={loadingStates.deletingPost}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === "events" && (
           <div className={styles.eventsCenteredWrapper}>
-            <div className={styles.eventsStackModern}>
-              {sortedEvents.map((event) => (
-                <div key={event.id} className={styles.eventCardModern}>
-                  {event.images && event.images.length > 0 && (
-                    <PostGallery images={event.images} /> //
+            {sortedEvents.length === 0 ? (
+              <div className={styles.noPostsModern}>
+                {isOwner ? "Aún no hay eventos. ¡Crea el primero!" : "Este negocio no tiene eventos todavía"}
+              </div>
+            ) : (
+              <div className={styles.eventsStackModern}>
+                {sortedEvents.map((event) => (
+                  <div key={event.id} className={styles.eventCardModern}>
+                    {event.images && event.images.length > 0 && (
+                      <PostGallery images={event.images} showThumbnails={true} />
                     )}
-
-                  <div className={styles.eventContentModern}>
-                    <h3 className={styles.eventTitleModern}>{event.text}</h3>
-
-                    <div className={styles.eventMetaModern}>
-                      {event.date && <span><Calendar size={14} /> {event.date}</span>}
-                      {event.time && <span><Clock size={14} /> {event.time}</span>}
-                      {event.location && <span><MapPin size={14} /> {event.location}</span>}
-                      {event.taggedBusiness && <span><User size={14} /> Con: {event.taggedBusiness}</span>}
-                    </div>
-
-                    <span className={styles.eventDateModern}>{timeAgo(event.createdAt)}</span>
-
-                    {isOwner && (
-                      <div className={styles.eventActionsModern}>
-                        <button onClick={() => handleEditPost(event)} className={styles.editPostButtonModern}>Editar</button>
-                        <button onClick={() => handleDeletePost(event.id)} className={styles.deletePostButtonModern}>Eliminar</button>
+                    <div className={styles.eventContentModern}>
+                      <h3 className={styles.eventTitleModern}>{event.text}</h3>
+                      <div className={styles.eventMetaModern}>
+                        {event.date && <span><Calendar size={14} /> {event.date}</span>}
+                        {event.time && <span><Clock size={14} /> {event.time}</span>}
+                        {event.location && <span><MapPin size={14} /> {event.location}</span>}
+                        {event.taggedBusiness && <span><User size={14} /> Con: {event.taggedBusiness}</span>}
                       </div>
-                    )}
+                      <span className={styles.eventDateModern}>{timeAgo(event.createdAt)}</span>
+                      {isOwner && (
+                        <div className={styles.eventActionsModern}>
+                          <button 
+                            onClick={() => handleEditPost(event)} 
+                            className={styles.editPostButtonModern}
+                            disabled={loadingStates.deletingPost}
+                          >
+                            Editar
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePost(event.id)} 
+                            className={styles.deletePostButtonModern}
+                            disabled={loadingStates.deletingPost}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* MODAL DE PUBLICACIÓN */}
       <CreatePostModal
         isOpen={showModal}
         onClose={() => {

@@ -41,6 +41,16 @@ const ENDPOINTS = {
   UPLOAD_PROFILE_IMAGE: (businessId) => `/comercio/establecer/imagen/perfil/${businessId}`,
   UPLOAD_COVER_IMAGE: (businessId) => `/comercio/establecer/imagen/portada/${businessId}`,
   UPLOAD_GALLERY_IMAGES: (businessId) => `/comercio/agregar/imagenes/galeria/${businessId}`,
+
+  // Publicaciones
+  POST_CREATE: '/publicacion/crear',
+  POST_GET_ALL: '/publicacion/traer',
+  POST_GET_BY_ID: (postId) => `/publicacion/traer/${postId}`,
+  POST_GET_BY_COMMERCE: (commerceId) => `/publicacion/traer/comercio/${commerceId}`, 
+  POST_UPDATE: (postId) => `/publicacion/editar/${postId}`,
+  POST_DELETE: (postId) => `/publicacion/eliminar/${postId}`,
+  POST_ADD_IMAGES: (postId) => `/publicacion/agregar/imagenes/${postId}`,
+  POST_DELETE_IMAGES: (postId) => `/publicacion/eliminar/imagenes/${postId}`,
 };
 
 // ============================================
@@ -654,6 +664,244 @@ export const uploadGalleryImages = async (businessId, imageFiles) => {
 };
 
 // ============================================
+// FUNCIONES DE PUBLICACIONES
+// ============================================
+
+/**
+ * Obtener publicaciones de un comercio específico
+ * @param {number} commerceId - ID del comercio
+ * @returns {Promise<Array>} Array de publicaciones
+ */
+export const getPostsByCommerce = async (commerceId) => {
+  validateParams({ commerceId }, ['commerceId']);
+  
+  try {
+    if (isDevelopment) {
+      console.log('📥 Obteniendo publicaciones del comercio:', commerceId);
+    }
+    
+    const response = await apiRequest('GET', ENDPOINTS.POST_GET_BY_COMMERCE(commerceId));
+    
+    if (isDevelopment) {
+      console.log('✅ Publicaciones obtenidas:', Array.isArray(response) ? response.length : 0);
+    }
+    
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    // Si el endpoint no existe (404), devolver array vacío
+    if (error.message.includes('404')) {
+      if (isDevelopment) {
+        console.warn('⚠️ Endpoint no disponible, devolviendo array vacío');
+      }
+      return [];
+    }
+    throw error;
+  }
+};
+
+/**
+ * Crear publicación con imágenes
+ * @param {string} description - Texto de la publicación
+ * @param {number} idCommerce - ID del comercio
+ * @param {File[]} imageFiles - Array de archivos de imagen
+ * @param {Object} eventData - Datos del evento (opcional)
+ * @returns {Promise} Respuesta del servidor
+ */
+export const createPost = async (description, idCommerce, imageFiles = [], eventData = null) => {
+  validateParams({ description, idCommerce }, ['description', 'idCommerce']);
+  
+  if (!imageFiles || imageFiles.length === 0) {
+    throw new Error('Debes subir al menos una imagen');
+  }
+  
+  if (imageFiles.length > 10) {
+    throw new Error('Máximo 10 imágenes por publicación');
+  }
+  
+  // Validar cada archivo
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  
+  for (const file of imageFiles) {
+    if (!(file instanceof File)) {
+      throw new Error('Uno de los archivos no es válido');
+    }
+    if (file.size > maxSize) {
+      throw new Error(`La imagen "${file.name}" supera los 5MB`);
+    }
+    if (!validTypes.includes(file.type)) {
+      throw new Error(`Formato inválido en "${file.name}". Usa JPG, PNG o WebP`);
+    }
+  }
+  
+  const formData = new FormData();
+  formData.append('description', description.trim());
+  formData.append('idCommerce', idCommerce);
+  
+  imageFiles.forEach(file => {
+    formData.append('images', file);
+  });
+  
+  if (eventData) {
+    // TODO: Verificar si tu backend acepta estos campos
+    // formData.append('date', eventData.date);
+    // formData.append('time', eventData.time);
+    // formData.append('location', eventData.location);
+  }
+  
+  try {
+    if (isDevelopment) {
+      console.log('📤 Creando publicación:', {
+        description: description.slice(0, 50) + '...',
+        idCommerce,
+        imageCount: imageFiles.length
+      });
+    }
+    
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.POST_CREATE}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000,
+      }
+    );
+    
+    if (isDevelopment) {
+      console.log('✅ Publicación creada:', response.data);
+    }
+    
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, 'createPost');
+  }
+};
+
+/**
+ * Obtener todas las publicaciones
+ */
+export const getAllPosts = async () => {
+  try {
+    return await apiRequest('GET', ENDPOINTS.POST_GET_ALL);
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Obtener publicación por ID
+ */
+export const getPostById = async (postId) => {
+  validateParams({ postId }, ['postId']);
+  return apiRequest('GET', ENDPOINTS.POST_GET_BY_ID(postId));
+};
+
+/**
+ * Editar publicación (solo texto por ahora)
+ */
+export const updatePost = async (postId, postData) => {
+  validateParams({ postId, postData }, ['postId', 'postData']);
+  
+  if (!postData.description || postData.description.trim() === '') {
+    throw new Error('La descripción no puede estar vacía');
+  }
+  
+  const dataToSend = {
+    description: postData.description.trim(),
+    idCommerce: postData.idCommerce,
+  };
+  
+  if (isDevelopment) {
+    console.log('📤 Editando publicación:', postId, dataToSend);
+  }
+  
+  return apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), dataToSend);
+};
+
+/**
+ * Eliminar publicación
+ */
+export const deletePost = async (postId) => {
+  validateParams({ postId }, ['postId']);
+  
+  if (isDevelopment) {
+    console.log('🗑️ Eliminando publicación:', postId);
+  }
+  
+  return apiRequest('DELETE', ENDPOINTS.POST_DELETE(postId));
+};
+
+/**
+ * Agregar imágenes a publicación existente
+ */
+export const addImagesToPost = async (postId, imageFiles) => {
+  validateParams({ postId, imageFiles }, ['postId', 'imageFiles']);
+  
+  if (!Array.isArray(imageFiles) || imageFiles.length === 0) {
+    throw new Error('Debes proporcionar al menos una imagen');
+  }
+  
+  const formData = new FormData();
+  imageFiles.forEach(file => {
+    formData.append('images', file);
+  });
+  
+  try {
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.POST_ADD_IMAGES(postId)}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000,
+      }
+    );
+    
+    if (isDevelopment) {
+      console.log('✅ Imágenes agregadas a publicación:', response.data);
+    }
+    
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, 'addImagesToPost');
+  }
+};
+
+/**
+ * Eliminar imágenes de publicación
+ */
+export const deleteImagesFromPost = async (postId, imageIds) => {
+  validateParams({ postId, imageIds }, ['postId', 'imageIds']);
+  
+  if (!Array.isArray(imageIds) || imageIds.length === 0) {
+    throw new Error('Debes proporcionar al menos un ID de imagen');
+  }
+  
+  try {
+    const params = new URLSearchParams();
+    imageIds.forEach(id => params.append('imageIds', id));
+    
+    const response = await axios.delete(
+      `${API_URL}${ENDPOINTS.POST_DELETE_IMAGES(postId)}?${params.toString()}`,
+      {
+        timeout: TIMEOUT,
+      }
+    );
+    
+    if (isDevelopment) {
+      console.log('✅ Imágenes eliminadas:', response.data);
+    }
+    
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, 'deleteImagesFromPost');
+  }
+};
+
+// ============================================
 // EXPORTACIÓN POR DEFECTO
 // ============================================
 
@@ -685,6 +933,16 @@ export default {
   uploadProfileImage,
   uploadCoverImage,
   uploadGalleryImages,
+  
+  // Publicaciones
+  createPost,
+  getAllPosts,
+  getPostById,
+  getPostsByCommerce, // ✅ AGREGADO
+  updatePost,
+  deletePost,
+  addImagesToPost,
+  deleteImagesFromPost,
   
   // Utilidades
   generateUsername,
