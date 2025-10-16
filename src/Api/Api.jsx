@@ -912,6 +912,7 @@ export const addImagesToPost = async (postId, imageFiles) => {
 /**
  * Eliminar imágenes de publicación
  */
+
 export const deleteImagesFromPost = async (postId, imageIds) => {
   validateParams({ postId, imageIds }, ['postId', 'imageIds']);
   
@@ -920,12 +921,18 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
   }
   
   try {
-    const params = new URLSearchParams();
-    imageIds.forEach(id => params.append('imageIds', id));
+    if (isDevelopment) {
+      console.log('🗑️ Eliminando imágenes:', { postId, imageIds });
+    }
     
+    // ✅ FIX: Enviar como JSON en el body en lugar de query params
     const response = await axios.delete(
-      `${API_URL}${ENDPOINTS.POST_DELETE_IMAGES(postId)}?${params.toString()}`,
+      `${API_URL}${ENDPOINTS.POST_DELETE_IMAGES(postId)}`,
       {
+        data: { imageIds }, // ✅ Enviado como JSON body
+        headers: {
+          'Content-Type': 'application/json',
+        },
         timeout: TIMEOUT,
       }
     );
@@ -939,7 +946,6 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
     throw handleApiError(error, 'deleteImagesFromPost');
   }
 };
-
 // ============================================
 // EXPORTACIÓN POR DEFECTO
 // ============================================

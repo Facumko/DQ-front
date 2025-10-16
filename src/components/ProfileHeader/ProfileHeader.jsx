@@ -339,20 +339,22 @@ const handleProfileImageUpload = async (file) => {
     const result = await uploadProfileImage(businessId, file);
     console.log("✅ Resultado completo:", result);
 
-    // ✅ ARREGLO: Usar la URL del resultado
     if (result.profileImage) {
+      // ✅ FIX: Actualizar ambos estados inmediatamente
+      const newImageUrl = result.profileImage;
+      
       setBusinessData(prev => ({
         ...prev,
-        profileImage: result.profileImage
+        profileImage: newImageUrl
       }));
       
-      // ✅ También actualizar el draft si estás en modo edición
-      if (isEditing) {
-        setDraft(prev => ({
-          ...prev,
-          profileImage: result.profileImage
-        }));
-      }
+      setDraft(prev => ({
+        ...prev,
+        profileImage: newImageUrl
+      }));
+      
+      // ✅ Limpiar el archivo temporal
+      setProfileImageFile(null);
       
       showSuccessMessage("✅ Imagen de perfil actualizada");
     } else {
