@@ -558,6 +558,10 @@ const handleCoverImageUpload = async (file) => {
     [posts]
   );
 
+// ============================================
+// FUNCIONES DE PUBLICACIONES
+// ============================================
+
 const handleSubmitPost = async (data) => {
   console.log('🔍 handleSubmitPost - Datos recibidos:', {
     text: data.text?.slice(0, 50),
@@ -616,7 +620,7 @@ const handleSubmitPost = async (data) => {
       setShowModal(false);
       
     } else {
-      // ✅ MODO CREACIÓN (sin cambios)
+      // ✅ MODO CREACIÓN
       if (!data.imageFiles || data.imageFiles.length === 0) {
         showErrorMessage("Debes subir al menos una imagen");
         return;
@@ -629,6 +633,24 @@ const handleSubmitPost = async (data) => {
         data.imageFiles
       );
 
+      console.log("✅ Respuesta del backend:", response);
+      
+      // Recargar publicaciones desde el servidor
+      await loadPosts(businessIdNumber);
+      
+      showSuccessMessage("✅ Publicación creada correctamente");
+      setShowModal(false);
+    }
+  } catch (error) {
+    console.error("❌ Error al guardar publicación:", error);
+    showErrorMessage(error.message || "Error al guardar la publicación");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, creatingPost: false }));
+    setEditingPost(null);
+  }
+};
+
+// ✅ FUNCIÓN PARA ELIMINAR POST
 const handleDeletePost = async (postId) => {
   if (!window.confirm('¿Estás seguro de eliminar esta publicación? Esta acción no se puede deshacer.')) {
     return;
@@ -652,30 +674,13 @@ const handleDeletePost = async (postId) => {
     setLoadingStates(prev => ({ ...prev, deletingPost: false }));
   }
 };
-      console.log("✅ Respuesta del backend:", response);
-      
-      // Recargar publicaciones desde el servidor
-      await loadPosts(businessIdNumber);
-      
-      showSuccessMessage("✅ Publicación creada correctamente");
-      setShowModal(false);
-    }
-  } catch (error) {
-    console.error("❌ Error al guardar publicación:", error);
-    showErrorMessage(error.message || "Error al guardar la publicación");
-  } finally {
-    setLoadingStates(prev => ({ ...prev, creatingPost: false }));
-    setEditingPost(null);
-  }
+
+// ✅ FUNCIÓN PARA EDITAR POST
+const handleEditPost = (post) => {
+  setEditingPost(post);
+  setModalType(post.type);
+  setShowModal(true);
 };
-
-
-
-  const handleEditPost = (post) => {
-    setEditingPost(post);
-    setModalType(post.type);
-    setShowModal(true);
-  };
 
   // ============================================
   // RENDERIZADO

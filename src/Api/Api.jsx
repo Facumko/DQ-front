@@ -334,24 +334,12 @@ export const getBusinessByUserId = async (userId) => {
   validateParams({ userId }, ['userId']);
   
   try {
-    // 1️⃣ Obtener comercio básico (sin imágenes)
     const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS_BY_USER(userId));
     const business = Array.isArray(response) ? response[0] : response;
     
     if (!business) return null;
     
-    // 2️⃣ Si no tiene imágenes, hacer segunda llamada
-    if (!business.images || business.images.length === 0) {
-      if (isDevelopment) {
-        console.log("🔄 Obteniendo imágenes con segundo endpoint...");
-      }
-      
-      // Llamar al endpoint que SÍ tiene imágenes
-      const fullBusiness = await getBusinessById(business.idCommerce);
-      return fullBusiness;
-    }
-    
-    // 3️⃣ Si ya tiene imágenes, normalizar
+    // ✅ CORREGIDO: Usar datos directos del backend
     return {
       id_business: business.idCommerce,
       id_user: business.idOwner,
@@ -361,8 +349,8 @@ export const getBusinessByUserId = async (userId) => {
       phone: business.phone,
       link: business.link,
       branchOf: business.branchOf,
-      profileImage: extractProfileImage(business.images),
-      coverImage: extractCoverImage(business.images),
+      profileImage: business.profileImage?.url || null,
+      coverImage: business.coverImage?.url || null,
     };
     
   } catch (error) {
@@ -387,14 +375,14 @@ export const getBusinessById = async (businessId) => {
     throw new Error('Negocio no encontrado');
   }
   
-  // ✅ CORREGIDO: Extraer URLs correctamente desde el array de imágenes
-  const profileImageUrl = extractProfileImage(business.images);
-  const coverImageUrl = extractCoverImage(business.images);
+  // ✅ CORREGIDO: Usar datos directos del backend
+  const profileImageUrl = business.profileImage?.url || null;
+  const coverImageUrl = business.coverImage?.url || null;
   
   if (isDevelopment) {
-    console.log("🖼️ Imágenes del negocio:", business.images);
-    console.log("🖼️ Imagen de perfil extraída:", profileImageUrl);
-    console.log("🖼️ Imagen de portada extraída:", coverImageUrl);
+    console.log("🖼️ Datos del negocio completo:", business);
+    console.log("🖼️ Imagen de perfil:", profileImageUrl);
+    console.log("🖼️ Imagen de portada:", coverImageUrl);
   }
   
   return {
@@ -446,9 +434,9 @@ export const createBusiness = async (businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
-  // ✅ CORREGIDO: Extraer URLs correctamente
-  const profileImageUrl = extractProfileImage(response.images);
-  const coverImageUrl = extractCoverImage(response.images);
+  // ✅ CORREGIDO: Usar datos directos del backend
+  const profileImageUrl = response.profileImage?.url || null;
+  const coverImageUrl = response.coverImage?.url || null;
   
   return {
     id_business: response.idCommerce,
@@ -494,9 +482,9 @@ export const updateBusiness = async (businessId, businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
-  // ✅ CORREGIDO: Extraer URLs correctamente
-  const profileImageUrl = extractProfileImage(response.images);
-  const coverImageUrl = extractCoverImage(response.images);
+  // ✅ CORREGIDO: Usar datos directos del backend
+  const profileImageUrl = response.profileImage?.url || null;
+  const coverImageUrl = response.coverImage?.url || null;
   
   return {
     id_business: response.idCommerce,
@@ -559,7 +547,6 @@ export const uploadProfileImage = async (businessId, imageFile) => {
       console.log('✅ Respuesta del backend:', response.data);
     }
     
-    // ✅ ARREGLO: Esperar más tiempo y obtener negocio actualizado
     await sleep(1000);
     const updatedBusiness = await getBusinessById(businessId);
     
@@ -567,11 +554,10 @@ export const uploadProfileImage = async (businessId, imageFile) => {
       console.log('✅ Negocio actualizado:', updatedBusiness);
     }
     
-    // ✅ Devolver la URL actualizada desde el negocio recargado
     return {
       success: true,
       profileImage: updatedBusiness.profileImage,
-      cloudinaryData: response.data // Por si necesitas el publicId después
+      cloudinaryData: response.data
     };
   } catch (error) {
     throw handleApiError(error, 'uploadProfileImage');
@@ -637,35 +623,6 @@ export const uploadCoverImage = async (businessId, imageFile) => {
     throw handleApiError(error, 'uploadCoverImage');
   }
 };
-// ============================================
-// CORRECCIÓN 4: updatePost (NUEVA FUNCIÓN)
-// ============================================
-
-export const updatePostText = async (postId, description, idCommerce) => {
-  validateParams({ postId, description, idCommerce }, ['postId', 'description', 'idCommerce']);
-  
-  if (!description || description.trim() === '') {
-    throw new Error('La descripción no puede estar vacía');
-  }
-  
-  const dataToSend = {
-    description: description.trim(),
-    idCommerce: idCommerce,
-  };
-  
-  if (isDevelopment) {
-    console.log('📤 Editando texto de publicación:', postId, dataToSend);
-  }
-  
-  const response = await apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), dataToSend);
-  
-  if (isDevelopment) {
-    console.log('✅ Publicación actualizada:', response);
-  }
-  
-  return normalizePostFromBackend(response);
-};
-
 
 /**
  * Subir múltiples imágenes a la galería
@@ -725,8 +682,6 @@ export const uploadGalleryImages = async (businessId, imageFiles) => {
 
 /**
  * Obtener publicaciones de un comercio específico
- * @param {number} commerceId - ID del comercio
- * @returns {Promise<Array>} Array de publicaciones
  */
 export const getPostsByCommerce = async (commerceId) => {
   validateParams({ commerceId }, ['commerceId']);
@@ -744,7 +699,6 @@ export const getPostsByCommerce = async (commerceId) => {
     
     return Array.isArray(response) ? response : [];
   } catch (error) {
-    // Si el endpoint no existe (404), devolver array vacío
     if (error.message.includes('404')) {
       if (isDevelopment) {
         console.warn('⚠️ Endpoint no disponible, devolviendo array vacío');
@@ -757,11 +711,6 @@ export const getPostsByCommerce = async (commerceId) => {
 
 /**
  * Crear publicación con imágenes
- * @param {string} description - Texto de la publicación
- * @param {number} idCommerce - ID del comercio
- * @param {File[]} imageFiles - Array de archivos de imagen
- * @param {Object} eventData - Datos del evento (opcional)
- * @returns {Promise} Respuesta del servidor
  */
 export const createPost = async (description, idCommerce, imageFiles = [], eventData = null) => {
   validateParams({ description, idCommerce }, ['description', 'idCommerce']);
@@ -774,8 +723,7 @@ export const createPost = async (description, idCommerce, imageFiles = [], event
     throw new Error('Máximo 10 imágenes por publicación');
   }
   
-  // Validar cada archivo
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  const maxSize = 5 * 1024 * 1024;
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   
   for (const file of imageFiles) {
@@ -855,7 +803,35 @@ export const getPostById = async (postId) => {
 };
 
 /**
- * Editar publicación (solo texto por ahora)
+ * Editar publicación (solo texto)
+ */
+export const updatePostText = async (postId, description, idCommerce) => {
+  validateParams({ postId, description, idCommerce }, ['postId', 'description', 'idCommerce']);
+  
+  if (!description || description.trim() === '') {
+    throw new Error('La descripción no puede estar vacía');
+  }
+  
+  const dataToSend = {
+    description: description.trim(),
+    idCommerce: idCommerce,
+  };
+  
+  if (isDevelopment) {
+    console.log('📤 Editando texto de publicación:', postId, dataToSend);
+  }
+  
+  const response = await apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), dataToSend);
+  
+  if (isDevelopment) {
+    console.log('✅ Publicación actualizada:', response);
+  }
+  
+  return normalizePostFromBackend(response);
+};
+
+/**
+ * Editar publicación (deprecated - usar updatePostText)
  */
 export const updatePost = async (postId, postData) => {
   validateParams({ postId, postData }, ['postId', 'postData']);
@@ -886,7 +862,22 @@ export const deletePost = async (postId) => {
     console.log('🗑️ Eliminando publicación:', postId);
   }
   
-  return apiRequest('DELETE', ENDPOINTS.POST_DELETE(postId));
+  try {
+    const response = await axios.delete(
+      `${API_URL}${ENDPOINTS.POST_DELETE(postId)}`,
+      {
+        timeout: TIMEOUT,
+      }
+    );
+    
+    if (isDevelopment) {
+      console.log('✅ Publicación eliminada:', response.data);
+    }
+    
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, 'deletePost');
+  }
 };
 
 /**
@@ -929,7 +920,6 @@ export const addImagesToPost = async (postId, imageFiles) => {
 /**
  * Eliminar imágenes de publicación
  */
-
 export const deleteImagesFromPost = async (postId, imageIds) => {
   validateParams({ postId, imageIds }, ['postId', 'imageIds']);
   
@@ -942,11 +932,13 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
       console.log('🗑️ Eliminando imágenes:', { postId, imageIds });
     }
     
-    // ✅ FIX: Enviar como JSON en el body en lugar de query params
+    // ✅ CORREGIDO: Usar query parameters en lugar de body
+    // El backend espera: /publicacion/eliminar/imagenes/{idPost}?imageIds=1&imageIds=2&imageIds=3
+    const queryParams = imageIds.map(id => `imageIds=${id}`).join('&');
+    
     const response = await axios.delete(
-      `${API_URL}${ENDPOINTS.POST_DELETE_IMAGES(postId)}`,
+      `${API_URL}${ENDPOINTS.POST_DELETE_IMAGES(postId)}?${queryParams}`,
       {
-        data: { imageIds }, // ✅ Enviado como JSON body
         headers: {
           'Content-Type': 'application/json',
         },
@@ -963,46 +955,47 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
     throw handleApiError(error, 'deleteImagesFromPost');
   }
 };
-// ✅ NUEVO: Función para extraer URL de imagen
-const extractImageUrl = (imageData) => {
-  if (!imageData) return null;
-  
-  // Si ya es una URL string
-  if (typeof imageData === 'string') {
-    return imageData;
+
+// ============================================
+// FUNCIONES NORMALIZADORAS
+// ============================================
+
+/**
+ * Normalizar publicación desde el backend
+ */
+export const normalizePostFromBackend = (post) => {
+  // Si el backend devuelve el formato con imágenes como array de objetos
+  if (post.images && Array.isArray(post.images)) {
+    const sortedImages = post.images.sort((a, b) => a.imageOrder - b.imageOrder);
+    
+    return {
+      id: post.idPost,
+      text: post.description,
+      images: sortedImages.map(img => img.url),
+      imageDetails: sortedImages.map(img => ({
+        id: img.idImage,
+        url: img.url,
+        order: img.imageOrder,
+        publicId: img.publicId,
+        originalFileName: img.originalFileName
+      })),
+      type: "post",
+      businessName: post.nameCommerce,
+      createdAt: post.postedAt,
+    };
   }
   
-  // Si es un objeto con la propiedad url
-  if (typeof imageData === 'object' && imageData.url) {
-    return imageData.url;
-  }
-  
-  // Si es un array, tomar el primer elemento
-  if (Array.isArray(imageData) && imageData.length > 0) {
-    return extractImageUrl(imageData[0]);
-  }
-  
-  return null;
+  // Fallback para formato simple
+  return {
+    id: post.idPost || post.id,
+    text: post.description || post.text,
+    images: Array.isArray(post.images) ? post.images : [],
+    imageDetails: [],
+    type: "post",
+    businessName: post.nameCommerce || post.businessName,
+    createdAt: post.postedAt || post.createdAt,
+  };
 };
-
-// ✅ NUEVO: Función para extraer imagen de perfil del array de imágenes
-const extractProfileImage = (images) => {
-  if (!images || !Array.isArray(images)) return null;
-  
-  // Buscar imagen de tipo PROFILE
-  const profileImg = images.find(img => img.imageType === 'PROFILE');
-  return profileImg ? profileImg.url : null;
-};
-
-// ✅ NUEVO: Función para extraer imagen de portada del array de imágenes
-const extractCoverImage = (images) => {
-  if (!images || !Array.isArray(images)) return null;
-  
-  // Buscar imagen de tipo COVER (tomar la primera si hay varias)
-  const coverImg = images.find(img => img.imageType === 'COVER');
-  return coverImg ? coverImg.url : null;
-};
-
 
 // ============================================
 // EXPORTACIÓN POR DEFECTO
@@ -1041,12 +1034,13 @@ export default {
   createPost,
   getAllPosts,
   getPostById,
-  getPostsByCommerce, // ✅ AGREGADO
+  getPostsByCommerce,
   updatePost,
+  updatePostText,
   deletePost,
   addImagesToPost,
   deleteImagesFromPost,
-  updatePostText,
+  normalizePostFromBackend,
   
   // Utilidades
   generateUsername,
