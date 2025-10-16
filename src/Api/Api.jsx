@@ -351,8 +351,7 @@ export const getBusinessByUserId = async (userId) => {
     
     const normalized = {
       id_business: business.idCommerce,
-      id_user: business.idOwner,
-      name: business.name || '',
+      id_user: business.idOwner || business.id_user || business.userId,      name: business.name || '',
       description: business.description || '',
       email: business.email || '',
       phone: business.phone || '',
@@ -510,7 +509,7 @@ export const uploadProfileImage = async (businessId, imageFile) => {
     throw new Error('Debes proporcionar un archivo de imagen válido');
   }
   
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  const maxSize = 5 * 1024 * 1024;
   if (imageFile.size > maxSize) {
     throw new Error('La imagen no puede superar los 5MB');
   }
@@ -540,16 +539,22 @@ export const uploadProfileImage = async (businessId, imageFile) => {
     );
     
     if (isDevelopment) {
-      console.log('✅ Imagen de perfil subida:', response.data);
+      console.log('✅ Respuesta del backend:', response.data);
     }
     
-    // Recargar negocio para obtener URL actualizada
-    await sleep(500); // Esperar a que el backend procese
+    // ✅ ARREGLO: Esperar más tiempo y obtener negocio actualizado
+    await sleep(1000);
     const updatedBusiness = await getBusinessById(businessId);
     
+    if (isDevelopment) {
+      console.log('✅ Negocio actualizado:', updatedBusiness);
+    }
+    
+    // ✅ Devolver la URL actualizada desde el negocio recargado
     return {
-      cloudinaryResponse: response.data,
+      success: true,
       profileImage: updatedBusiness.profileImage,
+      cloudinaryData: response.data // Por si necesitas el publicId después
     };
   } catch (error) {
     throw handleApiError(error, 'uploadProfileImage');
@@ -596,20 +601,54 @@ export const uploadCoverImage = async (businessId, imageFile) => {
     );
     
     if (isDevelopment) {
-      console.log('✅ Imagen de portada subida:', response.data);
+      console.log('✅ Respuesta del backend:', response.data);
     }
     
-    await sleep(500);
+    await sleep(1000);
     const updatedBusiness = await getBusinessById(businessId);
     
+    if (isDevelopment) {
+      console.log('✅ Negocio actualizado:', updatedBusiness);
+    }
+    
     return {
-      cloudinaryResponse: response.data,
+      success: true,
       coverImage: updatedBusiness.coverImage,
+      cloudinaryData: response.data
     };
   } catch (error) {
     throw handleApiError(error, 'uploadCoverImage');
   }
 };
+// ============================================
+// CORRECCIÓN 4: updatePost (NUEVA FUNCIÓN)
+// ============================================
+
+export const updatePostText = async (postId, description, idCommerce) => {
+  validateParams({ postId, description, idCommerce }, ['postId', 'description', 'idCommerce']);
+  
+  if (!description || description.trim() === '') {
+    throw new Error('La descripción no puede estar vacía');
+  }
+  
+  const dataToSend = {
+    description: description.trim(),
+    idCommerce: idCommerce,
+  };
+  
+  if (isDevelopment) {
+    console.log('📤 Editando texto de publicación:', postId, dataToSend);
+  }
+  
+  const response = await apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), dataToSend);
+  
+  if (isDevelopment) {
+    console.log('✅ Publicación actualizada:', response);
+  }
+  
+  return normalizePostFromBackend(response);
+};
+
 
 /**
  * Subir múltiples imágenes a la galería
@@ -943,6 +982,7 @@ export default {
   deletePost,
   addImagesToPost,
   deleteImagesFromPost,
+  updatePostText,
   
   // Utilidades
   generateUsername,

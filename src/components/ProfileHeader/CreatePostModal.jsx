@@ -94,72 +94,124 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     setActiveIndex(previewUrls.length);
   };
 
-  const handleRemoveImage = (index) => {
-    const isExistingImage = index < existingImages.length - imagesToDelete.length;
+const handleRemoveImage = (index) => {
+  console.log('🗑️ Intentando eliminar imagen en índice:', index);
+  console.log('Estado actual:', {
+    totalPreviewUrls: previewUrls.length,
+    existingImagesCount: existingImages.length,
+    imagesToDeleteCount: imagesToDelete.length,
+    newImageFilesCount: imageFiles.length
+  });
+  
+  // ✅ Calcular cuántas imágenes existentes hay (sin contar las marcadas para eliminar)
+  const activeExistingCount = existingImages.filter(img => 
+    !imagesToDelete.includes(img.id)
+  ).length;
+  
+  // ✅ Determinar si es una imagen existente o nueva
+  const isExistingImage = index < activeExistingCount;
+  
+  if (isExistingImage) {
+    // ✅ Es una imagen EXISTENTE del servidor
+    const existingImageIndex = index;
+    const activeExistingImages = existingImages.filter(img => 
+      !imagesToDelete.includes(img.id)
+    );
+    const imageToDelete = activeExistingImages[existingImageIndex];
     
-    if (isExistingImage) {
-      // Es una imagen existente del servidor
-      const actualExistingIndex = index;
-      const imageToDelete = existingImages[actualExistingIndex];
+    if (!imageToDelete) {
+      console.error('❌ No se encontró la imagen a eliminar');
+      return;
+    }
+    
+    console.log('🗑️ Marcando imagen existente para eliminar:', imageToDelete);
+    
+    if (window.confirm(`¿Eliminar esta imagen? Se aplicará al guardar.`)) {
+      // Marcar para eliminar
+      setImagesToDelete(prev => [...prev, imageToDelete.id]);
       
-      if (window.confirm(`¿Eliminar esta imagen? Esta acción se aplicará al guardar.`)) {
-        setImagesToDelete(prev => [...prev, imageToDelete.id]);
-        
-        // Remover del preview
-        setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-        
-        // Ajustar índice activo
-        if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
-          setActiveIndex(previewUrls.length - 2);
-        }
-      }
-    } else {
-      // Es una imagen nueva (archivo local)
-      const fileIndex = index - (existingImages.length - imagesToDelete.length);
-      
-      // Liberar memoria del blob
-      if (previewUrls[index]?.startsWith?.('blob:')) {
-        URL.revokeObjectURL(previewUrls[index]);
-      }
-      
+      // Remover del preview
       setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-      setImageFiles(prev => prev.filter((_, i) => i !== fileIndex));
       
+      // Ajustar índice activo si es necesario
       if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
         setActiveIndex(previewUrls.length - 2);
       }
     }
-  };
-
-   const handleSubmit = (e) => {
-    e.preventDefault();
+  } else {
+    // ✅ Es una imagen NUEVA (archivo local)
+    const fileIndex = index - activeExistingCount;
     
-    // Validación: al menos una imagen
-    if (totalImages === 0) {
-      alert("Debes tener al menos una imagen.");
-      return;
+    console.log('🗑️ Eliminando archivo nuevo en índice:', fileIndex);
+    
+    // Liberar memoria del blob
+    if (previewUrls[index]?.startsWith?.('blob:')) {
+      URL.revokeObjectURL(previewUrls[index]);
     }
     
-    // ✅ CORREGIDO: Usar nombres consistentes
-    const payload = {
-      text,
-      type,
-      imageFiles: imageFiles, // ✅ Nombre correcto para el ProfileHeader
-      imagesToDelete: imagesToDelete, // IDs de imágenes a eliminar
-      existingImages: existingImages.filter(img => !imagesToDelete.includes(img.id)),
-      ...(type === "event" && { date, time, location, taggedBusiness }),
-    };
-
-    console.log("📤 Modal enviando payload:", {
-      text: payload.text?.slice(0, 50),
-      newImageCount: payload.imageFiles?.length || 0,
-      imagesToDeleteCount: payload.imagesToDelete?.length || 0,
-      existingImageCount: payload.existingImages?.length || 0,
-    });
+    // Remover del preview
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
     
-    onSubmit(payload);
-    onClose();
+    // Remover del array de archivos
+    setImageFiles(prev => prev.filter((_, i) => i !== fileIndex));
+    
+    // Ajustar índice activo
+    if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
+      setActiveIndex(previewUrls.length - 2);
+    }
+  }
+};
+
+
+const handleSubmit = (e) => {
+  e.preventDefault();
+  
+  // ✅ Validación: en modo creación DEBE haber al menos 1 imagen nueva
+  if (!initialData && imageFiles.length === 0) {
+    alert("Debes subir al menos una imagen nueva.");
+    return;
+  }
+  
+  // ✅ Validación: en modo edición debe quedar al menos 1 imagen total
+  if (initialData && totalImages === 0) {
+    alert("Debe quedar al menos una imagen en la publicación.");
+    return;
+  }
+  
+  // ✅ Construir payload con validaciones
+  const payload = {
+    text: text.trim(),
+    type,
+    imageFiles: imageFiles,              // ✅ Archivos nuevos (Array de File)
+    imagesToDelete: imagesToDelete,       // ✅ IDs a eliminar (Array de números)
+    existingImages: existingImages.filter(img => !imagesToDelete.includes(img.id)), // ✅ Imágenes que quedan
+    ...(type === "event" && { 
+      date, 
+      time, 
+      location, 
+      taggedBusiness 
+    }),
   };
+
+  console.log("📤 Modal enviando payload final:", {
+    text: payload.text.slice(0, 50) + '...',
+    newImageCount: payload.imageFiles.length,
+    imagesToDeleteCount: payload.imagesToDelete.length,
+    existingImageCount: payload.existingImages.length,
+    totalImagesAfterChanges: payload.existingImages.length + payload.imageFiles.length,
+    isEditing: !!initialData
+  });
+
+  // ✅ Validar que onSubmit exista
+  if (typeof onSubmit !== 'function') {
+    console.error("❌ ERROR: onSubmit no es una función");
+    alert("Error interno: no se puede enviar el formulario");
+    return;
+  }
+
+  onSubmit(payload);
+  onClose();
+};
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
@@ -237,10 +289,12 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
           {/* ✅ MINIATURAS con indicador visual */}
           {previewUrls.length > 1 && (
             <div className={styles.thumbs}>
-              {previewUrls.map((url, i) => {
-                const isExisting = i < existingImages.length - imagesToDelete.length;
+              {previewUrls.map((url, i) => {  
+                const activeExistingCount = existingImages.filter(img => 
+                  !imagesToDelete.includes(img.id)
+                ).length;
+                const isExisting = i < activeExistingCount;
                 const isNew = !isExisting;
-                
                 return (
                   <div 
                     key={i} 

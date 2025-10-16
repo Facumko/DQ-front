@@ -7,8 +7,11 @@ import {
   uploadProfileImage,
   uploadCoverImage,
   createPost,
-  getPostsByCommerce, // ✅ Ahora está disponible
-  deletePost
+  getPostsByCommerce,
+  deletePost,           // ✅ Importar función de eliminar
+  updatePostText,       // ✅ Nueva función para editar texto
+  addImagesToPost,      // ✅ Para agregar imágenes en edición
+  deleteImagesFromPost  // ✅ Para eliminar imágenes en edición
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import {
@@ -252,6 +255,13 @@ useEffect(() => {
       if (business) {
         console.log("✅ Negocio encontrado:", business);
         setBusinessId(business.id_business);
+        console.log("✅ ID de negocio establecido:", business.id_business);
+        console.log("✅ ID de usuario:", business.id_user);
+        if (!business.id_business) {
+          console.error("❌ ERROR: No se recibió id_business del backend");
+          throw new Error("No se pudo obtener el ID del negocio");}
+          setBusinessId(business.id_business);
+
         
         const loadedData = normalizeBusinessData(business);
         setBusinessData(loadedData);
@@ -315,62 +325,86 @@ useEffect(() => {
   // SUBIR IMÁGENES
   // ============================================
 
-  const handleProfileImageUpload = async (file) => {
-    if (!businessId) {
-      setError("Primero debes crear el negocio antes de subir imágenes");
-      return;
-    }
+const handleProfileImageUpload = async (file) => {
+  if (!businessId) {
+    setError("Primero debes crear el negocio antes de subir imágenes");
+    return;
+  }
 
-    setLoadingStates(prev => ({ ...prev, profileImage: true }));
-    setError("");
+  setLoadingStates(prev => ({ ...prev, profileImage: true }));
+  setError("");
 
-    try {
-      console.log("📤 Subiendo imagen de perfil...");
-      const result = await uploadProfileImage(businessId, file);
-      console.log("✅ Imagen de perfil subida:", result);
+  try {
+    console.log("📤 Subiendo imagen de perfil...");
+    const result = await uploadProfileImage(businessId, file);
+    console.log("✅ Resultado completo:", result);
 
+    // ✅ ARREGLO: Usar la URL del resultado
+    if (result.profileImage) {
       setBusinessData(prev => ({
         ...prev,
         profileImage: result.profileImage
       }));
-
-      // ✅ MEJORA 6: Toast notification
+      
+      // ✅ También actualizar el draft si estás en modo edición
+      if (isEditing) {
+        setDraft(prev => ({
+          ...prev,
+          profileImage: result.profileImage
+        }));
+      }
+      
       showSuccessMessage("✅ Imagen de perfil actualizada");
-    } catch (err) {
-      console.error("❌ Error al subir imagen:", err);
-      showErrorMessage(err.message || "Error al subir imagen de perfil");
-    } finally {
-      setLoadingStates(prev => ({ ...prev, profileImage: false }));
+    } else {
+      throw new Error("No se recibió la URL de la imagen actualizada");
     }
-  };
+  } catch (err) {
+    console.error("❌ Error al subir imagen:", err);
+    showErrorMessage(err.message || "Error al subir imagen de perfil");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, profileImage: false }));
+  }
+};
 
-  const handleCoverImageUpload = async (file) => {
-    if (!businessId) {
-      setError("Primero debes crear el negocio antes de subir imágenes");
-      return;
-    }
 
-    setLoadingStates(prev => ({ ...prev, coverImage: true }));
-    setError("");
+const handleCoverImageUpload = async (file) => {
+  if (!businessId) {
+    setError("Primero debes crear el negocio antes de subir imágenes");
+    return;
+  }
 
-    try {
-      console.log("📤 Subiendo imagen de portada...");
-      const result = await uploadCoverImage(businessId, file);
-      console.log("✅ Imagen de portada subida:", result);
+  setLoadingStates(prev => ({ ...prev, coverImage: true }));
+  setError("");
 
+  try {
+    console.log("📤 Subiendo imagen de portada...");
+    const result = await uploadCoverImage(businessId, file);
+    console.log("✅ Resultado completo:", result);
+
+    if (result.coverImage) {
       setBusinessData(prev => ({
         ...prev,
         coverImage: result.coverImage
       }));
-
+      
+      if (isEditing) {
+        setDraft(prev => ({
+          ...prev,
+          coverImage: result.coverImage
+        }));
+      }
+      
       showSuccessMessage("✅ Imagen de portada actualizada");
-    } catch (err) {
-      console.error("❌ Error al subir portada:", err);
-      showErrorMessage(err.message || "Error al subir imagen de portada");
-    } finally {
-      setLoadingStates(prev => ({ ...prev, coverImage: false }));
+    } else {
+      throw new Error("No se recibió la URL de la imagen actualizada");
     }
-  };
+  } catch (err) {
+    console.error("❌ Error al subir portada:", err);
+    showErrorMessage(err.message || "Error al subir imagen de portada");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, coverImage: false }));
+  }
+};
 
   // ✅ MEJORA 6: Funciones helper para mensajes
   const showSuccessMessage = (msg) => {
@@ -519,48 +553,25 @@ useEffect(() => {
   );
 
 const handleSubmitPost = async (data) => {
-  // ✅ VERIFICACIÓN CRÍTICA #1: businessId existe?
-  console.group('🔍 === VERIFICACIÓN DE businessId ===');
-  console.log('businessId:', businessId);
-  console.log('businessId tipo:', typeof businessId);
-  console.log('businessId es null?:', businessId === null);
-  console.log('businessId es undefined?:', businessId === undefined);
-  console.log('businessId es 0?:', businessId === 0);
-  console.log('businessId es string?:', typeof businessId === 'string');
-  console.groupEnd();
+  console.log('🔍 handleSubmitPost - Datos recibidos:', {
+    text: data.text?.slice(0, 50),
+    imageFiles: data.imageFiles?.length || 0,
+    imagesToDelete: data.imagesToDelete?.length || 0,
+    existingImages: data.existingImages?.length || 0,
+    isEditing: !!editingPost
+  });
 
   if (!businessId) {
     showErrorMessage("Necesitas crear el negocio primero");
     return;
   }
 
-  // ✅ CONVERTIR A NÚMERO SI ES STRING
   const businessIdNumber = typeof businessId === 'string' 
     ? parseInt(businessId, 10) 
     : businessId;
 
-  console.group('🔍 === VERIFICACIÓN DESPUÉS DE CONVERSIÓN ===');
-  console.log('businessIdNumber:', businessIdNumber);
-  console.log('businessIdNumber tipo:', typeof businessIdNumber);
-  console.log('businessIdNumber es NaN?:', isNaN(businessIdNumber));
-  console.groupEnd();
-
   if (isNaN(businessIdNumber)) {
     showErrorMessage("ID de comercio inválido");
-    return;
-  }
-
-  console.log("🔍 DEBUG - Payload recibido del modal:", {
-    text: data.text?.slice(0, 50),
-    imageFilesCount: data.imageFiles?.length || 0,
-    imageFilesType: data.imageFiles?.[0]?.constructor?.name,
-    imagesToDelete: data.imagesToDelete?.length || 0,
-    type: modalType
-  });
-
-  // ✅ VALIDACIÓN CRÍTICA: Verificar que haya imágenes en modo creación
-  if (!editingPost && (!data.imageFiles || data.imageFiles.length === 0)) {
-    showErrorMessage("Debes subir al menos una imagen");
     return;
   }
 
@@ -569,56 +580,90 @@ const handleSubmitPost = async (data) => {
 
   try {
     if (editingPost) {
-      // ✅ Modo edición: solo actualizar texto (por ahora)
-      console.log("✏️ Modo edición - solo actualizando texto");
-      setPosts(prev =>
-        prev.map(p => p.id === editingPost.id ? { ...p, text: data.text } : p)
+      // ✅ MODO EDICIÓN: Dividir en 3 pasos
+      
+      // 1️⃣ Actualizar texto (siempre)
+      console.log('✏️ Paso 1: Actualizando texto...');
+      const updatedPost = await updatePostText(
+        editingPost.id,
+        data.text,
+        businessIdNumber
       );
-      showSuccessMessage("✅ Publicación editada");
+      
+      // 2️⃣ Eliminar imágenes si hay
+      if (data.imagesToDelete && data.imagesToDelete.length > 0) {
+        console.log('🗑️ Paso 2: Eliminando imágenes:', data.imagesToDelete);
+        await deleteImagesFromPost(editingPost.id, data.imagesToDelete);
+      }
+      
+      // 3️⃣ Agregar nuevas imágenes si hay
+      if (data.imageFiles && data.imageFiles.length > 0) {
+        console.log('📤 Paso 3: Agregando nuevas imágenes:', data.imageFiles.length);
+        await addImagesToPost(editingPost.id, data.imageFiles);
+      }
+      
+      // 4️⃣ Recargar el post completo desde el backend
+      console.log('🔄 Paso 4: Recargando publicaciones...');
+      await loadPosts(businessIdNumber);
+      
+      showSuccessMessage("✅ Publicación actualizada correctamente");
       setShowModal(false);
+      
     } else {
-      // ✅ Modo creación: enviar al backend
-      console.log("📤 Modo creación - enviando al backend:", {
-        description: data.text,
-        idCommerce: businessIdNumber, // ✅ Usar el número convertido
-        imageFiles: data.imageFiles.map(f => ({
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          isFile: f instanceof File
-        }))
-      });
-
-      // ✅ CRÍTICO: Pasar el ID como número
+      // ✅ MODO CREACIÓN (sin cambios)
+      if (!data.imageFiles || data.imageFiles.length === 0) {
+        showErrorMessage("Debes subir al menos una imagen");
+        return;
+      }
+      
+      console.log("📤 Creando nueva publicación...");
       const response = await createPost(
-        data.text,              // description
-        businessIdNumber,       // idCommerce (como número)
-        data.imageFiles         // Array de objetos File
+        data.text,
+        businessIdNumber,
+        data.imageFiles
       );
 
+const handleDeletePost = async (postId) => {
+  if (!window.confirm('¿Estás seguro de eliminar esta publicación? Esta acción no se puede deshacer.')) {
+    return;
+  }
+  
+  setLoadingStates(prev => ({ ...prev, deletingPost: true }));
+  setError("");
+  
+  try {
+    console.log('🗑️ Eliminando publicación:', postId);
+    await deletePost(postId);
+    
+    // Actualizar estado local
+    setPosts(prev => prev.filter(p => p.id !== postId));
+    
+    showSuccessMessage("✅ Publicación eliminada correctamente");
+  } catch (error) {
+    console.error("❌ Error al eliminar publicación:", error);
+    showErrorMessage(error.message || "Error al eliminar la publicación");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, deletingPost: false }));
+  }
+};
       console.log("✅ Respuesta del backend:", response);
-
-      // ✅ Normalizar respuesta según lo que devuelva el backend
-      const newPost = normalizePostFromBackend({
-        idPost: response.idPost || response.id || Date.now(),
-        description: data.text,
-        images: response.images || [],
-        nameCommerce: businessData.name,
-        postedAt: response.postedAt || new Date().toISOString(),
-      });
-
-      setPosts(prev => [newPost, ...prev]);
+      
+      // Recargar publicaciones desde el servidor
+      await loadPosts(businessIdNumber);
+      
       showSuccessMessage("✅ Publicación creada correctamente");
       setShowModal(false);
     }
   } catch (error) {
-    console.error("❌ Error al crear publicación:", error);
-    showErrorMessage(error.message || "Error al crear la publicación");
+    console.error("❌ Error al guardar publicación:", error);
+    showErrorMessage(error.message || "Error al guardar la publicación");
   } finally {
     setLoadingStates(prev => ({ ...prev, creatingPost: false }));
     setEditingPost(null);
   }
 };
+
+
 
   const handleEditPost = (post) => {
     setEditingPost(post);
