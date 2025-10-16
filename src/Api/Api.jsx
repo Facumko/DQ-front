@@ -521,7 +521,7 @@ export const uploadProfileImage = async (businessId, imageFile) => {
   }
   
   const formData = new FormData();
-  formData.append('file', imageFile);
+  formData.append('image', imageFile);
   
   try {
     if (isDevelopment) {
@@ -577,7 +577,7 @@ export const uploadCoverImage = async (businessId, imageFile) => {
   }
   
   const formData = new FormData();
-  formData.append('file', imageFile);
+  formData.append('image', imageFile);
   
   try {
     if (isDevelopment) {

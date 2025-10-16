@@ -206,16 +206,16 @@ const ProfileHeader = ({ isOwner = false }) => {
   const { errors, validate, clearErrors } = useFormValidation();
 
   // ✅ MEJORA 2: Limpiar URLs de objeto al desmontar
-  useEffect(() => {
-    return () => {
-      if (draft.profileImage?.startsWith('blob:')) {
-        URL.revokeObjectURL(draft.profileImage);
-      }
-      if (draft.coverImage?.startsWith('blob:')) {
-        URL.revokeObjectURL(draft.coverImage);
-      }
-    };
-  }, [draft.profileImage, draft.coverImage]);
+useEffect(() => {
+  return () => {
+    if (typeof draft.profileImage === 'string' && draft.profileImage.startsWith('blob:')) {
+      URL.revokeObjectURL(draft.profileImage);
+    }
+    if (typeof draft.coverImage === 'string' && draft.coverImage.startsWith('blob:')) {
+      URL.revokeObjectURL(draft.coverImage);
+    }
+  };
+}, [draft.profileImage, draft.coverImage]);
 
   // ============================================
   // CARGAR DATOS
@@ -1042,7 +1042,8 @@ const handleSubmitPost = async (data) => {
                       const file = e.target.files[0];
                       if (file) {
                         // ✅ MEJORA 2: Limpiar URL anterior
-                        if (draft.coverImage?.startsWith('blob:')) {
+                            if (typeof draft.coverImage === 'string' && draft.coverImage.startsWith('blob:')) {
+
                           URL.revokeObjectURL(draft.coverImage);
                         }
                         setCoverImageFile(file);
