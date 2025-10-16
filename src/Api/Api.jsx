@@ -334,45 +334,37 @@ export const getBusinessByUserId = async (userId) => {
   validateParams({ userId }, ['userId']);
   
   try {
+    // 1️⃣ Obtener comercio básico (sin imágenes)
     const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS_BY_USER(userId));
-    
-    if (isDevelopment) {
-      console.log("📦 Respuesta del backend (raw):", response);
-    }
-    
     const business = Array.isArray(response) ? response[0] : response;
     
-    if (!business) {
+    if (!business) return null;
+    
+    // 2️⃣ Si no tiene imágenes, hacer segunda llamada
+    if (!business.images || business.images.length === 0) {
       if (isDevelopment) {
-        console.log("ℹ️ El usuario no tiene negocio creado");
+        console.log("🔄 Obteniendo imágenes con segundo endpoint...");
       }
-      return null;
+      
+      // Llamar al endpoint que SÍ tiene imágenes
+      const fullBusiness = await getBusinessById(business.idCommerce);
+      return fullBusiness;
     }
     
-    // ✅ CORREGIDO: Extraer URLs correctamente desde el array de imágenes
-    const profileImageUrl = extractProfileImage(business.images);
-    const coverImageUrl = extractCoverImage(business.images);
-    
-    const normalized = {
+    // 3️⃣ Si ya tiene imágenes, normalizar
+    return {
       id_business: business.idCommerce,
-      id_user: business.idOwner || business.id_user || business.userId,
-      name: business.name || '',
-      description: business.description || '',
-      email: business.email || '',
-      phone: business.phone || '',
-      link: business.link || '',
-      branchOf: business.branchOf || null,
-      profileImage: profileImageUrl,
-      coverImage: coverImageUrl,
+      id_user: business.idOwner,
+      name: business.name,
+      description: business.description,
+      email: business.email,
+      phone: business.phone,
+      link: business.link,
+      branchOf: business.branchOf,
+      profileImage: extractProfileImage(business.images),
+      coverImage: extractCoverImage(business.images),
     };
     
-    if (isDevelopment) {
-      console.log("✅ Negocio normalizado:", normalized);
-      console.log("🖼️ Imagen de perfil extraída:", profileImageUrl);
-      console.log("🖼️ Imagen de portada extraída:", coverImageUrl);
-    }
-    
-    return normalized;
   } catch (error) {
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
       if (isDevelopment) {
