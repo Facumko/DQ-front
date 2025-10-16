@@ -349,20 +349,27 @@ export const getBusinessByUserId = async (userId) => {
       return null;
     }
     
+    // ✅ CORREGIDO: Extraer URLs correctamente desde el array de imágenes
+    const profileImageUrl = extractProfileImage(business.images);
+    const coverImageUrl = extractCoverImage(business.images);
+    
     const normalized = {
       id_business: business.idCommerce,
-      id_user: business.idOwner || business.id_user || business.userId,      name: business.name || '',
+      id_user: business.idOwner || business.id_user || business.userId,
+      name: business.name || '',
       description: business.description || '',
       email: business.email || '',
       phone: business.phone || '',
       link: business.link || '',
       branchOf: business.branchOf || null,
-      profileImage: business.profileImage || null,
-      coverImage: business.coverImage || null,
+      profileImage: profileImageUrl,
+      coverImage: coverImageUrl,
     };
     
     if (isDevelopment) {
       console.log("✅ Negocio normalizado:", normalized);
+      console.log("🖼️ Imagen de perfil extraída:", profileImageUrl);
+      console.log("🖼️ Imagen de portada extraída:", coverImageUrl);
     }
     
     return normalized;
@@ -388,6 +395,16 @@ export const getBusinessById = async (businessId) => {
     throw new Error('Negocio no encontrado');
   }
   
+  // ✅ CORREGIDO: Extraer URLs correctamente desde el array de imágenes
+  const profileImageUrl = extractProfileImage(business.images);
+  const coverImageUrl = extractCoverImage(business.images);
+  
+  if (isDevelopment) {
+    console.log("🖼️ Imágenes del negocio:", business.images);
+    console.log("🖼️ Imagen de perfil extraída:", profileImageUrl);
+    console.log("🖼️ Imagen de portada extraída:", coverImageUrl);
+  }
+  
   return {
     id_business: business.idCommerce,
     id_user: business.idOwner,
@@ -397,8 +414,8 @@ export const getBusinessById = async (businessId) => {
     phone: business.phone || '',
     link: business.link || '',
     branchOf: business.branchOf || null,
-    profileImage: business.profileImage || null,
-    coverImage: business.coverImage || null,
+    profileImage: profileImageUrl,
+    coverImage: coverImageUrl,
   };
 };
 
@@ -437,6 +454,10 @@ export const createBusiness = async (businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
+  // ✅ CORREGIDO: Extraer URLs correctamente
+  const profileImageUrl = extractProfileImage(response.images);
+  const coverImageUrl = extractCoverImage(response.images);
+  
   return {
     id_business: response.idCommerce,
     id_user: response.idOwner,
@@ -446,8 +467,8 @@ export const createBusiness = async (businessData) => {
     phone: response.phone,
     link: response.link,
     branchOf: response.branchOf,
-    profileImage: response.profileImage || null,
-    coverImage: response.coverImage || null,
+    profileImage: profileImageUrl,
+    coverImage: coverImageUrl,
   };
 };
 
@@ -481,6 +502,10 @@ export const updateBusiness = async (businessId, businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
+  // ✅ CORREGIDO: Extraer URLs correctamente
+  const profileImageUrl = extractProfileImage(response.images);
+  const coverImageUrl = extractCoverImage(response.images);
+  
   return {
     id_business: response.idCommerce,
     id_user: response.idOwner,
@@ -490,8 +515,8 @@ export const updateBusiness = async (businessId, businessData) => {
     phone: response.phone,
     link: response.link,
     branchOf: response.branchOf,
-    profileImage: response.profileImage || null,
-    coverImage: response.coverImage || null,
+    profileImage: profileImageUrl,
+    coverImage: coverImageUrl,
   };
 };
 
@@ -946,6 +971,47 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
     throw handleApiError(error, 'deleteImagesFromPost');
   }
 };
+// ✅ NUEVO: Función para extraer URL de imagen
+const extractImageUrl = (imageData) => {
+  if (!imageData) return null;
+  
+  // Si ya es una URL string
+  if (typeof imageData === 'string') {
+    return imageData;
+  }
+  
+  // Si es un objeto con la propiedad url
+  if (typeof imageData === 'object' && imageData.url) {
+    return imageData.url;
+  }
+  
+  // Si es un array, tomar el primer elemento
+  if (Array.isArray(imageData) && imageData.length > 0) {
+    return extractImageUrl(imageData[0]);
+  }
+  
+  return null;
+};
+
+// ✅ NUEVO: Función para extraer imagen de perfil del array de imágenes
+const extractProfileImage = (images) => {
+  if (!images || !Array.isArray(images)) return null;
+  
+  // Buscar imagen de tipo PROFILE
+  const profileImg = images.find(img => img.imageType === 'PROFILE');
+  return profileImg ? profileImg.url : null;
+};
+
+// ✅ NUEVO: Función para extraer imagen de portada del array de imágenes
+const extractCoverImage = (images) => {
+  if (!images || !Array.isArray(images)) return null;
+  
+  // Buscar imagen de tipo COVER (tomar la primera si hay varias)
+  const coverImg = images.find(img => img.imageType === 'COVER');
+  return coverImg ? coverImg.url : null;
+};
+
+
 // ============================================
 // EXPORTACIÓN POR DEFECTO
 // ============================================

@@ -369,6 +369,8 @@ const handleProfileImageUpload = async (file) => {
 };
 
 
+
+
 const handleCoverImageUpload = async (file) => {
   if (!businessId) {
     setError("Primero debes crear el negocio antes de subir imágenes");
@@ -381,7 +383,7 @@ const handleCoverImageUpload = async (file) => {
   try {
     console.log("📤 Subiendo imagen de portada...");
     const result = await uploadCoverImage(businessId, file);
-    console.log("✅ Resultado completo:", result);
+    console.log("✅ Resultado completo de uploadCoverImage:", result);
 
     if (result.coverImage) {
       setBusinessData(prev => ({
@@ -396,6 +398,7 @@ const handleCoverImageUpload = async (file) => {
         }));
       }
       
+      setCoverImageFile(null);
       showSuccessMessage("✅ Imagen de portada actualizada");
     } else {
       throw new Error("No se recibió la URL de la imagen actualizada");
@@ -407,6 +410,7 @@ const handleCoverImageUpload = async (file) => {
     setLoadingStates(prev => ({ ...prev, coverImage: false }));
   }
 };
+
 
   // ✅ MEJORA 6: Funciones helper para mensajes
   const showSuccessMessage = (msg) => {
