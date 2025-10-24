@@ -42,14 +42,20 @@ const timeAgo = (date) => {
 };
 
 const normalizeBusinessData = (data) => {
+  console.log("🖼️ Normalizando datos de negocio:", {
+    rawProfileImage: data?.profileImage,
+    rawCoverImage: data?.coverImage
+  });
+  
   return {
     name: data?.name || "",
     email: data?.email || "",
     phone: data?.phone || "",
     link: data?.link ? String(data.link) : "",
     description: data?.description || "",
-    profileImage: data?.profileImage || null,
-    coverImage: data?.coverImage || null,
+    // ✅ CORREGIDO: Extraer URL de objetos de imagen
+    profileImage: data?.profileImage?.url || data?.profileImage || null,
+    coverImage: data?.coverImage?.url || data?.coverImage || null,
   };
 };
 
@@ -152,7 +158,7 @@ const useFormValidation = () => {
 // COMPONENTE PRINCIPAL
 // ============================================
 
-const ProfileHeader = ({ isOwner = false }) => {
+const ProfileHeader = ({ isOwner = false, businessData: externalBusinessData = null }) => {
   const { user } = useContext(UserContext);
   
   // ✅ MEJORA 5: Estados de carga granulares
@@ -221,16 +227,44 @@ useEffect(() => {
 }, [draft.profileImage, draft.coverImage]);
 
   // ============================================
-  // CARGAR DATOS
-  // ============================================
+// CARGAR DATOS
+// ============================================
+
+useEffect(() => {
+ // Si hay datos externos (perfil público), usarlos directamente
+if (externalBusinessData) {
+  console.log("🟢 Usando datos externos del negocio:", externalBusinessData.name);
+  console.log("🖼️ Datos de imagen antes de normalizar:", {
+    profileImage: externalBusinessData.profileImage,
+    coverImage: externalBusinessData.coverImage
+  });
   
-  useEffect(() => {
-    if (user?.id_user) {
-      loadBusinessData();
-    } else {
-      setLoadingStates(prev => ({ ...prev, business: false }));
-    }
-  }, [user?.id_user]);
+  const loadedData = normalizeBusinessData(externalBusinessData);
+  
+  console.log("🖼️ Datos de imagen después de normalizar:", {
+    profileImage: loadedData.profileImage,
+    coverImage: loadedData.coverImage
+  });
+  
+  setBusinessData(loadedData);
+  setDraft(loadedData);
+  setBusinessId(externalBusinessData.idCommerce || externalBusinessData.id_business);
+  setLoadingStates(prev => ({ ...prev, business: false }));
+  
+  // Cargar publicaciones si hay ID
+  if (externalBusinessData.idCommerce || externalBusinessData.id_business) {
+    loadPosts(externalBusinessData.idCommerce || externalBusinessData.id_business);
+  }
+  return;
+}
+
+  // Si no hay datos externos, cargar "Mi negocio" (comportamiento original)
+  if (user?.id_user) {
+    loadBusinessData();
+  } else {
+    setLoadingStates(prev => ({ ...prev, business: false }));
+  }
+}, [user?.id_user, externalBusinessData]);
 
   useEffect(() => {
     const info = getCurrentStatus(schedule);

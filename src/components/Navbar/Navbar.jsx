@@ -1,7 +1,8 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useContext, useState, useEffect, useRef, useCallback } from "react";
 import { UserContext } from "../../pages/UserContext";
 import LoginModal from "../LoginForm/LoginModal";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
+import { searchCommerces } from "../../Api/Api";
 import styles from "./Navbar.module.css"; 
 import {
   FaMapMarkerAlt, FaRegStar, FaRegBell, FaRegCalendarAlt,
@@ -17,20 +18,71 @@ const Navbar = () => {
   const menuRef = useRef(null);
   const navigate = useNavigate();
 
-  const [searchActive, setSearchActive] = useState(false);
+  // Estados de búsqueda
   const [searchText, setSearchText] = useState("");
-  const [filteredList, setFilteredList] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const searchTimeoutRef = useRef(null);
 
-  // Lista de negocios para sugerencias
-  const businessList = [
-    "Panadería Los Aromas",
-    "Supermercado Central",
-    "Café La Esquina",
-    "Peluquería Moderno",
-    "Gimnasio FitLife",
-    "Tienda de Ropa Urban"
-  ];
+  // Búsqueda con debounce
+  const handleSearchChange = useCallback((text) => {
+    setSearchText(text);
+    
+    if (text.trim().length === 0) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    setLoadingSuggestions(true);
+    
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchCommerces(text.trim(), 3, 0);
+        setSuggestions(results);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error('Error en búsqueda:', error);
+        setSuggestions([]);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 300);
+  }, []);
+
+  // Navegar a página de búsqueda
+  const handleSearch = useCallback(() => {
+    if (searchText.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
+      setShowSuggestions(false);
+      setSearchText("");
+    }
+  }, [searchText, navigate]);
+
+  // Enter para buscar
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  }, [handleSearch]);
+
+  // Limpiar timeout al desmontar
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  
+
 
   // Íconos principales
   const icons = [
@@ -40,18 +92,7 @@ const Navbar = () => {
     { icon: FaRegCreditCard, label: "Métodos de pago", link: "/pagos" },
   ];
 
-  // Función para búsqueda
-  const handleSearchChange = (text) => {
-    setSearchText(text);
-    if (text.trim() === "") setFilteredList([]);
-    else {
-      setFilteredList(
-        businessList.filter((b) =>
-          b.toLowerCase().includes(text.toLowerCase())
-        )
-      );
-    }
-  };
+
 
   // Función para navegación con ripple
   const handleIconClick = (link, e) => {
@@ -73,8 +114,16 @@ const Navbar = () => {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);  
+  useEffect(() => {    
+    const handleClickOutside = (e) => {      
+      if (!e.target.closest(`.${styles.searchContainer}`)) {        
+        setShowSuggestions(false);
+      }
+    };    
+    document.addEventListener("mousedown", handleClickOutside);    
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
   return (
     <>
       <nav className={styles.navbar}>
@@ -85,37 +134,60 @@ const Navbar = () => {
         </div>
 
         {/* Buscador */}
-        <div
-          className={`${styles.searchContainer} ${searchActive ? styles.active : ""}`}
-          onClick={() => setSearchActive(true)}
-        >
-          <input
-            type="text"
-            placeholder="Buscar negocio, servicio o lugar..."
-            className={styles.searchInput}
-            value={searchText}
-            onChange={(e) => handleSearchChange(e.target.value)}
-          />
-          <FaSearch className={styles.searchIcon} />
-
-          {searchActive && filteredList.length > 0 && (
-            <div className={styles.suggestions}>
-              {filteredList.map((item, idx) => (
-                <div
-                  key={idx}
-                  className={styles.suggestionItem}
-                  onClick={() => {
-                    setSearchText(item);
-                    setFilteredList([]);
-                    navigate(`/search/${item}`);
-                  }}
-                >
-                  {item}
+        <div className={styles.searchContainer}>
+          <input    
+          type="text"    
+          placeholder="Buscar negocio, servicio o lugar..."    
+          className={styles.searchInput}    
+          value={searchText}    
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onKeyPress={handleKeyPress}  
+          />  
+          <FaSearch     
+          className={styles.searchIcon}     
+          onClick={handleSearch}    
+          style={{ cursor: 'pointer', pointerEvents: 'all' }}
+          />  
+          {showSuggestions && suggestions.length > 0 && (    
+            <div className={styles.suggestions}>      
+            {suggestions.map((commerce) => (        
+              <div          
+              key={commerce.idCommerce}          
+              className={styles.suggestionItem}
+              onClick={() => {            
+                navigate(`/negocios/${commerce.idCommerce}`);
+                setShowSuggestions(false);            
+                setSearchText("");
+              }}
+              >          
+              <div className={styles.suggestionContent}>
+                <div className={styles.suggestionIcon}>
+                  {commerce.profileImage?.url ? (
+                    <img src={commerce.profileImage.url} alt="" />
+                  ) : ( 
+                  <span>{commerce.name.charAt(0).toUpperCase()}</span>
+                  )}
+                  </div>  
+                  <div className={styles.suggestionInfo}>    
+                    <span className={styles.suggestionName}>{commerce.name}</span>
+                    {commerce.description && (     
+                      <span className={styles.suggestionDesc}>        
+                      {commerce.description.substring(0, 50)}...
+                      </span>
+                    )}  
+                    </div>
+                    </div>
+                  </div>
+                ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              )}   
+              {loadingSuggestions && (
+                <div className={styles.suggestions}>
+                  <div className={styles.suggestionItem}>Buscando...</div>
+                  </div>
+                )}
+                </div>
+
 
         {/* Íconos principales + Categorías + Usuario */}
         <div className={styles.icons}>

@@ -1,0 +1,121 @@
+.card {
+  background: white;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  position: relative;
+  padding-top: 120px;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+}
+
+/* Portada de fondo difuminada */
+.coverBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100px;
+  overflow: hidden;
+}
+
+.coverBackground img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(2px) brightness(0.7);
+}
+
+.coverPlaceholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--brand-600), var(--brand-700));
+}
+
+/* Perfil circular */
+.profileCircle {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid white;
+  box-shadow: var(--shadow-lg);
+  z-index: 2;
+}
+
+.profileCircle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profilePlaceholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+}
+
+/* Info del comercio */
+.info {
+  padding: var(--spacing-md);
+  padding-top: 50px; /* ESPACIO EXTRA PARA EL CÍRCULO */
+  text-align: center;
+  position: relative;
+  z-index: 3; /* ASEGURAR QUE ESTÉ ENCIMA DEL FONDO */
+}
+
+.name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  margin-bottom: var(--spacing-sm);
+}
+
+.description {
+  font-size: 0.9rem;
+  color: var(--gray-700);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .card {
+    padding-top: 100px;
+  }
+  
+  .profileCircle {
+    width: 60px;
+    height: 60px;
+    top: 35px;
+  }
+  
+  .name {
+    font-size: 1.1rem;
+  }
+}

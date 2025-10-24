@@ -4,7 +4,7 @@ import axios from "axios";
 // CONFIGURACIÓN
 // ============================================
 
-const API_URL = import.meta.env.VITE_API_URL || "http://10.0.15.66:8080";
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.11 :8080";
 const TIMEOUT = 15000;
 const MAX_RETRIES = 2;
 const isDevelopment = import.meta.env.MODE === 'development';
@@ -51,6 +51,9 @@ const ENDPOINTS = {
   POST_DELETE: (postId) => `/publicacion/eliminar/${postId}`,
   POST_ADD_IMAGES: (postId) => `/publicacion/agregar/imagenes/${postId}`,
   POST_DELETE_IMAGES: (postId) => `/publicacion/eliminar/imagenes/${postId}`,
+
+  // Búsqueda
+  SEARCH_COMMERCES: '/comercio/buscar',
 };
 
 // ============================================
@@ -998,6 +1001,43 @@ export const normalizePostFromBackend = (post) => {
 };
 
 // ============================================
+// FUNCIONES DE BÚSQUEDA
+// ============================================
+
+/**
+ * Buscar comercios por nombre o tag
+ */
+export const searchCommerces = async (searchParam, limit = 10, offset = 0) => {
+  if (!searchParam || searchParam.trim() === '') {
+    throw new Error('Debes ingresar un término de búsqueda');
+  }
+
+  const params = new URLSearchParams({
+    searchParam: searchParam.trim(),
+    limit: limit.toString(),
+    offset: offset.toString()
+  });
+
+  try {
+    if (isDevelopment) {
+      console.log('🔍 Buscando comercios:', { searchParam, limit, offset });
+    }
+
+    const response = await apiRequest('GET', `${ENDPOINTS.SEARCH_COMMERCES}?${params}`);
+    
+    if (isDevelopment) {
+      console.log('✅ Resultados encontrados:', Array.isArray(response) ? response.length : 0);
+    }
+
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    if (isDevelopment) {
+      console.error('❌ Error en búsqueda:', error);
+    }
+    throw error;
+  }
+};
+// ============================================
 // EXPORTACIÓN POR DEFECTO
 // ============================================
 
@@ -1011,6 +1051,9 @@ export default {
   getUserById,
   updateUser,
   deleteUser,
+
+  // Búsqueda  
+  searchCommerces,
   
   // Categorías
   getCategories,
