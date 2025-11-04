@@ -80,6 +80,8 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
+
+    if (files.length === 0) return;
     
     if (files.length > availableSlots) {
       alert(`Solo puedes agregar ${availableSlots} imágenes más (máximo ${MAX_IMAGES} total, actualmente tienes ${totalImages}).`);
