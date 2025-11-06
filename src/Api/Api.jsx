@@ -57,12 +57,21 @@ const ENDPOINTS = {
 };
 
 // ============================================
-// CONFIGURACIÓN GLOBAL DE AXIOS
+// CONFIGURACIÓN GLOBAL DE AXIOS - ACTUALIZADA
 // ============================================
 
 axios.defaults.timeout = TIMEOUT;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
+
+// ✅ HEADERS ESPECÍFICOS PARA NGROK
+axios.defaults.headers.common['ngrok-skip-browser-warning'] = 'true';
+axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
+axios.defaults.headers.common['Access-Control-Allow-Headers'] = '*';
+axios.defaults.headers.common['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,PATCH,OPTIONS';
+
+// Configuración importante para CORS
+axios.defaults.withCredentials = false;
 
 // ============================================
 // FUNCIONES AUXILIARES
@@ -109,9 +118,32 @@ const shouldRetry = (error) => {
   return false;
 };
 
+// ============================================
+// FUNCIÓN DE VALIDACIÓN DE RESPUESTA
+// ============================================
+
+const validateApiResponse = (response, endpoint) => {
+  // Si la respuesta es un string que contiene HTML, es un error
+  if (typeof response === 'string' && response.includes('<!DOCTYPE html>')) {
+    throw new Error(`El servidor respondió con una página HTML en lugar de datos JSON. Posible problema de CORS en el endpoint: ${endpoint}`);
+  }
+  
+  // Si la respuesta es un string que contiene ngrok, es un error
+  if (typeof response === 'string' && response.includes('ngrok')) {
+    throw new Error(`Ngrok está bloqueando la petición. Verifica la configuración de CORS. Endpoint: ${endpoint}`);
+  }
+  
+  return true;
+};
+
 const handleApiError = (error, endpoint) => {
   if (isDevelopment) {
     console.error(`❌ Error en ${endpoint}:`, error);
+  }
+  
+  // Verificar si es un error de ngrok/HTML
+  if (error.response && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
+    return new Error(`🔒 Ngrok está bloqueando la petición por CORS. Endpoint: ${endpoint}. Configura los headers CORS en el backend.`);
   }
   
   if (!error.response) {
@@ -161,7 +193,7 @@ const logResponse = (method, endpoint, data) => {
 };
 
 // ============================================
-// FUNCIÓN CENTRALIZADA DE PETICIONES HTTP
+// FUNCIÓN CENTRALIZADA DE PETICIONES HTTP - ACTUALIZADA
 // ============================================
 
 const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) => {
@@ -174,7 +206,11 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'ngrok-skip-browser-warning': 'true', // ✅ Header específico para ngrok
+      'Access-Control-Allow-Origin': '*',
     },
+    // ✅ Configuración importante para CORS
+    withCredentials: false,
   };
 
   if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
@@ -183,6 +219,10 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
 
   try {
     const response = await axios(config);
+    
+    // ✅ VERIFICACIÓN CRÍTICA: Asegurar que la respuesta sea JSON, no HTML
+    validateApiResponse(response.data, endpoint);
+    
     logResponse(method, endpoint, response.data);
     return response.data;
     
@@ -295,6 +335,12 @@ export const logoutUser = async (userId) => {
 
 export const getUserById = async (idUser) => {
   validateParams({ idUser }, ['idUser']);
+  
+  if (isDevelopment) {
+    console.log(`🔍 Obteniendo usuario con ID: ${idUser}`);
+    console.log(`🔗 URL completa: ${API_URL}${ENDPOINTS.GET_USER(idUser)}`);
+  }
+  
   return apiRequest('GET', ENDPOINTS.GET_USER(idUser));
 };
 
@@ -541,6 +587,7 @@ export const uploadProfileImage = async (businessId, imageFile) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
         },
         timeout: 30000,
       }
@@ -601,6 +648,7 @@ export const uploadCoverImage = async (businessId, imageFile) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
         },
         timeout: 30000,
       }
@@ -664,6 +712,7 @@ export const uploadGalleryImages = async (businessId, imageFiles) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
         },
         timeout: 60000,
       }
@@ -771,6 +820,7 @@ export const createPost = async (description, idCommerce, imageFiles = [], event
       {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
         },
         timeout: 60000,
       }
@@ -870,6 +920,9 @@ export const deletePost = async (postId) => {
       `${API_URL}${ENDPOINTS.POST_DELETE(postId)}`,
       {
         timeout: TIMEOUT,
+        headers: {
+          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+        },
       }
     );
     
@@ -905,6 +958,7 @@ export const addImagesToPost = async (postId, imageFiles) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
         },
         timeout: 60000,
       }
@@ -944,6 +998,7 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
       {
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
         },
         timeout: TIMEOUT,
       }
@@ -1037,6 +1092,7 @@ export const searchCommerces = async (searchParam, limit = 10, offset = 0) => {
     throw error;
   }
 };
+
 // ============================================
 // EXPORTACIÓN POR DEFECTO
 // ============================================

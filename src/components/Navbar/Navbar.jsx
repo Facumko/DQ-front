@@ -2,19 +2,20 @@ import React, { useContext, useState, useEffect, useRef, useCallback } from "rea
 import { UserContext } from "../../pages/UserContext";
 import LoginModal from "../LoginForm/LoginModal";
 import { useNavigate } from "react-router-dom";
-import { searchCommerces } from "../../Api/Api";
-import styles from "./Navbar.module.css"; 
+import { searchCommerces, getBusinessByUserId } from "../../Api/Api";
+import styles from "./Navbar.module.css";
 import {
   FaMapMarkerAlt, FaRegStar, FaRegBell, FaRegCalendarAlt,
   FaRegCreditCard, FaRegUser, FaSearch, FaBars
 } from "react-icons/fa";
-
 import Categories from "../Categories/Categories";
 
 const Navbar = () => {
   const { user, logout } = useContext(UserContext);
   const [showLogin, setShowLogin] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [hasBusiness, setHasBusiness] = useState(false);
+  const [checkingBusiness, setCheckingBusiness] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
 
@@ -25,6 +26,28 @@ const Navbar = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const searchTimeoutRef = useRef(null);
+
+  // Verificar si el usuario tiene un negocio
+  useEffect(() => {
+    const checkBusiness = async () => {
+      if (user?.id_user) {
+        setCheckingBusiness(true);
+        try {
+          const business = await getBusinessByUserId(user.id_user);
+          setHasBusiness(!!business);
+        } catch (error) {
+          console.log("Usuario sin negocio o error:", error.message);
+          setHasBusiness(false);
+        } finally {
+          setCheckingBusiness(false);
+        }
+      } else {
+        setHasBusiness(false);
+      }
+    };
+
+    checkBusiness();
+  }, [user]);
 
   // Búsqueda con debounce
   const handleSearchChange = useCallback((text) => {
@@ -81,49 +104,24 @@ const Navbar = () => {
     };
   }, []);
 
-  
+  const handleMiCommerceClick = () => {
+    if (!user) {
+      setShowLogin(true);
+    } else if (hasBusiness) {
+      navigate("/Mycommerce");
+    } else {
+      navigate("/register-commerce");
+    }
+    setShowMenu(false);
+  };
 
-
-  // Íconos principales
   const icons = [
-    { icon: FaRegStar, label: "Favoritos", link: "/favoritos" },
+    { icon: FaRegStar, label: "Favoritos", link: "/favorites" },
     { icon: FaRegBell, label: "Notificaciones", link: "/notificaciones" },
     { icon: FaRegCalendarAlt, label: "Eventos", link: "/eventos" },
     { icon: FaRegCreditCard, label: "Métodos de pago", link: "/pagos" },
   ];
 
-
-
-  // Función para navegación con ripple
-  const handleIconClick = (link, e) => {
-    const ripple = document.createElement("span");
-    ripple.className = styles.rippleDynamic;
-    ripple.style.left = `${e.nativeEvent.offsetX}px`;
-    ripple.style.top = `${e.nativeEvent.offsetY}px`;
-    e.currentTarget.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 500);
-    navigate(link);
-  };
-
-  // Cerrar menú al hacer click fuera
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);  
-  useEffect(() => {    
-    const handleClickOutside = (e) => {      
-      if (!e.target.closest(`.${styles.searchContainer}`)) {        
-        setShowSuggestions(false);
-      }
-    };    
-    document.addEventListener("mousedown", handleClickOutside);    
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
   return (
     <>
       <nav className={styles.navbar}>
@@ -136,58 +134,57 @@ const Navbar = () => {
         {/* Buscador */}
         <div className={styles.searchContainer}>
           <input    
-          type="text"    
-          placeholder="Buscar negocio, servicio o lugar..."    
-          className={styles.searchInput}    
-          value={searchText}    
-          onChange={(e) => handleSearchChange(e.target.value)}
-          onKeyPress={handleKeyPress}  
+            type="text"    
+            placeholder="Buscar negocio, servicio o lugar..."    
+            className={styles.searchInput}    
+            value={searchText}    
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyPress={handleKeyPress}  
           />  
           <FaSearch     
-          className={styles.searchIcon}     
-          onClick={handleSearch}    
-          style={{ cursor: 'pointer', pointerEvents: 'all' }}
+            className={styles.searchIcon}     
+            onClick={handleSearch}    
+            style={{ cursor: 'pointer', pointerEvents: 'all' }}
           />  
           {showSuggestions && suggestions.length > 0 && (    
             <div className={styles.suggestions}>      
-            {suggestions.map((commerce) => (        
-              <div          
-              key={commerce.idCommerce}          
-              className={styles.suggestionItem}
-              onClick={() => {            
-                navigate(`/negocios/${commerce.idCommerce}`);
-                setShowSuggestions(false);            
-                setSearchText("");
-              }}
-              >          
-              <div className={styles.suggestionContent}>
-                <div className={styles.suggestionIcon}>
-                  {commerce.profileImage?.url ? (
-                    <img src={commerce.profileImage.url} alt="" />
-                  ) : ( 
-                  <span>{commerce.name.charAt(0).toUpperCase()}</span>
-                  )}
-                  </div>  
-                  <div className={styles.suggestionInfo}>    
-                    <span className={styles.suggestionName}>{commerce.name}</span>
-                    {commerce.description && (     
-                      <span className={styles.suggestionDesc}>        
-                      {commerce.description.substring(0, 50)}...
-                      </span>
-                    )}  
-                    </div>
+              {suggestions.map((commerce) => (        
+                <div          
+                  key={commerce.idCommerce}          
+                  className={styles.suggestionItem}
+                  onClick={() => {            
+                    navigate(`/negocios/${commerce.idCommerce}`);
+                    setShowSuggestions(false);            
+                    setSearchText("");
+                  }}
+                >          
+                  <div className={styles.suggestionContent}>
+                    <div className={styles.suggestionIcon}>
+                      {commerce.profileImage?.url ? (
+                        <img src={commerce.profileImage.url} alt="" />
+                      ) : ( 
+                        <span>{commerce.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>  
+                    <div className={styles.suggestionInfo}>    
+                      <span className={styles.suggestionName}>{commerce.name}</span>
+                      {commerce.description && (     
+                        <span className={styles.suggestionDesc}>        
+                          {commerce.description.substring(0, 50)}...
+                        </span>
+                      )}  
                     </div>
                   </div>
-                ))}
                 </div>
-              )}   
-              {loadingSuggestions && (
-                <div className={styles.suggestions}>
-                  <div className={styles.suggestionItem}>Buscando...</div>
-                  </div>
-                )}
-                </div>
-
+              ))}
+            </div>
+          )}   
+          {loadingSuggestions && (
+            <div className={styles.suggestions}>
+              <div className={styles.suggestionItem}>Buscando...</div>
+            </div>
+          )}
+        </div>
 
         {/* Íconos principales + Categorías + Usuario */}
         <div className={styles.icons}>
@@ -206,7 +203,6 @@ const Navbar = () => {
           })}
 
           {/* Icono de Categorías */}
-         {/* Icono de Categorías - CON CONTENEDOR RELATIVO */}
           <div className={styles.categoriesContainer}>
             <div
               className={styles.iconWrapper}
@@ -220,6 +216,7 @@ const Navbar = () => {
             <Categories expanded={showCategories} 
             onClose={() => setShowCategories(false)}/>
           </div>
+          
           {/* Ícono de usuario */}
           <div className={styles.userWrapper} ref={menuRef}>
             <FaRegUser
@@ -236,22 +233,21 @@ const Navbar = () => {
                 <div
                   className={styles.userMenuItem}
                   onClick={() => {
-                    navigate("/Profile");
+                    navigate("/profile");
                     setShowMenu(false);
                   }}
                 >
                   Mi cuenta
                 </div>
-                {/* ⭐ NUEVA OPCIÓN: Mi negocio */}
+                
+                {/* ⭐ MI NEGOCIO - SIN LA ETIQUETA "NUEVO" */}
                 <div
                   className={styles.userMenuItem}
-                  onClick={() => {
-                    navigate("/Mycommerce");
-                    setShowMenu(false);
-                  }}
+                  onClick={handleMiCommerceClick}
                 >
                   Mi negocio
                 </div>
+
                 <div
                   className={styles.userMenuItem}
                   onClick={() => {
