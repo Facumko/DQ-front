@@ -1,31 +1,54 @@
 "use client"
 import { useState, useEffect } from "react"
+import { getCategories } from "../../Api/Api"
 import "./FormStep.css"
 
-
 function BusinessInfo({ data, onUpdate, onNext, onBack }) {
-  /* ---------- ESTADO ---------- */
   const [formData, setFormData] = useState({
     businessName: data?.businessName || "",
     businessDescription: data?.businessDescription || "",
     category: data?.category || "",
+    categoryId: data?.categoryId || null,
     businessAddress: data?.businessAddress || "",
     businessPhone: data?.businessPhone || "",
     instagram: data?.instagram || "",
     facebook: data?.facebook || "",
-    website: data?.website || "",
+    website: data?.website || "", // ✅ Cambiado de 'link' a 'website'
     email: data?.email || "",
   })
 
+  const [categories, setCategories] = useState([])
+  const [errors, setErrors] = useState({})
+  const [isValid, setIsValid] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  /* Errores individuales */
-  const [errors, setErrors] = useState({
-    email: "",
-    instagram: "",
-    facebook: "",
-    website: "",
-  })
+  /* ---------- CARGA DE CATEGORÍAS ---------- */
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        console.log("🔍 Cargando categorías...")
+        const cats = await getCategories()
+        setCategories(cats)
+      } catch (error) {
+        console.error("❌ Error cargando categorías:", error)
+        // Categorías por defecto
+        setCategories([
+          { idCategory: 1, name: "Restaurante" },
+          { idCategory: 2, name: "Comercio Minorista" },
+          { idCategory: 3, name: "Tecnología" },
+          { idCategory: 4, name: "Salud" },
+          { idCategory: 5, name: "Educación" },
+          { idCategory: 6, name: "Entretenimiento" },
+          { idCategory: 7, name: "Servicios Profesionales" },
+          { idCategory: 8, name: "Otro" },
+        ])
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
+    loadCategories()
+  }, [])
 
   /* ---------- HELPERS ---------- */
   const formatPhone = (raw) => {
@@ -35,12 +58,11 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     return digits
   }
 
-
   const isValidEmail = (email) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
-
   const isValidUrl = (str) => {
+    if (!str) return true
     try {
       new URL(str)
       return true
@@ -49,27 +71,31 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     }
   }
 
-
   const cleanBusinessName = (str) =>
-    str.replace(/[^A-Za-z0-9\s&/-]/g, "").slice(0, 50)
-
+    str.replace(/[^A-Za-z0-9\s&()/'.-]/g, "").slice(0, 50)
 
   /* ---------- VALIDACIÓN GENERAL ---------- */
-  const [isValid, setIsValid] = useState(false)
-
-
   useEffect(() => {
-    const { businessName, businessDescription, category, email, instagram, facebook, website } =
-      formData
+    const { businessName, businessDescription, category, email, instagram, facebook, website } = formData
 
+    const newErrors = {}
 
-    const hasError =
-      errors.email ||
-      (instagram && errors.instagram) ||
-      (facebook && errors.facebook) ||
-      (website && errors.website)
+    if (email && !isValidEmail(email)) {
+      newErrors.email = "Formato de correo inválido"
+    }
+    if (instagram && !isValidUrl(instagram)) {
+      newErrors.instagram = "URL no válida"
+    }
+    if (facebook && !isValidUrl(facebook)) {
+      newErrors.facebook = "URL no válida"
+    }
+    if (website && !isValidUrl(website)) {
+      newErrors.website = "URL no válida"
+    }
 
+    setErrors(newErrors)
 
+    const hasError = Object.values(newErrors).some(error => error)
     const ok =
       businessName.trim().length >= 3 &&
       businessDescription.trim().length >= 10 &&
@@ -77,18 +103,22 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
       category !== "" &&
       !hasError
 
-
+    console.log("✅ Validación BusinessInfo:", {
+      businessName: businessName.trim().length,
+      businessDescription: businessDescription.trim().length,
+      category,
+      hasError,
+      isValid: ok
+    })
+    
     setIsValid(ok)
-  }, [formData, errors])
-
+  }, [formData])
 
   /* ---------- HANDLERS ---------- */
   const handleChange = (e) => {
     const { name, value } = e.target
     let cleaned = value
 
-
-    /* Limpiezas / cortes */
     if (name === "businessName") cleaned = cleanBusinessName(value)
     if (name === "businessDescription") cleaned = value.slice(0, 300)
     if (name === "businessAddress") cleaned = value.slice(0, 80)
@@ -97,67 +127,49 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     if (["instagram", "facebook", "website"].includes(name))
       cleaned = value.slice(0, 120)
 
-
-    /* Actualiza el campo */
-    setFormData((prev) => ({ ...prev, [name]: cleaned }))
-
-
-    /* Valida en paralelo */
-    if (name === "email") {
-      if (cleaned && !isValidEmail(cleaned))
-        setErrors((e) => ({ ...e, email: "Formato de correo inválido" }))
-      else setErrors((e) => ({ ...e, email: "" }))
-    }
-
-
-    if (name === "instagram") {
-      if (cleaned && !isValidUrl(cleaned))
-        setErrors((e) => ({ ...e, instagram: "URL no válida" }))
-      else setErrors((e) => ({ ...e, instagram: "" }))
-    }
-
-
-    if (name === "facebook") {
-      if (cleaned && !isValidUrl(cleaned))
-        setErrors((e) => ({ ...e, facebook: "URL no válida" }))
-      else setErrors((e) => ({ ...e, facebook: "" }))
-    }
-
-
-    if (name === "website") {
-      if (cleaned && !isValidUrl(cleaned))
-        setErrors((e) => ({ ...e, website: "URL no válida" }))
-      else setErrors((e) => ({ ...e, website: "" }))
+    // Manejar selección de categoría
+    if (name === "category") {
+      const selectedCat = categories.find(cat => cat.name === value)
+      setFormData(prev => ({ 
+        ...prev, 
+        category: value,
+        categoryId: selectedCat ? Number(selectedCat.idCategory) : null // ✅ Convertir a número
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: cleaned }))
     }
   }
 
+  // Actualizar el padre cuando cambien los datos
+  useEffect(() => {
+    onUpdate(formData)
+  }, [formData, onUpdate])
 
   const handleNext = () => {
-    if (isValid) {
-      onUpdate(formData)
-      onNext()
+    if (!isValid) {
+      console.log("❌ No se puede avanzar - Datos inválidos")
+      alert("Por favor completa todos los campos requeridos correctamente")
+      return
     }
+
+    console.log("➡️ Avanzando al paso 3 con datos:", formData)
+    onNext()
   }
 
-
-  const categories = [
-    "Restaurante",
-    "Comercio Minorista",
-    "Tecnología",
-    "Salud",
-    "Educación",
-    "Entretenimiento",
-    "Servicios Profesionales",
-    "Otro",
-  ]
-
-
   /* ---------- RENDER ---------- */
+  if (isLoading) {
+    return (
+      <div className="form-step fade-in">
+        <div className="loading-spinner"></div>
+        <p>Cargando categorías...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="form-step fade-in">
       <h2 className="step-title">Información del Negocio</h2>
       <p className="step-description">Cuéntanos sobre tu negocio</p>
-
 
       <div className="form-grid">
         {/* ----- Nombre ----- */}
@@ -173,8 +185,8 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             required
             maxLength={50}
           />
+          <small className="field-note">Mínimo 3 caracteres</small>
         </div>
-
 
         {/* ----- Descripción ----- */}
         <div className="form-group full-width">
@@ -186,7 +198,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             name="businessDescription"
             value={formData.businessDescription}
             onChange={handleChange}
-            placeholder="Describe tu negocio"
+            placeholder="Describe tu negocio, productos o servicios"
             rows="4"
             required
             maxLength={300}
@@ -195,7 +207,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             {formData.businessDescription.length}/300
           </div>
         </div>
-
 
         {/* ----- Categoría ----- */}
         <div className="form-group full-width">
@@ -209,22 +220,19 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           >
             <option value="">Selecciona una categoría</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+              <option key={cat.idCategory} value={cat.name}>
+                {cat.name}
               </option>
             ))}
           </select>
         </div>
 
-
         {/* ----- Nota campos opcionales ----- */}
         <div className="optional-section full-width">
           <p className="optional-note">
-            💡 Los campos opcionales pueden completarse más tarde desde tu perfil
-            de negocio
+            💡 Los campos opcionales pueden completarse más tarde desde tu perfil de negocio
           </p>
         </div>
-
 
         {/* ----- Dirección ----- */}
         <div className="form-group">
@@ -240,7 +248,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           />
         </div>
 
-
         {/* ----- Teléfono ----- */}
         <div className="form-group">
           <label htmlFor="businessPhone">Teléfono del Negocio</label>
@@ -255,7 +262,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             inputMode="numeric"
           />
         </div>
-
 
         {/* ----- Email ----- */}
         <div className="form-group">
@@ -274,7 +280,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           )}
         </div>
 
-
         {/* ----- Instagram ----- */}
         <div className="form-group">
           <label htmlFor="instagram">Instagram (opcional)</label>
@@ -291,7 +296,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             <small className="error-message">{errors.instagram}</small>
           )}
         </div>
-
 
         {/* ----- Facebook ----- */}
         <div className="form-group">
@@ -310,7 +314,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           )}
         </div>
 
-
         {/* ----- Sitio web ----- */}
         <div className="form-group">
           <label htmlFor="website">Sitio Web (opcional)</label>
@@ -320,7 +323,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             name="website"
             value={formData.website}
             onChange={handleChange}
-            placeholder="www.tusitio.com"
+            placeholder="https://www.tusitio.com"
             maxLength={120}
           />
           {errors.website && (
@@ -329,11 +332,9 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
         </div>
       </div>
 
-
       {/* ----- Botones ----- */}
       <div className="form-actions">
-        <button className="btn btn-secondary" onClick={onBack}
-        >
+        <button className="btn btn-secondary" onClick={onBack}>
           Atrás
         </button>
         <button
@@ -344,9 +345,19 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           Siguiente
         </button>
       </div>
+
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ marginTop: '20px', padding: '10px', background: '#f5f5f5', borderRadius: '5px', fontSize: '12px' }}>
+          <strong>Debug BusinessInfo:</strong><br/>
+          Business Name: {formData.businessName}<br/>
+          Category: {formData.category} (ID: {formData.categoryId})<br/>
+          Website: {formData.website}<br/>
+          Valid: {isValid ? 'Sí' : 'No'}
+        </div>
+      )}
     </div>
   )
 }
-
 
 export default BusinessInfo

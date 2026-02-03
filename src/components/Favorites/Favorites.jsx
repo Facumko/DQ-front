@@ -5,7 +5,7 @@ import styles from "./Favorites.module.css";
 
 
 export default function Favorites() {
-  const { favorites, removeFavorite } = useContext(UserContext);
+  const { favorites = [], removeFavorite } = useContext(UserContext);v
 
 
   const [searchTerm, setSearchTerm] = useState("");

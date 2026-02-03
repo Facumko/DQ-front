@@ -1,21 +1,49 @@
+/* Variables CSS con colores ORIGINALES */
+:root {
+  --primary-color: #3498db; /* Azul original */
+  --primary-dark: #2980b9;
+  --success-color: #2ecc71; /* Verde original */
+  --success-dark: #27ae60;
+  --error-color: #e74c3c; /* Rojo original */
+  --error-dark: #c0392b;
+  --warning-color: #f39c12; /* Amarillo/naranja original */
+  --warning-dark: #d35400;
+  --text-primary: #333; /* Texto oscuro original */
+  --text-secondary: #666; /* Texto claro original */
+  --bg-light: #f8f9fa; /* Fondo claro original */
+  --border-color: #e0e0e0;
+  --shadow: 0 4px 20px rgba(0,0,0,0.08);
+  --shadow-hover: 0 8px 30px rgba(0,0,0,0.12);
+  --transition: all 0.3s ease;
+  --border-radius: 12px;
+}
+
+/* Container con color ORIGINAL */
 .container {
   min-height: 100vh;
-  background: #f4f5f8;
+  background: #f4f5f8; /* VUELTO: Color original gris claro */
   padding: 40px 20px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
 }
 
+/* Card con color ORIGINAL */
 .card {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
   max-width: 800px;
   width: 100%;
   padding: 32px;
+  transition: var(--transition);
 }
 
+.card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+/* Header */
 .header {
   display: flex;
   justify-content: space-between;
@@ -24,56 +52,56 @@
   padding-bottom: 24px;
   border-bottom: 2px solid #f0f0f0;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 20px;
 }
 
 .avatarSection {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
 }
 
 .avatar {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #B00020, #800018);
+  background: linear-gradient(135deg, #B00020, #800018); /* VUELTO: Color original rojo */
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
 }
 
-.userInfo {
-  display: flex;
-  flex-direction: column;
-}
-
-.title {
+.userInfo h1 {
+  margin: 0;
   font-size: 1.8rem;
   font-weight: 700;
-  margin: 0;
-  color: #333;
+  color: var(--text-primary);
 }
 
-.subtitle {
-  font-size: 0.95rem;
-  color: #666;
+.userInfo p {
   margin: 4px 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
 }
 
-.editButton {
-  display: flex;
+/* Botones con colores ORIGINALES */
+.editButton, .saveButton, .cancelButton, .changePasswordButton, .confirmButton, .cancelModalButton {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: #3498db;
-  color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  transition: var(--transition);
+}
+
+.editButton {
+  background: #3498db; /* VUELTO: Azul original */
+  color: white;
 }
 
 .editButton:hover:not(:disabled) {
@@ -87,25 +115,8 @@
   cursor: not-allowed;
 }
 
-.editActions {
-  display: flex;
-  gap: 12px;
-}
-
-.saveButton, .cancelButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
 .saveButton {
-  background: #2ecc71;
+  background: #2ecc71; /* VUELTO: Verde original */
   color: white;
 }
 
@@ -121,7 +132,7 @@
 }
 
 .cancelButton {
-  background: #e74c3c;
+  background: #e74c3c; /* VUELTO: Rojo original */
   color: white;
 }
 
@@ -136,10 +147,26 @@
   cursor: not-allowed;
 }
 
-/* Mensajes */
+.editActions {
+  display: flex;
+  gap: 12px;
+}
+
+.changePasswordButton {
+  background: white;
+  border: 2px solid #3498db;
+  color: #3498db;
+}
+
+.changePasswordButton:hover {
+  background: #3498db;
+  color: white;
+}
+
+/* Mensajes con colores ORIGINALES */
 .errorMessage {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #fee2e2; /* Rojo claro original */
+  color: #dc2626; /* Rojo oscuro original */
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -151,21 +178,21 @@
 }
 
 .successMessage {
-  background: #d1fae5;
-  color: #065f46;
+  background: #d1fae5; /* Verde claro original */
+  color: #065f46; /* Verde oscuro original */
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 20px;
   border-left: 4px solid #10b981;
-  animation: slideIn 0.3s ease, success 0.5s ease;
+  animation: slideIn 0.3s ease;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .infoMessage {
-  background: #dbeafe;
-  color: #1e40af;
+  background: #dbeafe; /* Azul claro original */
+  color: #1e40af; /* Azul oscuro original */
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -173,7 +200,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  animation: slideIn 0.3s ease;
 }
 
 @keyframes slideIn {
@@ -187,12 +213,7 @@
   }
 }
 
-@keyframes success {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
-}
-
+/* Formulario */
 .form {
   display: flex;
   flex-direction: column;
@@ -211,9 +232,8 @@
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  color: #555;
+  color: #555; /* VUELTO: Color original */
   font-size: 0.95rem;
-  position: relative;
 }
 
 .requiredBadge {
@@ -225,12 +245,12 @@
 .charCount {
   margin-left: auto;
   font-size: 0.85rem;
-  color: #999;
+  color: #999; /* VUELTO: Color original */
   font-weight: 400;
 }
 
 .modifiedDot {
-  color: #f59e0b;
+  color: #f59e0b; /* VUELTO: Amarillo original */
   font-size: 1.2rem;
   margin-left: 4px;
   animation: pulse 2s infinite;
@@ -241,26 +261,20 @@
   50% { opacity: 0.5; }
 }
 
-.value {
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  color: #333;
-  margin: 0;
-  font-size: 1rem;
-}
-
-.value[data-empty="true"] {
-  color: #999;
-  font-style: italic;
+/* Input Wrapper */
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .input {
-  padding: 12px 16px;
-  border: 2px solid #3498db;
+  width: 100%;
+  padding: 12px 40px 12px 16px;
+  border: 2px solid #3498db; /* VUELTO: Azul original */
   border-radius: 8px;
   font-size: 1rem;
-  transition: all 0.3s ease;
+  transition: var(--transition);
   font-family: inherit;
 }
 
@@ -276,148 +290,179 @@
   opacity: 0.7;
 }
 
+.inputSuccess {
+  border-color: #2ecc71; /* VUELTO: Verde original */
+}
+
 .inputError {
-  border-color: #dc2626 !important;
+  border-color: #e74c3c; /* VUELTO: Rojo original */
+}
+
+.inputSuccess:focus {
+  box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.1);
 }
 
 .inputError:focus {
-  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1) !important;
+  box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.1);
 }
 
-.fieldError {
-  color: #dc2626;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+/* Iconos de estado */
+.successIcon {
+  position: absolute;
+  right: 12px;
+  color: #2ecc71; /* VUELTO: Verde original */
+  pointer-events: none;
 }
 
-.hint {
-  font-size: 0.85rem;
-  color: #666;
+.errorIcon {
+  position: absolute;
+  right: 12px;
+  color: #e74c3c; /* VUELTO: Rojo original */
+  pointer-events: none;
+}
+
+/* Botón toggle password */
+.togglePassword {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #666; /* VUELTO: Color original */
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+
+.togglePassword:hover {
+  background: rgba(0,0,0,0.05);
+  color: #333;
+}
+
+/* Fortaleza contraseña */
+.strengthBadge {
+  position: absolute;
+  right: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.strengthBadge.weak {
+  background: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+}
+
+.strengthBadge.medium {
+  background: rgba(243, 156, 18, 0.1);
+  color: #f39c12;
+}
+
+.strengthBadge.strong {
+  background: rgba(46, 204, 113, 0.1);
+  color: #2ecc71;
+}
+
+/* Valores en modo lectura */
+.value {
+  padding: 12px 16px;
+  background: #f8f9fa; /* VUELTO: Fondo gris original */
+  border-radius: 8px;
+  color: #333; /* VUELTO: Texto oscuro original */
   margin: 0;
+  font-size: 1rem;
+  border: 2px solid transparent;
+}
+
+.value.empty {
+  color: #999; /* VUELTO: Color original */
   font-style: italic;
 }
 
+/* Errores de campo */
+.fieldError {
+  color: #e74c3c; /* VUELTO: Rojo original */
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* Botón deshacer */
 .undoButton {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: #f59e0b;
-  color: white;
-  border: none;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(243, 156, 18, 0.1); /* NARANJA ORIGINAL */
+  color: #d35400;
+  border: 1px solid #f39c12;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: var(--transition);
   align-self: flex-start;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .undoButton:hover {
-  background: #d97706;
-  transform: translateX(-2px);
+  background: #f39c12;
+  color: white;
+  transform: translateX(-4px);
 }
 
+/* Sección seguridad */
 .securitySection {
-  margin-top: 32px;
-  padding-top: 24px;
+  margin-top: 40px;
+  padding-top: 32px;
   border-top: 2px solid #f0f0f0;
 }
 
 .sectionTitle {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 16px;
-}
-
-.changePasswordButton {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  background: white;
-  border: 2px solid #3498db;
-  color: #3498db;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 20px;
 }
 
-.changePasswordButton:hover {
-  background: #3498db;
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2);
-}
-
-.passwordChangeForm {
+.passwordForm {
+  background: #f8f9fa; /* VUELTO: Fondo gris original */
+  border-radius: 12px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  margin-top: 16px;
+  gap: 20px;
 }
 
-.warningBox {
-  background: #fef3c7;
-  border: 1px solid #f59e0b;
-  border-radius: 8px;
-  padding: 12px;
+.passwordMatch {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  color: #92400e;
-}
-
-.warningBox p {
-  margin: 0;
+  align-items: center;
+  gap: 6px;
   font-size: 0.9rem;
-  line-height: 1.5;
+  padding: 8px 12px;
+  border-radius: 6px;
 }
 
-.retryButton {
-  padding: 12px 24px;
-  background: #3498db;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 1rem;
-  transition: all 0.3s ease;
+.passwordMatch.match {
+  background: rgba(46, 204, 113, 0.1);
+  color: #27ae60;
 }
 
-.retryButton:hover {
-  background: #2980b9;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+.passwordMatch.mismatch {
+  background: rgba(231, 76, 60, 0.1);
+  color: #c0392b;
 }
 
-/* Spinner */
-.spinner {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #3498db;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.spinnerIcon {
-  animation: spin 1s linear infinite;
+.passwordActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 /* Modal */
@@ -467,13 +512,12 @@
   align-items: center;
   gap: 16px;
   margin-bottom: 24px;
+  text-align: center;
 }
 
-.modalHeader h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: #333;
-  text-align: center;
+.warningIcon {
+  color: #f39c12; /* VUELTO: Amarillo original */
+  animation: pulse 1.5s infinite;
 }
 
 .modalBody {
@@ -483,46 +527,69 @@
 .modalBody p {
   color: #666;
   line-height: 1.6;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .emailComparison {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  margin: 16px 0;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  background: #f8f9fa; /* VUELTO: Fondo gris original */
+  border-radius: 12px;
+  margin: 20px 0;
   flex-wrap: wrap;
 }
 
-.oldEmail {
-  color: #dc2626;
-  font-weight: 600;
-  word-break: break-all;
+.emailBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 150px;
 }
 
-.arrow {
-  color: #f59e0b;
-  font-size: 1.5rem;
-  font-weight: bold;
+.emailLabel {
+  font-size: 0.85rem;
+  color: #666; /* VUELTO: Color original */
+  font-weight: 600;
+}
+
+.oldEmail {
+  color: #dc2626; /* VUELTO: Rojo original */
+  font-weight: 700;
+  word-break: break-all;
+  text-align: center;
 }
 
 .newEmail {
-  color: #10b981;
-  font-weight: 600;
+  color: #2ecc71; /* VUELTO: Verde original */
+  font-weight: 700;
   word-break: break-all;
+  text-align: center;
 }
 
-.modalWarning {
-  background: #fef3c7;
-  border-left: 4px solid #f59e0b;
-  padding: 12px;
+.arrowIcon {
+  color: #f39c12; /* VUELTO: Amarillo original */
+}
+
+.alertBox {
+  background: rgba(243, 156, 18, 0.1);
+  border-left: 4px solid #f39c12;
+  padding: 16px;
   border-radius: 8px;
-  color: #92400e;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: #d35400;
+}
+
+.alertBox p {
+  margin: 0;
   font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .modalActions {
@@ -532,42 +599,65 @@
 }
 
 .confirmButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #2ecc71;
+  background: #2ecc71; /* VUELTO: Verde original */
   color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
 }
 
 .confirmButton:hover {
   background: #27ae60;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
 }
 
 .cancelModalButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
   background: white;
-  color: #666;
   border: 2px solid #ddd;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
+  color: #666;
 }
 
 .cancelModalButton:hover {
   background: #f8f9fa;
   border-color: #999;
+}
+
+/* Spinner */
+.spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db; /* VUELTO: Azul original */
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinnerIcon {
+  animation: spin 1s linear infinite;
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.emptyIcon {
+  color: #999;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.emptyState h2 {
+  margin: 0 0 8px 0;
+  color: #333;
+}
+
+.emptyState p {
+  margin: 0;
+  color: #666;
 }
 
 /* Responsive */
@@ -577,37 +667,35 @@
   }
   
   .card {
-    padding: 20px;
+    padding: 24px;
   }
   
   .header {
     flex-direction: column;
     align-items: flex-start;
+    text-align: center;
   }
   
-  .title {
-    font-size: 1.5rem;
+  .avatarSection {
+    justify-content: center;
+    width: 100%;
   }
 
   .editActions {
     width: 100%;
+    justify-content: center;
   }
 
-  .saveButton, .cancelButton {
-    flex: 1;
-  }
-
-  .modal {
-    padding: 24px;
-    width: 95%;
+  .form {
+    gap: 20px;
   }
 
   .emailComparison {
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
   }
 
-  .arrow {
+  .arrowIcon {
     transform: rotate(90deg);
   }
 

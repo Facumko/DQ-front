@@ -9,7 +9,7 @@ import Profile from "../pages/Profile";
 import Favorites from "../components/Favorites/Favorites";
 import FormCommerce from "../components/FormCommerce/FormCommerce";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
-
+import SearchPage from "../pages/SearchPage";
 const AppRoutes = () => {
   return (
     <Router>
@@ -31,6 +31,7 @@ const AppRoutes = () => {
         <Route path="/profile-header" element={<ProfileHeader isOwner={true} />} />
         {/* Redirección por defecto */}
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/search" element={<SearchPage />} />        
       </Routes>
     </Router>
   );

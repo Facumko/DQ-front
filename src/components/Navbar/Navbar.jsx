@@ -12,12 +12,14 @@ import Categories from "../Categories/Categories";
 
 const Navbar = () => {
   const { user, logout } = useContext(UserContext);
+  const navigate = useNavigate();
+
+  // Estados de menú y login
   const [showLogin, setShowLogin] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [hasBusiness, setHasBusiness] = useState(false);
   const [checkingBusiness, setCheckingBusiness] = useState(false);
   const menuRef = useRef(null);
-  const navigate = useNavigate();
 
   // Estados de búsqueda
   const [searchText, setSearchText] = useState("");
@@ -30,19 +32,16 @@ const Navbar = () => {
   // Verificar si el usuario tiene un negocio
   useEffect(() => {
     const checkBusiness = async () => {
-      if (user?.id_user) {
-        setCheckingBusiness(true);
-        try {
-          const business = await getBusinessByUserId(user.id_user);
-          setHasBusiness(!!business);
-        } catch (error) {
-          console.log("Usuario sin negocio o error:", error.message);
-          setHasBusiness(false);
-        } finally {
-          setCheckingBusiness(false);
-        }
-      } else {
+      if (!user?.id_user) return;
+      setCheckingBusiness(true);
+      try {
+        const business = await getBusinessByUserId(user.id_user);
+        setHasBusiness(!!business);
+      } catch (error) {
+        console.log("Usuario sin negocio o error:", error.message);
         setHasBusiness(false);
+      } finally {
+        setCheckingBusiness(false);
       }
     };
 
@@ -52,26 +51,24 @@ const Navbar = () => {
   // Búsqueda con debounce
   const handleSearchChange = useCallback((text) => {
     setSearchText(text);
-    
+
     if (text.trim().length === 0) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
     setLoadingSuggestions(true);
-    
+
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const results = await searchCommerces(text.trim(), 3, 0);
         setSuggestions(results);
         setShowSuggestions(true);
       } catch (error) {
-        console.error('Error en búsqueda:', error);
+        console.error("Error en búsqueda:", error);
         setSuggestions([]);
       } finally {
         setLoadingSuggestions(false);
@@ -81,40 +78,42 @@ const Navbar = () => {
 
   // Navegar a página de búsqueda
   const handleSearch = useCallback(() => {
-    if (searchText.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
-      setShowSuggestions(false);
-      setSearchText("");
-    }
+    if (!searchText.trim()) return;
+    navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
+    setShowSuggestions(false);
+    setSearchText("");
   }, [searchText, navigate]);
 
   // Enter para buscar
-  const handleKeyPress = useCallback((e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  }, [handleSearch]);
+  const handleKeyPress = useCallback(
+    (e) => {
+      if (e.key === "Enter") handleSearch();
+    },
+    [handleSearch]
+  );
 
   // Limpiar timeout al desmontar
   useEffect(() => {
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, []);
 
+  // Navegación según tipo de usuario
   const handleMiCommerceClick = () => {
-    if (!user) {
-      setShowLogin(true);
-    } else if (hasBusiness) {
-      navigate("/Mycommerce");
-    } else {
-      navigate("/register-commerce");
-    }
+    if (!user) return setShowLogin(true);
+    if (hasBusiness) navigate("/Mycommerce");
+    else navigate("/register-commerce");
     setShowMenu(false);
   };
 
+  // Navegación para íconos superiores (favoritos, notificaciones, etc.)
+  const handleIconClick = (link, e) => {
+    e.stopPropagation();
+    navigate(link);
+  };
+
+  // Lista de íconos del navbar
   const icons = [
     { icon: FaRegStar, label: "Favoritos", link: "/favorites" },
     { icon: FaRegBell, label: "Notificaciones", link: "/notificaciones" },
@@ -133,52 +132,55 @@ const Navbar = () => {
 
         {/* Buscador */}
         <div className={styles.searchContainer}>
-          <input    
-            type="text"    
-            placeholder="Buscar negocio, servicio o lugar..."    
-            className={styles.searchInput}    
-            value={searchText}    
+          <input
+            type="text"
+            placeholder="Buscar negocio, servicio o lugar..."
+            className={styles.searchInput}
+            value={searchText}
             onChange={(e) => handleSearchChange(e.target.value)}
-            onKeyPress={handleKeyPress}  
-          />  
-          <FaSearch     
-            className={styles.searchIcon}     
-            onClick={handleSearch}    
-            style={{ cursor: 'pointer', pointerEvents: 'all' }}
-          />  
-          {showSuggestions && suggestions.length > 0 && (    
-            <div className={styles.suggestions}>      
-              {suggestions.map((commerce) => (        
-                <div          
-                  key={commerce.idCommerce}          
+            onKeyPress={handleKeyPress}
+          />
+          <FaSearch
+            className={styles.searchIcon}
+            onClick={handleSearch}
+            style={{ cursor: "pointer", pointerEvents: "all" }}
+          />
+
+          {/* Sugerencias */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className={styles.suggestions}>
+              {suggestions.map((commerce) => (
+                <div
+                  key={commerce.idCommerce}
                   className={styles.suggestionItem}
-                  onClick={() => {            
+                  onClick={() => {
                     navigate(`/negocios/${commerce.idCommerce}`);
-                    setShowSuggestions(false);            
+                    setShowSuggestions(false);
                     setSearchText("");
                   }}
-                >          
+                >
                   <div className={styles.suggestionContent}>
                     <div className={styles.suggestionIcon}>
                       {commerce.profileImage?.url ? (
                         <img src={commerce.profileImage.url} alt="" />
-                      ) : ( 
+                      ) : (
                         <span>{commerce.name.charAt(0).toUpperCase()}</span>
                       )}
-                    </div>  
-                    <div className={styles.suggestionInfo}>    
+                    </div>
+                    <div className={styles.suggestionInfo}>
                       <span className={styles.suggestionName}>{commerce.name}</span>
-                      {commerce.description && (     
-                        <span className={styles.suggestionDesc}>        
+                      {commerce.description && (
+                        <span className={styles.suggestionDesc}>
                           {commerce.description.substring(0, 50)}...
                         </span>
-                      )}  
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          )}   
+          )}
+
           {loadingSuggestions && (
             <div className={styles.suggestions}>
               <div className={styles.suggestionItem}>Buscando...</div>
@@ -213,10 +215,9 @@ const Navbar = () => {
             </div>
 
             {/* Dropdown de categorías */}
-            <Categories expanded={showCategories} 
-            onClose={() => setShowCategories(false)}/>
+            <Categories expanded={showCategories} onClose={() => setShowCategories(false)} />
           </div>
-          
+
           {/* Ícono de usuario */}
           <div className={styles.userWrapper} ref={menuRef}>
             <FaRegUser
@@ -239,8 +240,7 @@ const Navbar = () => {
                 >
                   Mi cuenta
                 </div>
-                
-                {/* ⭐ MI NEGOCIO - SIN LA ETIQUETA "NUEVO" */}
+
                 <div
                   className={styles.userMenuItem}
                   onClick={handleMiCommerceClick}

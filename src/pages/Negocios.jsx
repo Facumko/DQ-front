@@ -59,8 +59,28 @@ const Negocios = () => {
         }
         
         if (business) {
-          console.log("✅ Negocio cargado:", business.name);
-          setBusinessData(business);
+          // ⭐⭐ CORREGIR: NORMALIZAR LA ESTRUCTURA DEL NEGOCIO
+          const normalizedBusiness = {
+            ...business,
+            // Asegurar que los campos críticos estén presentes
+            id: business.idCommerce || business.id,
+            idowner: business.idUser || business.idowner || user?.id_user,
+            // Mantener todos los demás campos
+            name: business.name,
+            description: business.description,
+            phone: business.phone,
+            website: business.website,
+            // ... otros campos que necesites
+          };
+          
+          console.log("✅ Negocio cargado:", normalizedBusiness.name);
+          console.log("📊 Datos del negocio normalizado:", {
+            id: normalizedBusiness.id,
+            idowner: normalizedBusiness.idowner,
+            name: normalizedBusiness.name
+          });
+          
+          setBusinessData(normalizedBusiness);
           setPosts(business.posts || []);
           setGallery(business.gallery || []);
         } else {
@@ -81,7 +101,7 @@ const Negocios = () => {
   // Ejecutar redirección fuera del useEffect para evitar problemas de ciclo de vida
   if (shouldRedirect) {
     navigate(shouldRedirect);
-    return null; // No renderizar nada mientras redirige
+    return null;
   }
 
   if (loading) {

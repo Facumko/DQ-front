@@ -1,0 +1,3106 @@
+arreglar boton editar del negocio
+
+
+
+
+tengo este proyecto, fuera de tokens y seguridad, decime los errores en una lista de errores y plan para solucionarlos junto a los archivos y como lo solucionarias al error de todo el proyecto
+🔍 Análisis Completo de Errores del Proyecto
+📋 Lista de Errores Críticos y Mejoras
+🔴 ERRORES CRÍTICOS (Prioridad Alta)
+
+2. Inconsistencia en Nombres de Campos del Backend
+Archivos: src/Api/Api.jsx, src/pages/UserContext.jsx Problema: El código intenta múltiples variaciones de nombres de campos:
+idUser vs id_user
+idCommerce vs id_business
+recoveryEmail vs recovery_email
+Solución: Crear funciones normalizadoras centralizadas:
+javascript
+// src/Api/normalizers.js
+export const normalizeUser = (data) => ({
+  id_user: data.idUser || data.id_user || data.user?.idUser,
+  username: data.username || data.user?.username,
+  name: data.name || data.user?.name,
+  lastname: data.lastname || data.user?.lastname,
+  email: data.email || data.user?.email,
+  recovery_email: data.recoveryEmail || data.recovery_email,
+  phone: data.phone || data.user?.phone,
+});
+
+export const normalizeBusiness = (data) => ({
+  id_business: data.idCommerce || data.id_business,
+  id_user: data.idOwner || data.id_user,
+  name: data.name,
+  description: data.description,
+  email: data.email,
+  phone: data.phone,
+  link: data.link,
+  profileImage: data.profileImage?.url || data.profileImage,
+  coverImage: data.coverImage?.url || data.coverImage,
+});
+Aplicar en: Api.jsx (líneas 213-220, 259-280, 291-315)
+
+3. Memory Leak en URLs de Blob
+Archivo: src/components/ProfileHeader/ProfileHeader.jsx Problema: Se crean URLs blob pero no siempre se limpian. Solución: Implementar cleanup sistemático:
+javascript
+// En ProfileHeader.jsx
+useEffect(() => {
+  return () => {
+    // Limpiar todas las URLs blob al desmontar
+    if (draft.profileImage?.startsWith('blob:')) {
+      URL.revokeObjectURL(draft.profileImage);
+    }
+    if (draft.coverImage?.startsWith('blob:')) {
+      URL.revokeObjectURL(draft.coverImage);
+    }
+  };
+}, []);
+
+// Limpiar al cambiar archivo
+const handleImageChange = (e, type) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Limpiar URL anterior
+  const currentUrl = type === 'profile' ? draft.profileImage : draft.coverImage;
+  if (currentUrl?.startsWith('blob:')) {
+    URL.revokeObjectURL(currentUrl);
+  }
+  
+  // Crear nueva URL
+  const newUrl = URL.createObjectURL(file);
+  setDraft(prev => ({ ...prev, [type === 'profile' ? 'profileImage' : 'coverImage']: newUrl }));
+};
+
+4. Falta Manejo de Errores en Búsqueda
+Archivo: src/components/Navbar/Navbar.jsx (líneas 37-58) Problema: No hay feedback visual de errores en búsqueda. Solución:
+javascript
+const [searchError, setSearchError] = useState(false);
+
+const handleSearchChange = useCallback((text) => {
+  setSearchText(text);
+  setSearchError(false); // Reset error
+  
+  if (text.trim().length === 0) {
+    setSuggestions([]);
+    setShowSuggestions(false);
+    return;
+  }
+
+  if (searchTimeoutRef.current) {
+    clearTimeout(searchTimeoutRef.current);
+  }
+
+  setLoadingSuggestions(true);
+  
+  searchTimeoutRef.current = setTimeout(async () => {
+    try {
+      const results = await searchCommerces(text.trim(), 3, 0);
+      setSuggestions(results);
+      setShowSuggestions(true);
+      setSearchError(false);
+    } catch (error) {
+      console.error('Error en búsqueda:', error);
+      setSuggestions([]);
+      setSearchError(true);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, 300);
+}, []);
+Agregar en JSX:
+jsx
+{searchError && (
+  <div className={styles.suggestions}>
+    <div className={styles.suggestionItem} style={{ color: '#dc2626' }}>
+      Error al buscar. Intenta nuevamente.
+    </div>
+  </div>
+)}
+
+🟡 ERRORES DE LÓGICA (Prioridad Media)
+5. Rutas Duplicadas/Confusas
+Archivo: src/routes/AppRoutes.jsx Problema:
+jsx
+<Route path="/negocios" element={<Negocios />} /> 
+<Route path="/negocios/:id" element={<Negocios />} />
+<Route path="/Mycommerce" element={<Negocios isOwner={true} />} />
+Solución: Separar responsabilidades:
+jsx
+// AppRoutes.jsx
+<Route path="/negocios/:id" element={<PublicBusiness />} />
+<Route path="/mi-negocio" element={<MyBusiness />} />
+<Route path="/explorar" element={<BusinessList />} />
+jsx
+// src/pages/PublicBusiness.jsx (nuevo archivo)
+import { useParams } from "react-router-dom";
+import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
+
+const PublicBusiness = () => {
+  const { id } = useParams();
+  const [business, setBusiness] = useState(null);
+  
+  useEffect(() => {
+    const loadBusiness = async () => {
+      const data = await getBusinessById(id);
+      setBusiness(data);
+    };
+    loadBusiness();
+  }, [id]);
+  
+  return <ProfileHeader isOwner={false} businessData={business} />;
+};
+jsx
+// src/pages/MyBusiness.jsx (nuevo archivo)
+import { useContext } from "react";
+import { UserContext } from "./UserContext";
+import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
+
+const MyBusiness = () => {
+  const { user } = useContext(UserContext);
+  
+  if (!user) {
+    return <Navigate to="/" />;
+  }
+  
+  return <ProfileHeader isOwner={true} />;
+};
+
+6. Validaciones Duplicadas
+Archivos: src/Api/Api.jsx, src/components/ProfileUser/Profile.jsx Problema: Lógica de validación repetida en múltiples lugares.
+Solución: Crear módulo centralizado de validación:
+javascript
+// src/utils/validators.js
+export const VALIDATION_RULES = {
+  email: {
+    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    maxLength: 100,
+    message: 'Email inválido'
+  },
+  username: {
+    pattern: /^[a-zA-Z0-9_-]{3,25}$/,
+    minLength: 3,
+    maxLength: 25,
+    message: 'Usuario: 3-25 caracteres (letras, números, _ y -)'
+  },
+  password: {
+    minLength: 8,
+    maxLength: 100,
+    message: 'Contraseña: mínimo 8 caracteres'
+  },
+  phone: {
+    pattern: /^[\d\s+()-]{10,20}$/,
+    minLength: 10,
+    maxLength: 20,
+    message: 'Teléfono inválido'
+  }
+};
+
+export const validate = (field, value, customRules = {}) => {
+  const rules = { ...VALIDATION_RULES[field], ...customRules };
+  const trimmed = value?.trim() || '';
+  
+  if (rules.required && !trimmed) {
+    return 'Campo obligatorio';
+  }
+  
+  if (!rules.required && !trimmed) {
+    return null; // Campo opcional vacío = OK
+  }
+  
+  if (rules.minLength && trimmed.length < rules.minLength) {
+    return rules.message;
+  }
+  
+  if (rules.maxLength && trimmed.length > rules.maxLength) {
+    return rules.message;
+  }
+  
+  if (rules.pattern && !rules.pattern.test(trimmed)) {
+    return rules.message;
+  }
+  
+  return null;
+};
+Uso:
+javascript
+import { validate } from '../utils/validators';
+
+const emailError = validate('email', formData.email, { required: true });
+const usernameError = validate('username', formData.username);
+
+7. Estados de Carga No Granulares
+Archivo: src/components/ProfileHeader/ProfileHeader.jsx Problema: Un solo estado loading para múltiples operaciones.
+Solución: Ya está implementado correctamente en el código actual con loadingStates:
+javascript
+const [loadingStates, setLoadingStates] = useState({
+  business: true,
+  posts: false,
+  profileImage: false,
+  coverImage: false,
+  savingBusiness: false,
+  creatingPost: false,
+  deletingPost: false,
+});
+✅ Este error ya está solucionado en el código actual.
+
+🟢 MEJORAS DE RENDIMIENTO (Prioridad Baja)
+8. Imágenes Sin Optimización
+Archivos: src/pages/Home.jsx, src/components/SearchResultCard/SearchResultCard.jsx
+Solución: Agregar optimizaciones de imágenes:
+jsx
+// src/components/OptimizedImage/OptimizedImage.jsx
+import { useState } from 'react';
+import styles from './OptimizedImage.module.css';
+
+const OptimizedImage = ({ src, alt, className, placeholder = '/placeholder.svg' }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return (
+    <div className={styles.container}>
+      {!loaded && !error && (
+        <div className={`${styles.placeholder} ${className}`}>
+          <img src={placeholder} alt="" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`${className} ${loaded ? styles.loaded : styles.loading}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        loading="lazy"
+        decoding="async"
+      />
+      {error && (
+        <div className={`${styles.error} ${className}`}>
+          <span>⚠️ Error al cargar</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default OptimizedImage;
+css
+/* OptimizedImage.module.css */
+.container {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.loaded {
+  opacity: 1;
+}
+
+.placeholder, .error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+}
+Aplicar en:
+Home.jsx (líneas de imágenes del carousel)
+SearchResultCard.jsx (imágenes de perfil/portada)
+PostGallery.jsx (galería de posts)
+
+9. Falta Memoización en Componentes Pesados
+Archivo: src/pages/Home.jsx
+Solución:
+javascript
+import { memo, useMemo } from 'react';
+
+// Memoizar componentes de tarjetas
+const BusinessCard = memo(({ business }) => {
+  // ... código existente
+});
+
+const CategoryCard = memo(({ category }) => {
+  // ... código existente
+});
+
+const PostCard = memo(({ post, onLike, onSave }) => {
+  // ... código existente
+});
+
+// En el componente principal
+const Home = () => {
+  // Memoizar datos procesados
+  const sortedPosts = useMemo(() => 
+    posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [posts]
+  );
+  
+  // ... resto del código
+};
+
+10. Scroll Infinito No Implementado
+Archivo: src/pages/SearchPage.jsx
+Solución: Implementar Intersection Observer:
+javascript
+import { useRef, useCallback } from 'react';
+
+const SearchPage = () => {
+  const observer = useRef();
+  
+  const lastResultRef = useCallback(node => {
+    if (loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        handleLoadMore();
+      }
+    });
+    
+    if (node) observer.current.observe(node);
+  }, [loadingMore, hasMore]);
+
+  return (
+    <div className={styles.resultsGrid}>
+      {results.map((commerce, index) => (
+        <div 
+          key={commerce.idCommerce}
+          ref={index === results.length - 1 ? lastResultRef : null}
+        >
+          <SearchResultCard commerce={commerce} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+🔵 MEJORAS DE UX/UI (Prioridad Baja)
+11. Falta Feedback Visual en Acciones
+Archivos: Múltiples componentes
+Solución: Agregar toast notifications:
+javascript
+// src/components/Toast/Toast.jsx
+import { createContext, useContext, useState } from 'react';
+import styles from './Toast.module.css';
+
+const ToastContext = createContext();
+
+export const useToast = () => useContext(ToastContext);
+
+export const ToastProvider = ({ children }) => {
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  return (
+    <ToastContext.Provider value={{ showToast }}>
+      {children}
+      <div className={styles.toastContainer}>
+        {toasts.map(toast => (
+          <div key={toast.id} className={`${styles.toast} ${styles[toast.type]}`}>
+            {toast.message}
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+};
+css
+/* Toast.module.css */
+.toastContainer {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toast {
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: slideInRight 0.3s ease;
+  min-width: 300px;
+}
+
+.toast.success { background: #10b981; color: white; }
+.toast.error { background: #ef4444; color: white; }
+.toast.info { background: #3b82f6; color: white; }
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+Integrar en main.jsx:
+jsx
+import { ToastProvider } from './components/Toast/Toast';
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <UserProvider>
+      <ToastProvider>
+        <App />
+      </ToastProvider>
+    </UserProvider>
+  </StrictMode>
+);
+Usar en componentes:
+javascript
+import { useToast } from '../components/Toast/Toast';
+
+const ProfileHeader = () => {
+  const { showToast } = useToast();
+  
+  const handleSave = async () => {
+    try {
+      await updateBusiness();
+      showToast('✅ Cambios guardados correctamente', 'success');
+    } catch (error) {
+      showToast('❌ Error al guardar', 'error');
+    }
+  };
+};
+
+12. Falta Modo Offline
+Solución: Implementar Service Worker básico:
+javascript
+// public/sw.js
+const CACHE_NAME = 'donde-queda-v1';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/src/index.css',
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+  );
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => response || fetch(event.request))
+  );
+});
+javascript
+// src/main.jsx
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW registrado'))
+      .catch(err => console.log('Error SW:', err));
+  });
+}
+
+📊 Plan de Implementación Priorizado
+Fase 1: Errores Críticos (1-2 días)
+✅ Corregir API_URL con espacio
+✅ Crear normalizadores centralizados
+✅ Arreglar memory leaks de blobs
+✅ Mejorar manejo de errores en búsqueda
+Fase 2: Errores de Lógica (2-3 días)
+✅ Refactorizar rutas y componentes
+✅ Centralizar validaciones
+✅ (Ya está solucionado en el código)
+Fase 3: Rendimiento (1-2 días)
+✅ Agregar OptimizedImage
+✅ Implementar memoización
+✅ Agregar scroll infinito
+Fase 4: UX/UI (1-2 días)
+✅ Sistema de toasts
+✅ Service Worker básico
+
+🎯 Checklist de Verificación
+Backend Integration
+ Confirmar nombres exactos de campos con backend
+ Documentar contrato de API
+ Implementar versionado de API
+Testing
+ Tests unitarios de validadores
+ Tests de integración de API
+ Tests E2E de flujos críticos
+Performance
+ Lighthouse score > 90
+ Lazy loading implementado
+ Code splitting por rutas
+Seguridad (Mencionaste excluir, pero son críticos)
+ HTTPS en producción
+ Sanitización de inputs
+ Rate limiting mejorado
+ CORS configurado correctamente
+
+¿Quieres que profundice en algún punto específico o necesitas el código completo de alguna solución?
+esos son todos los problemas mas criticos del proyecto?
+🔍 Análisis Exhaustivo - TODOS los Problemas Críticos
+No, hay MÁS problemas críticos que no mencioné. Aquí está el análisis completo y honesto:
+
+🚨 PROBLEMAS CRÍTICOS ADICIONALES
+13. State Management Caótico
+Gravedad: 🔴🔴🔴 CRÍTICO
+Problema: El UserContext está sobrecargado y hay estado duplicado por todos lados.
+Archivos afectados:
+src/pages/UserContext.jsx (hace DEMASIADO)
+src/components/ProfileHeader/ProfileHeader.jsx (300+ líneas, inmanejable)
+src/pages/Negocios.jsx (lógica duplicada)
+Evidencia:
+javascript
+// UserContext hace TODO:
+// - Autenticación
+// - Rate limiting
+// - Normalización de datos
+// - Manejo de errores
+// - LocalStorage
+// - Validaciones
+Solución: Separar responsabilidades con Context API o Zustand:
+javascript
+// src/stores/authStore.js
+import create from 'zustand';
+import { persist } from 'zustand/middleware';
+
+export const useAuthStore = create(
+  persist(
+    (set, get) => ({
+      user: null,
+      isAuthenticated: false,
+      
+      login: async (credentials) => {
+        const user = await loginUser(credentials);
+        set({ user, isAuthenticated: true });
+      },
+      
+      logout: () => {
+        set({ user: null, isAuthenticated: false });
+      },
+    }),
+    { name: 'auth-storage' }
+  )
+);
+
+// src/stores/businessStore.js
+export const useBusinessStore = create((set) => ({
+  businesses: {},
+  loading: {},
+  
+  fetchBusiness: async (id) => {
+    set(state => ({ loading: { ...state.loading, [id]: true } }));
+    const business = await getBusinessById(id);
+    set(state => ({ 
+      businesses: { ...state.businesses, [id]: business },
+      loading: { ...state.loading, [id]: false }
+    }));
+  },
+}));
+
+// src/stores/uiStore.js
+export const useUIStore = create((set) => ({
+  toasts: [],
+  modals: {},
+  
+  showToast: (message, type) => {
+    set(state => ({ 
+      toasts: [...state.toasts, { id: Date.now(), message, type }] 
+    }));
+  },
+}));
+
+14. Sin Manejo de Concurrencia
+Gravedad: 🔴🔴🔴 CRÍTICO
+Problema: Múltiples requests simultáneos al mismo endpoint sin control.
+Ejemplo en ProfileHeader.jsx:
+javascript
+// Si el usuario hace click rápido en "Guardar":
+const handleSave = async () => {
+  await updateBusiness(); // Request 1
+  await uploadProfileImage(); // Request 2
+  await uploadCoverImage(); // Request 3
+  await loadBusinessData(); // Request 4
+};
+
+// Problema: Si hace 2 clicks rápidos = 8 requests simultáneos
+Solución: Implementar debounce + request cancellation:
+javascript
+// src/hooks/useDebounce.js
+import { useRef, useCallback } from 'react';
+
+export const useDebounce = (callback, delay) => {
+  const timeoutRef = useRef(null);
+  
+  return useCallback((...args) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  }, [callback, delay]);
+};
+
+// src/hooks/useAbortController.js
+import { useRef, useEffect } from 'react';
+
+export const useAbortController = () => {
+  const abortControllerRef = useRef(null);
+  
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+  
+  const getSignal = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    return abortControllerRef.current.signal;
+  };
+  
+  return getSignal;
+};
+
+// Uso en ProfileHeader.jsx
+const ProfileHeader = () => {
+  const [isSaving, setIsSaving] = useState(false);
+  const getSignal = useAbortController();
+  
+  const handleSave = async () => {
+    if (isSaving) return; // Prevenir clicks múltiples
+    
+    setIsSaving(true);
+    const signal = getSignal();
+    
+    try {
+      await updateBusiness(businessId, data, { signal });
+      // ...
+    } finally {
+      setIsSaving(false);
+    }
+  };
+};
+
+15. Sin Gestión de Caché
+Gravedad: 🔴🔴 ALTO
+Problema: Cada vez que navegas, se vuelve a cargar TODO desde el servidor.
+Ejemplo:
+javascript
+// Entras a /negocios/123 → Carga datos
+// Vuelves a Home → Pierdes datos
+// Vuelves a /negocios/123 → Carga datos OTRA VEZ
+Solución: Implementar caché con React Query o SWR:
+javascript
+// src/hooks/useBusinessQuery.js
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getBusinessById, updateBusiness } from '../Api/Api';
+
+export const useBusinessQuery = (businessId) => {
+  return useQuery({
+    queryKey: ['business', businessId],
+    queryFn: () => getBusinessById(businessId),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    cacheTime: 30 * 60 * 1000, // 30 minutos
+    enabled: !!businessId,
+  });
+};
+
+export const useUpdateBusiness = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, data }) => updateBusiness(id, data),
+    onSuccess: (data, { id }) => {
+      // Actualizar caché automáticamente
+      queryClient.setQueryData(['business', id], data);
+    },
+  });
+};
+
+// Uso:
+const ProfileHeader = ({ businessId }) => {
+  const { data: business, isLoading, error } = useBusinessQuery(businessId);
+  const updateMutation = useUpdateBusiness();
+  
+  const handleSave = () => {
+    updateMutation.mutate({ id: businessId, data: formData });
+  };
+};
+
+16. Problema de Race Conditions
+Gravedad: 🔴🔴🔴 CRÍTICO
+Problema: En Navbar.jsx, las búsquedas pueden llegar desordenadas.
+Ejemplo:
+javascript
+// Usuario escribe: "Pizza"
+// Request 1: "P" → tarda 500ms
+// Request 2: "Pi" → tarda 200ms
+// Request 3: "Piz" → tarda 100ms
+// Request 4: "Pizza" → tarda 50ms
+
+// Resultado mostrado: "Pi" (el más lento, no el más reciente)
+Solución: Usar un request counter:
+javascript
+const handleSearchChange = useCallback((text) => {
+  setSearchText(text);
+  
+  const requestId = ++searchRequestIdRef.current; // Counter único
+  
+  searchTimeoutRef.current = setTimeout(async () => {
+    setLoadingSuggestions(true);
+    
+    try {
+      const results = await searchCommerces(text.trim(), 3, 0);
+      
+      // Solo actualizar si es el request más reciente
+      if (requestId === searchRequestIdRef.current) {
+        setSuggestions(results);
+        setShowSuggestions(true);
+      }
+    } catch (error) {
+      if (requestId === searchRequestIdRef.current) {
+        setSearchError(true);
+      }
+    } finally {
+      if (requestId === searchRequestIdRef.current) {
+        setLoadingSuggestions(false);
+      }
+    }
+  }, 300);
+}, []);
+
+17. Sin Paginación Real en Posts
+Gravedad: 🔴🔴 ALTO
+Problema: getPostsByCommerce carga TODOS los posts de golpe.
+En Api.jsx línea 638:
+javascript
+export const getPostsByCommerce = async (commerceId) => {
+  // Trae TODOS los posts sin límite
+  const response = await apiRequest('GET', ENDPOINTS.POST_GET_BY_COMMERCE(commerceId));
+  return Array.isArray(response) ? response : [];
+};
+Problemas:
+❌ Si un negocio tiene 1000 posts → 1000 posts en memoria
+❌ Scroll lento
+❌ Consumo de RAM alto
+Solución:
+javascript
+// Api.jsx
+export const getPostsByCommerce = async (commerceId, page = 1, limit = 10) => {
+  validateParams({ commerceId }, ['commerceId']);
+  
+  const offset = (page - 1) * limit;
+  const endpoint = `${ENDPOINTS.POST_GET_BY_COMMERCE(commerceId)}?limit=${limit}&offset=${offset}`;
+  
+  try {
+    const response = await apiRequest('GET', endpoint);
+    return {
+      posts: Array.isArray(response.posts) ? response.posts : [],
+      total: response.total || 0,
+      hasMore: response.hasMore || false,
+    };
+  } catch (error) {
+    return { posts: [], total: 0, hasMore: false };
+  }
+};
+
+// ProfileHeader.jsx
+const [posts, setPosts] = useState([]);
+const [page, setPage] = useState(1);
+const [hasMore, setHasMore] = useState(true);
+
+const loadPosts = async (pageNum = 1) => {
+  const { posts: newPosts, hasMore: more } = await getPostsByCommerce(businessId, pageNum, 10);
+  
+  if (pageNum === 1) {
+    setPosts(newPosts);
+  } else {
+    setPosts(prev => [...prev, ...newPosts]);
+  }
+  
+  setHasMore(more);
+};
+
+const handleLoadMore = () => {
+  setPage(prev => prev + 1);
+  loadPosts(page + 1);
+};
+
+18. Imágenes No Comprimidas
+Gravedad: 🔴🔴 ALTO
+Problema: uploadProfileImage y uploadCoverImage suben imágenes RAW sin comprimir.
+Evidencia en Api.jsx línea 347:
+javascript
+export const uploadProfileImage = async (businessId, imageFile) => {
+  // Sube el archivo tal cual, puede ser 10MB
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  // ...
+};
+Consecuencias:
+❌ Usuario sube foto de 5MB → servidor la procesa entera
+❌ Red móvil se colapsa
+❌ Timeouts frecuentes
+Solución: Comprimir en el cliente antes de subir:
+javascript
+// src/utils/imageCompressor.js
+export const compressImage = async (file, maxWidth = 1200, quality = 0.8) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        
+        // Redimensionar manteniendo aspect ratio
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      
+      img.src = e.target.result;
+    };
+    
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// Uso en ProfileHeader.jsx
+const handleImageUpload = async (file) => {
+  try {
+    setLoading(true);
+    
+    // Comprimir antes de subir
+    const compressedFile = await compressImage(file, 1200, 0.85);
+    console.log(`Original: ${file.size / 1024}KB → Comprimido: ${compressedFile.size / 1024}KB`);
+    
+    await uploadProfileImage(businessId, compressedFile);
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+---
+
+### **19. Falta Manejo de Stale Data**
+**Gravedad:** 🔴🔴 **ALTO**
+
+**Problema:** Si dos usuarios editan el mismo negocio, uno sobreescribe al otro.
+
+**Escenario:**
+```
+Usuario A carga negocio a las 10:00 AM
+Usuario B carga negocio a las 10:01 AM
+Usuario A guarda cambios a las 10:05 AM ✅
+Usuario B guarda cambios a las 10:06 AM ✅ (sobreescribe cambios de A)
+Solución: Implementar optimistic locking con lastModified:
+javascript
+// Api.jsx
+export const updateBusiness = async (businessId, businessData, lastModified) => {
+  const dataToSend = {
+    ...businessData,
+    lastModified: lastModified, // Timestamp de última modificación conocida
+  };
+  
+  try {
+    const response = await apiRequest('PUT', ENDPOINTS.UPDATE_BUSINESS(businessId), dataToSend);
+    return response;
+  } catch (error) {
+    // Backend devuelve 409 Conflict si lastModified no coincide
+    if (error.response?.status === 409) {
+      throw new Error('Los datos fueron modificados por otro usuario. Por favor recarga la página.');
+    }
+    throw error;
+  }
+};
+
+// ProfileHeader.jsx
+const [businessData, setBusinessData] = useState(null);
+const [lastModified, setLastModified] = useState(null);
+
+useEffect(() => {
+  const loadBusiness = async () => {
+    const data = await getBusinessById(businessId);
+    setBusinessData(data);
+    setLastModified(data.lastModified); // Guardar timestamp
+  };
+  loadBusiness();
+}, [businessId]);
+
+const handleSave = async () => {
+  try {
+    await updateBusiness(businessId, formData, lastModified);
+  } catch (error) {
+    if (error.message.includes('modificados por otro usuario')) {
+      // Mostrar diálogo de conflicto
+      showConflictDialog();
+    }
+  }
+};
+
+20. Navegación Inconsistente
+Gravedad: 🔴🔴 ALTO
+Problema: El usuario puede perderse fácilmente.
+Ejemplo en Negocios.jsx:
+javascript
+// ¿Estoy viendo MI negocio o el negocio de otro?
+// No hay breadcrumbs
+// No hay botón "Volver"
+// No hay indicador visual
+Solución:
+javascript
+// src/components/Breadcrumbs/Breadcrumbs.jsx
+import { Link, useLocation } from 'react-router-dom';
+import { ChevronRight, Home } from 'lucide-react';
+import styles from './Breadcrumbs.module.css';
+
+const Breadcrumbs = () => {
+  const location = useLocation();
+  const pathnames = location.pathname.split('/').filter(x => x);
+  
+  return (
+    <nav className={styles.breadcrumbs}>
+      <Link to="/" className={styles.crumb}>
+        <Home size={16} />
+        Inicio
+      </Link>
+      
+      {pathnames.map((name, index) => {
+        const routeTo = `/${pathnames.slice(0, index + 1).join('/')}`;
+        const isLast = index === pathnames.length - 1;
+        
+        return (
+          <span key={routeTo} className={styles.crumbContainer}>
+            <ChevronRight size={16} className={styles.separator} />
+            {isLast ? (
+              <span className={styles.crumbActive}>{name}</span>
+            ) : (
+              <Link to={routeTo} className={styles.crumb}>{name}</Link>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+};
+
+// Agregar en todas las páginas
+const Negocios = () => {
+  return (
+    <>
+      <Breadcrumbs />
+      {/* resto del contenido */}
+    </>
+  );
+};
+
+21. Sin Skeleton Loaders
+Gravedad: 🟡 MEDIO
+Problema: Durante la carga se muestra solo "Cargando..." → UX pobre.
+Solución:
+javascript
+// src/components/Skeleton/Skeleton.jsx
+import styles from './Skeleton.module.css';
+
+export const SkeletonLine = ({ width = '100%', height = '1rem' }) => (
+  <div className={styles.skeleton} style={{ width, height }} />
+);
+
+export const SkeletonCard = () => (
+  <div className={styles.card}>
+    <SkeletonLine height="150px" />
+    <div className={styles.content}>
+      <SkeletonLine width="60%" height="1.5rem" />
+      <SkeletonLine width="80%" />
+      <SkeletonLine width="40%" />
+    </div>
+  </div>
+);
+
+export const SkeletonProfile = () => (
+  <div className={styles.profile}>
+    <div className={styles.header}>
+      <div className={styles.avatar} />
+      <div className={styles.info}>
+        <SkeletonLine width="200px" height="2rem" />
+        <SkeletonLine width="150px" />
+      </div>
+    </div>
+    <SkeletonLine width="100%" height="100px" />
+  </div>
+);
+css
+/* Skeleton.module.css */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 50%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+Usar en ProfileHeader.jsx:
+javascript
+if (loadingStates.business) {
+  return <SkeletonProfile />;
+}
+
+22. Sin Retry Logic Global
+Gravedad: 🔴🔴 ALTO
+Problema: Si una petición falla, el usuario pierde todo.
+En Api.jsx ya hay retry, pero solo para errores de red:
+javascript
+const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) => {
+  // Solo reintenta si shouldRetry() retorna true
+  // Pero shouldRetry() solo detecta errores 500+ y timeouts
+};
+Problema:
+❌ 429 Too Many Requests → NO se reintenta
+❌ 502 Bad Gateway → NO se reintenta con backoff exponencial
+❌ Rate limiting del backend → rompe la app
+Solución: Backoff exponencial + jitter:
+javascript
+// src/utils/retryWithBackoff.js
+export const retryWithBackoff = async (
+  fn,
+  maxRetries = 3,
+  baseDelay = 1000,
+  maxDelay = 10000
+) => {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      // No reintentar en errores definitivos
+      if (error.response?.status === 400 || 
+          error.response?.status === 401 ||
+          error.response?.status === 404) {
+        throw error;
+      }
+      
+      // Último intento
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Calcular delay con exponential backoff + jitter
+      const exponentialDelay = baseDelay * Math.pow(2, attempt);
+      const jitter = Math.random() * 1000; // 0-1000ms random
+      const delay = Math.min(exponentialDelay + jitter, maxDelay);
+      
+      console.log(`Reintentando en ${delay}ms... (Intento ${attempt + 1}/${maxRetries})`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+
+// Uso en Api.jsx
+const apiRequest = async (method, endpoint, data = null) => {
+  return retryWithBackoff(async () => {
+    const response = await axios({
+      method,
+      url: `${API_URL}${endpoint}`,
+      data,
+    });
+    return response.data;
+  });
+};
+
+23. Console.logs en Producción
+Gravedad: 🟡 MEDIO (pero profesionalmente inaceptable)
+Problema: El código está LLENO de console.log():
+javascript
+// Api.jsx tiene 40+ console.logs
+console.log("📥 Cargando publicaciones del comercio:", idToUse);
+console.log("✅ Publicaciones cargadas:", normalized.length);
+console.log("🖼️ Datos de imagen antes de normalizar:", {
+
+// ProfileHeader.jsx tiene 30+ console.logs
+console.log("✅ Negocio encontrado:", business);
+console.log("📤 Enviando al backend:", dataToSend);
+Problemas:
+❌ Expone lógica de negocio en producción
+❌ Degrada rendimiento
+❌ Puede loggear datos sensibles
+Solución:
+javascript
+// src/utils/logger.js
+const isDev = import.meta.env.MODE === 'development';
+
+export const logger = {
+  log: (...args) => {
+    if (isDev) console.log(...args);
+  },
+  
+  error: (...args) => {
+    // Errores siempre se loggean, pero sanitizados en producción
+    if (isDev) {
+      console.error(...args);
+    } else {
+      // En producción, enviar a servicio de monitoring (ej: Sentry)
+      console.error(args[0]); // Solo mensaje, no detalles
+    }
+  },
+  
+  warn: (...args) => {
+    if (isDev) console.warn(...args);
+  },
+};
+
+// Reemplazar TODOS los console.log por:
+import { logger } from '../utils/logger';
+
+logger.log("📥 Cargando publicaciones...");
+
+24. Falta Manejo de Errores de Red
+Gravedad: 🔴🔴🔴 CRÍTICO
+Problema: Si el usuario pierde conexión, la app se rompe silenciosamente.
+Solución:
+javascript
+// src/hooks/useOnlineStatus.js
+import { useState, useEffect } from 'react';
+
+export const useOnlineStatus = () => {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+  
+  return isOnline;
+};
+
+// App.jsx
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+
+const App = () => {
+  const isOnline = useOnlineStatus();
+  
+  return (
+    <>
+      {!isOnline && (
+        <div className="offline-banner">
+          ⚠️ Sin conexión a Internet. Verifica tu red.
+        </div>
+      )}
+      <AppRoutes />
+    </>
+  );
+};
+
+📊 RESUMEN FINAL - Tabla de Prioridades
+#
+Problema
+Gravedad
+Impacto
+Esfuerzo
+Prioridad
+1
+API_URL con espacio
+🔴🔴🔴
+Alto
+5min
+🔥 AHORA
+13
+State Management caótico
+🔴🔴🔴
+Alto
+2 días
+🔥 Urgente
+14
+Sin control de concurrencia
+🔴🔴🔴
+Alto
+4h
+🔥 Urgente
+15
+Sin gestión de caché
+🔴🔴
+Medio
+1 día
+⚡ Alto
+16
+Race conditions en búsqueda
+🔴🔴🔴
+Alto
+2h
+🔥 Urgente
+17
+Sin paginación en posts
+🔴🔴
+Alto
+4h
+⚡ Alto
+18
+Imágenes sin comprimir
+🔴🔴
+Alto
+3h
+⚡ Alto
+19
+Sin optimistic locking
+🔴🔴
+Medio
+4h
+⚡ Alto
+20
+Navegación inconsistente
+🔴🔴
+Medio
+3h
+✅ Medio
+21
+Sin skeleton loaders
+🟡
+Bajo
+2h
+✅ Medio
+22
+Sin retry logic global
+🔴🔴
+Alto
+2h
+⚡ Alto
+23
+Console.logs en prod
+🟡
+Bajo
+1h
+✅ Medio
+24
+Sin manejo offline
+🔴🔴🔴
+Alto
+2h
+🔥 Urgente
+
+
+🎯 Plan de Acción REALISTA
+Sprint 1: Supervivencia (1 semana)
+Día 1: Arreglar API_URL + Race conditions
+Día 2-3: Implementar retry logic + manejo offline
+Día 4-5: Control de concurrencia + debounce
+Sprint 2: Estabilidad (1 semana)
+Día 1-2: Implementar React Query para caché
+Día 3-4: Comprimir imágenes + paginación
+Día 5: Optimistic locking
+Sprint 3: Refactor (2 semanas)
+Semana 1: Separar state management (Zustand)
+Semana 2: Refactor ProfileHeader + Negocios
+Sprint 4: Polish (1 semana)
+Skeleton loaders
+Breadcrumbs
+Limpieza de console.logs
+
+¿Ahora sí están TODOS los problemas críticos?
+Sí, pero con una salvedad: no revisé el backend. Si el backend tiene bugs (ej: no devuelve lastModified, no soporta paginación, etc.), habrá más problemas.
+¿Quieres que profundice en algún problema específico o necesitas el código completo de alguna solución?
+me haces una lista de todos los problemas a solucionar porfa, donde estan (en que archivo o archivos) y posibles soluciones asi cuando tengo tiempo lo hacemos, tambien tengo un problema en el perfi del negocio como dueño, que al publicar un post con mas de una imagen estas se duplican, pero esto no pasa al editar, agregale como problema a solucionar tambien, y tambien agrega el problema de que al buscar por research y hacer click en una card de comercio redirige al comercio pero el comercio o perfil del comercio no carga la imagen de perfil y portada
+📋 Lista Completa de Problemas - Guía de Referencia
+🔴 CRÍTICOS - Resolver PRIMERO
+Problema 1: API_URL con espacio en blanco
+Ubicación: src/Api/Api.jsx línea 7
+Problema:
+javascript
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.11 :8080";
+//                                                                      ↑ ESPACIO
+Solución:
+javascript
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.11:8080";
+Tiempo estimado: 1 minuto
+
+Problema 2: Imágenes duplicadas al crear post
+Ubicación:
+src/components/ProfileHeader/ProfileHeader.jsx (función handleSubmitPost)
+src/Api/Api.jsx (función createPost)
+Problema: Al crear un post con múltiples imágenes, estas aparecen duplicadas en el feed.
+Causa probable:
+El backend podría estar devolviendo imágenes duplicadas
+O el frontend está agregando el post dos veces al estado
+Investigar en:
+javascript
+// ProfileHeader.jsx - línea ~1050
+const handleSubmitPost = async (data) => {
+  // ...
+  const response = await createPost(
+    data.text,
+    businessIdNumber,
+    data.imageFiles
+  );
+  
+  // ¿Se está agregando el post dos veces aquí?
+  await loadPosts(businessIdNumber); // <-- Verifica si esto duplica
+};
+Posibles soluciones:
+Solución A - Limpiar duplicados en el frontend:
+javascript
+// ProfileHeader.jsx
+const handleSubmitPost = async (data) => {
+  try {
+    const response = await createPost(
+      data.text,
+      businessIdNumber,
+      data.imageFiles
+    );
+
+    console.log("📦 Respuesta completa del backend:", response);
+    
+    // Verificar si las imágenes vienen duplicadas
+    if (response.images && Array.isArray(response.images)) {
+      // Eliminar duplicados basándose en idImage
+      const uniqueImages = response.images.filter((img, index, self) =>
+        index === self.findIndex(t => t.idImage === img.idImage)
+      );
+      
+      console.log(`🔍 Imágenes originales: ${response.images.length}, Únicas: ${uniqueImages.length}`);
+      
+      response.images = uniqueImages;
+    }
+    
+    await loadPosts(businessIdNumber);
+    showSuccessMessage("✅ Publicación creada correctamente");
+    
+  } catch (error) {
+    console.error("❌ Error al guardar publicación:", error);
+    showErrorMessage(error.message || "Error al guardar la publicación");
+  }
+};
+Solución B - Verificar en loadPosts:
+javascript
+// ProfileHeader.jsx
+const loadPosts = async (commerceId) => {
+  try {
+    console.log("📥 Cargando publicaciones del comercio:", commerceId);
+    const commercePosts = await getPostsByCommerce(commerceId);
+    
+    // Normalizar y eliminar duplicados
+    const normalized = Array.isArray(commercePosts) 
+      ? commercePosts.map(normalizePostFromBackend)
+      : [];
+    
+    // Eliminar posts duplicados por ID
+    const uniquePosts = normalized.filter((post, index, self) =>
+      index === self.findIndex(p => p.id === post.id)
+    );
+    
+    console.log(`🔍 Posts cargados: ${normalized.length}, Únicos: ${uniquePosts.length}`);
+    
+    setPosts(uniquePosts);
+  } catch (err) {
+    console.error("❌ Error al cargar publicaciones:", err);
+    setPosts([]);
+  }
+};
+Solución C - Verificar en la API:
+javascript
+// Api.jsx - función createPost (línea ~640)
+export const createPost = async (description, idCommerce, imageFiles = [], eventData = null) => {
+  // ... código existente ...
+  
+  try {
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.POST_CREATE}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000,
+      }
+    );
+    
+    console.log("📦 Respuesta raw del backend:", response.data);
+    
+    // Verificar si las imágenes están duplicadas
+    if (response.data.images) {
+      const imageIds = response.data.images.map(img => img.idImage);
+      const uniqueIds = new Set(imageIds);
+      
+      if (imageIds.length !== uniqueIds.size) {
+        console.warn("⚠️ DUPLICADOS DETECTADOS:", {
+          total: imageIds.length,
+          unicos: uniqueIds.size,
+          duplicados: imageIds.length - uniqueIds.size
+        });
+      }
+    }
+    
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, 'createPost');
+  }
+};
+Pasos para resolver:
+Agregar logs en las 3 ubicaciones
+Crear un post con 3 imágenes
+Ver en consola dónde aparecen duplicadas
+Aplicar la solución correspondiente
+Tiempo estimado: 30-60 minutos
+
+Problema 3: Imágenes no cargan al navegar desde búsqueda
+Ubicación:
+src/pages/SearchPage.jsx
+src/components/SearchResultCard/SearchResultCard.jsx
+src/pages/Negocios.jsx
+src/Api/Api.jsx (función getBusinessById)
+Problema: Al hacer click en un comercio desde la búsqueda, las imágenes de perfil y portada no se cargan.
+Causa probable: El formato de las imágenes en searchCommerces() es diferente al de getBusinessById().
+Investigar:
+javascript
+// Api.jsx - línea ~819
+export const searchCommerces = async (searchParam, limit = 10, offset = 0) => {
+  const response = await apiRequest('GET', `${ENDPOINTS.SEARCH_COMMERCES}?${params}`);
+  
+  console.log("🔍 Resultado de búsqueda:", response);
+  // ¿Cómo vienen las imágenes aquí?
+  
+  return Array.isArray(response) ? response : [];
+};
+Comparar con:
+javascript
+// Api.jsx - línea ~250
+export const getBusinessById = async (businessId) => {
+  const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS(businessId));
+  const business = Array.isArray(response) ? response[0] : response;
+  
+  console.log("🖼️ Imágenes en getBusinessById:", {
+    profileImage: business.profileImage,
+    coverImage: business.coverImage
+  });
+  
+  return {
+    // ...
+    profileImage: business.profileImage?.url || business.profileImage || null,
+    coverImage: business.coverImage?.url || business.coverImage || null,
+  };
+};
+Solución A - Normalizar en searchCommerces:
+javascript
+// Api.jsx
+export const searchCommerces = async (searchParam, limit = 10, offset = 0) => {
+  try {
+    const response = await apiRequest('GET', `${ENDPOINTS.SEARCH_COMMERCES}?${params}`);
+    
+    if (!Array.isArray(response)) return [];
+    
+    // Normalizar formato de imágenes
+    return response.map(commerce => ({
+      ...commerce,
+      profileImage: commerce.profileImage?.url || commerce.profileImage || null,
+      coverImage: commerce.coverImage?.url || commerce.coverImage || null,
+    }));
+  } catch (error) {
+    console.error('❌ Error en búsqueda:', error);
+    throw error;
+  }
+};
+Solución B - Verificar en Negocios.jsx:
+javascript
+// Negocios.jsx - línea ~20
+useEffect(() => {
+  const loadBusinessData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      let business;
+      
+      if (isPublic) {
+        console.log("🟢 Cargando perfil público, ID:", id);
+        business = await getBusinessById(id);
+        
+        console.log("🖼️ Imágenes recibidas:", {
+          profileImage: business.profileImage,
+          coverImage: business.coverImage
+        });
+      } else {
+        // ...
+      }
+      
+      if (business) {
+        setBusinessData(business);
+      }
+    } catch (err) {
+      console.error("❌ Error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadBusinessData();
+}, [user, id, isPublic]);
+Solución C - Verificar en ProfileHeader:
+javascript
+// ProfileHeader.jsx - línea ~150
+useEffect(() => {
+  if (externalBusinessData) {
+    console.log("🟢 Datos externos recibidos:", {
+      name: externalBusinessData.name,
+      profileImage: externalBusinessData.profileImage,
+      coverImage: externalBusinessData.coverImage,
+      profileImageType: typeof externalBusinessData.profileImage,
+      coverImageType: typeof externalBusinessData.coverImage
+    });
+    
+    const loadedData = normalizeBusinessData(externalBusinessData);
+    
+    console.log("🖼️ Después de normalizar:", {
+      profileImage: loadedData.profileImage,
+      coverImage: loadedData.coverImage
+    });
+    
+    setBusinessData(loadedData);
+    setDraft(loadedData);
+  }
+}, [externalBusinessData]);
+Pasos para resolver:
+Agregar logs en las 4 ubicaciones
+Hacer una búsqueda
+Click en un resultado
+Ver en consola el formato de las imágenes en cada paso
+Aplicar normalización donde sea necesario
+Tiempo estimado: 45-90 minutos
+
+Problema 4: Race conditions en búsqueda
+Ubicación: src/components/Navbar/Navbar.jsx líneas 37-58
+Problema: Las sugerencias de búsqueda pueden aparecer desordenadas si las respuestas llegan en orden diferente al enviado.
+Solución:
+javascript
+// Navbar.jsx - Agregar al inicio del componente
+const searchRequestIdRef = useRef(0);
+
+const handleSearchChange = useCallback((text) => {
+  setSearchText(text);
+  
+  if (text.trim().length === 0) {
+    setSuggestions([]);
+    setShowSuggestions(false);
+    return;
+  }
+
+  if (searchTimeoutRef.current) {
+    clearTimeout(searchTimeoutRef.current);
+  }
+
+  // Incrementar contador de request
+  const requestId = ++searchRequestIdRef.current;
+  setLoadingSuggestions(true);
+  
+  searchTimeoutRef.current = setTimeout(async () => {
+    try {
+      const results = await searchCommerces(text.trim(), 3, 0);
+      
+      // Solo actualizar si este es el request más reciente
+      if (requestId === searchRequestIdRef.current) {
+        setSuggestions(results);
+        setShowSuggestions(true);
+      } else {
+        console.log(`⏭️ Ignorando respuesta antigua (ID: ${requestId}, Actual: ${searchRequestIdRef.current})`);
+      }
+    } catch (error) {
+      console.error('Error en búsqueda:', error);
+      
+      // Solo mostrar error si es el request más reciente
+      if (requestId === searchRequestIdRef.current) {
+        setSuggestions([]);
+      }
+    } finally {
+      // Solo cambiar loading si es el request más reciente
+      if (requestId === searchRequestIdRef.current) {
+        setLoadingSuggestions(false);
+      }
+    }
+  }, 300);
+}, []);
+Tiempo estimado: 15 minutos
+
+Problema 5: Sin control de concurrencia en guardado
+Ubicación: src/components/ProfileHeader/ProfileHeader.jsx función handleSave
+Problema: Si el usuario hace múltiples clicks en "Guardar", se envían múltiples requests simultáneos.
+Solución:
+javascript
+// ProfileHeader.jsx - línea ~370
+const handleSave = async () => {
+  // Prevenir múltiples clicks
+  if (loadingStates.savingBusiness) {
+    console.log("⏸️ Ya hay un guardado en progreso, ignorando click");
+    return;
+  }
+  
+  const trimmedName = (draft.name || "").trim();
+  const trimmedDescription = (draft.description || "").trim();
+  const trimmedEmail = (draft.email || "").trim();
+  const trimmedPhone = (draft.phone || "").trim();
+  
+  // Validaciones...
+  let isValid = true;
+  
+  if (!validate("name", trimmedName, { required: true, maxLength: 100 })) {
+    isValid = false;
+  }
+  
+  if (!validate("description", trimmedDescription, { required: true, maxLength: 500 })) {
+    isValid = false;
+  }
+  
+  if (trimmedEmail && !validate("email", trimmedEmail, { email: true })) {
+    isValid = false;
+  }
+  
+  if (trimmedPhone && !validate("phone", trimmedPhone, { phone: true })) {
+    isValid = false;
+  }
+
+  if (!isValid) {
+    const firstError = Object.values(errors).find(e => e);
+    setError(firstError || "Por favor corrige los errores");
+    return;
+  }
+
+  setLoadingStates(prev => ({ ...prev, savingBusiness: true }));
+  setError("");
+  setSuccess("");
+
+  try {
+    const dataToSend = {
+      name: trimmedName,
+      description: trimmedDescription,
+      email: trimmedEmail,
+      phone: trimmedPhone,
+      link: (draft.link || "").trim(),
+    };
+
+    let savedBusinessId = businessId;
+
+    if (businessId) {
+      console.log("📤 Actualizando negocio:", businessId);
+      await updateBusiness(businessId, dataToSend);
+      savedBusinessId = businessId;
+    } else {
+      console.log("📤 Creando nuevo negocio");
+      const result = await createBusiness({
+        ...dataToSend,
+        id_user: user.id_user,
+      });
+      savedBusinessId = result.id_business;
+      setBusinessId(savedBusinessId);
+    }
+
+    // Subir imágenes solo si no hay otro guardado en curso
+    if (profileImageFile && !loadingStates.profileImage) {
+      await handleProfileImageUpload(profileImageFile);
+    }
+
+    if (coverImageFile && !loadingStates.coverImage) {
+      await handleCoverImageUpload(coverImageFile);
+    }
+
+    await loadBusinessData();
+    setSchedule(draftSchedule);
+    
+    setIsEditing(false);
+    showSuccessMessage("✅ Datos guardados correctamente");
+    
+  } catch (err) {
+    console.error("❌ Error al guardar:", err);
+    showErrorMessage(err.message || "Error al guardar los datos");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, savingBusiness: false }));
+  }
+};
+Tiempo estimado: 10 minutos
+
+Problema 6: Memory leaks en URLs blob
+Ubicación: src/components/ProfileHeader/ProfileHeader.jsx
+Problema: Las URLs blob creadas para preview de imágenes no se limpian correctamente.
+Solución:
+javascript
+// ProfileHeader.jsx - Agregar al inicio del componente
+const blobUrlsRef = useRef(new Set());
+
+// Función helper para crear y trackear blob URLs
+const createTrackedBlobUrl = (file) => {
+  const url = URL.createObjectURL(file);
+  blobUrlsRef.current.add(url);
+  return url;
+};
+
+// Función helper para limpiar una blob URL específica
+const revokeTrackedBlobUrl = (url) => {
+  if (url && url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+    blobUrlsRef.current.delete(url);
+  }
+};
+
+// Limpiar todas las URLs al desmontar
+useEffect(() => {
+  return () => {
+    console.log(`🧹 Limpiando ${blobUrlsRef.current.size} blob URLs`);
+    blobUrlsRef.current.forEach(url => {
+      URL.revokeObjectURL(url);
+    });
+    blobUrlsRef.current.clear();
+  };
+}, []);
+
+// Modificar el manejo de imágenes
+const handleProfileImageChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Limpiar URL anterior
+  revokeTrackedBlobUrl(draft.profileImage);
+  
+  // Crear nueva URL
+  const newUrl = createTrackedBlobUrl(file);
+  setProfileImageFile(file);
+  setDraft(prev => ({ ...prev, profileImage: newUrl }));
+};
+
+const handleCoverImageChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Limpiar URL anterior
+  revokeTrackedBlobUrl(draft.coverImage);
+  
+  // Crear nueva URL
+  const newUrl = createTrackedBlobUrl(file);
+  setCoverImageFile(file);
+  setDraft(prev => ({ ...prev, coverImage: newUrl }));
+};
+
+// Al cancelar edición, limpiar blobs
+const handleCancel = () => {
+  // Limpiar blobs de imágenes no guardadas
+  if (profileImageFile) {
+    revokeTrackedBlobUrl(draft.profileImage);
+  }
+  if (coverImageFile) {
+    revokeTrackedBlobUrl(draft.coverImage);
+  }
+  
+  setDraft(normalizeBusinessData(businessData));
+  setDraftSchedule(schedule);
+  setIsEditing(false);
+  setError("");
+  setSuccess("");
+  setProfileImageFile(null);
+  setCoverImageFile(null);
+  clearErrors();
+};
+Tiempo estimado: 30 minutos
+
+🟡 IMPORTANTES - Resolver después de críticos
+Problema 7: Inconsistencia en nombres de campos
+Ubicación:
+src/Api/Api.jsx (múltiples funciones)
+src/pages/UserContext.jsx
+Problema: El código intenta múltiples variaciones de nombres: idUser vs id_user, idCommerce vs id_business, etc.
+Solución: Crear archivo centralizador:
+javascript
+// src/utils/normalizers.js
+export const normalizeUser = (data) => {
+  if (!data) return null;
+  
+  return {
+    id_user: data.idUser || data.id_user || data.user?.idUser || data.user?.id_user,
+    username: data.username || data.user?.username || '',
+    name: data.name || data.user?.name || '',
+    lastname: data.lastname || data.user?.lastname || '',
+    email: data.email || data.user?.email || '',
+    recovery_email: data.recoveryEmail || data.recovery_email || data.user?.recoveryEmail || '',
+    phone: data.phone || data.user?.phone || '',
+    token: data.token || data.user?.token,
+  };
+};
+
+export const normalizeBusiness = (data) => {
+  if (!data) return null;
+  
+  return {
+    id_business: data.idCommerce || data.id_business,
+    id_user: data.idOwner || data.id_user || data.idUser,
+    name: data.name || '',
+    description: data.description || '',
+    email: data.email || '',
+    phone: data.phone || '',
+    link: data.link || '',
+    branchOf: data.branchOf || null,
+    profileImage: data.profileImage?.url || data.profileImage || null,
+    coverImage: data.coverImage?.url || data.coverImage || null,
+  };
+};
+
+export const normalizePost = (data) => {
+  if (!data) return null;
+  
+  const sortedImages = data.images
+    ? data.images.sort((a, b) => (a.imageOrder || 0) - (b.imageOrder || 0))
+    : [];
+  
+  return {
+    id: data.idPost || data.id,
+    text: data.description || data.text || '',
+    images: sortedImages.map(img => img.url || img),
+    imageDetails: sortedImages.map(img => ({
+      id: img.idImage || img.id,
+      url: img.url,
+      order: img.imageOrder || 0,
+      publicId: img.publicId,
+      originalFileName: img.originalFileName
+    })),
+    type: data.type || "post",
+    businessName: data.nameCommerce || data.businessName || '',
+    createdAt: data.postedAt || data.createdAt || new Date().toISOString(),
+  };
+};
+Aplicar en Api.jsx:
+javascript
+import { normalizeUser, normalizeBusiness, normalizePost } from '../utils/normalizers';
+
+// En loginUser (línea ~213)
+export const loginUser = async (email, password) => {
+  try {
+    const response = await apiRequest('POST', ENDPOINTS.LOGIN, { email, password });
+    return normalizeUser(response); // <-- Usar normalizador
+  } catch (error) {
+    throw error;
+  }
+};
+
+// En getBusinessById (línea ~250)
+export const getBusinessById = async (businessId) => {
+  const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS(businessId));
+  const business = Array.isArray(response) ? response[0] : response;
+  
+  if (!business) {
+    throw new Error('Negocio no encontrado');
+  }
+  
+  return normalizeBusiness(business); // <-- Usar normalizador
+};
+
+// En getPostsByCommerce (línea ~638)
+export const getPostsByCommerce = async (commerceId) => {
+  try {
+    const response = await apiRequest('GET', ENDPOINTS.POST_GET_BY_COMMERCE(commerceId));
+    return Array.isArray(response) 
+      ? response.map(normalizePost) // <-- Usar normalizador
+      : [];
+  } catch (error) {
+    return [];
+  }
+};
+Tiempo estimado: 2 horas
+
+Problema 8: Sin paginación en posts
+Ubicación:
+src/Api/Api.jsx función getPostsByCommerce
+src/components/ProfileHeader/ProfileHeader.jsx
+Problema: Se cargan TODOS los posts de golpe, sin límite.
+Solución:
+javascript
+// Api.jsx - Modificar getPostsByCommerce
+export const getPostsByCommerce = async (commerceId, page = 1, limit = 10) => {
+  validateParams({ commerceId }, ['commerceId']);
+  
+  try {
+    const offset = (page - 1) * limit;
+    const endpoint = `${ENDPOINTS.POST_GET_BY_COMMERCE(commerceId)}?limit=${limit}&offset=${offset}`;
+    
+    if (isDevelopment) {
+      console.log('📥 Obteniendo publicaciones:', { commerceId, page, limit, offset });
+    }
+    
+    const response = await apiRequest('GET', endpoint);
+    
+    // El backend debería devolver: { posts: [...], total: 50, hasMore: true }
+    // Si no lo hace, adaptamos:
+    const posts = Array.isArray(response) ? response : (response.posts || []);
+    const total = response.total || posts.length;
+    const hasMore = response.hasMore !== undefined ? response.hasMore : posts.length === limit;
+    
+    if (isDevelopment) {
+      console.log('✅ Posts obtenidos:', { count: posts.length, total, hasMore });
+    }
+    
+    return {
+      posts: posts.map(normalizePost),
+      total,
+      hasMore,
+      currentPage: page,
+    };
+  } catch (error) {
+    if (error.message.includes('404')) {
+      return { posts: [], total: 0, hasMore: false, currentPage: page };
+    }
+    throw error;
+  }
+};
+javascript
+// ProfileHeader.jsx - Modificar estado y función
+const [posts, setPosts] = useState([]);
+const [postsPage, setPostsPage] = useState(1);
+const [hasMorePosts, setHasMorePosts] = useState(true);
+const [totalPosts, setTotalPosts] = useState(0);
+
+const loadPosts = async (commerceId, page = 1) => {
+  const idToUse = commerceId || businessId;
+  
+  if (!idToUse) {
+    console.log("⚠️ No hay businessId, no se cargan publicaciones");
+    return;
+  }
+
+  setLoadingStates(prev => ({ ...prev, posts: true }));
+
+  try {
+    console.log("📥 Cargando publicaciones:", { commerceId: idToUse, page });
+    const result = await getPostsByCommerce(idToUse, page, 10);
+    
+    if (page === 1) {
+      // Primera carga: reemplazar posts
+      setPosts(result.posts);
+    } else {
+      // Páginas siguientes: agregar posts
+      setPosts(prev => [...prev, ...result.posts]);
+    }
+    
+    setHasMorePosts(result.hasMore);
+    setTotalPosts(result.total);
+    setPostsPage(page);
+    
+    console.log("✅ Posts cargados:", {
+      count: result.posts.length,
+      total: result.total,
+      hasMore: result.hasMore
+    });
+  } catch (err) {
+    console.error("❌ Error al cargar publicaciones:", err);
+    if (page === 1) {
+      setPosts([]);
+    }
+  } finally {
+    setLoadingStates(prev => ({ ...prev, posts: false }));
+  }
+};
+
+const handleLoadMorePosts = () => {
+  if (hasMorePosts && !loadingStates.posts) {
+    loadPosts(businessId, postsPage + 1);
+  }
+};
+
+// En el JSX, agregar botón "Cargar más"
+{activeTab === "posts" && (
+  <div className={styles.postsCenteredWrapper}>
+    {/* ... posts existentes ... */}
+    
+    {hasMorePosts && (
+      <div className={styles.loadMoreContainer}>
+        <button 
+          className={styles.loadMoreButton}
+          onClick={handleLoadMorePosts}
+          disabled={loadingStates.posts}
+        >
+          {loadingStates.posts ? (
+            <>
+              <Loader size={18} className={styles.spinnerIcon} />
+              Cargando...
+            </>
+          ) : (
+            `Cargar más (${totalPosts - posts.length} restantes)`
+          )}
+        </button>
+      </div>
+    )}
+  </div>
+)}
+Tiempo estimado: 1-2 horas (depende si el backend soporta paginación)
+
+Problema 9: Comprimir imágenes antes de subir
+Ubicación:
+src/components/ProfileHeader/ProfileHeader.jsx (funciones de upload)
+Crear nuevo archivo: src/utils/imageCompressor.js
+Problema: Las imágenes se suben sin comprimir, consumiendo mucho ancho de banda.
+Solución:
+javascript
+// src/utils/imageCompressor.js
+export const compressImage = async (
+  file, 
+  maxWidth = 1200, 
+  maxHeight = 1200, 
+  quality = 0.85
+) => {
+  return new Promise((resolve, reject) => {
+    // Validar que sea una imagen
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('El archivo no es una imagen'));
+      return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calcular nuevas dimensiones manteniendo aspect ratio
+        let { width, height } = img;
+        
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        
+        // Crear canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Dibujar imagen redimensionada
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convertir a blob
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Error al comprimir imagen'));
+              return;
+            }
+            
+            // Crear nuevo File con el blob
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            
+            console.log('📊 Compresión:', {
+              original: `${(file.size / 1024).toFixed(2)} KB`,
+              comprimido: `${(compressedFile.size / 1024).toFixed(2)} KB`,
+              reduccion: `${(((file.size - compressedFile.size) / file.size) * 100).toFixed(1)}%`,
+              dimensiones: `${width}x${height}`
+            });
+            
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      
+      img.onerror = () => reject(new Error('Error al cargar imagen'));
+      img.src = e.target.result;
+    };
+    
+    reader.onerror = () => reject(new Error('Error al leer archivo'));
+    reader.readAsDataURL(file);
+  });
+};
+
+// Función específica para imágenes de perfil (más pequeñas)
+export const compressProfileImage = (file) => {
+  return compressImage(file, 400, 400, 0.9);
+};
+
+// Función específica para imágenes de portada
+export const compressCoverImage = (file) => {
+  return compressImage(file, 1920, 1080, 0.85);
+};
+
+// Función específica para imágenes de posts/galería
+export const compressPostImage = (file) => {
+  return compressImage(file, 1200, 1200, 0.85);
+};
+Aplicar en ProfileHeader.jsx:
+javascript
+import { compressProfileImage, compressCoverImage } from '../../utils/imageComp
+Continuar
+javascript
+import { compressProfileImage, compressCoverImage } from '../../utils/imageCompressor';
+
+// ProfileHeader.jsx - Modificar handleProfileImageUpload
+const handleProfileImageUpload = async (file) => {
+  if (!businessId) {
+    setError("Primero debes crear el negocio antes de subir imágenes");
+    return;
+  }
+
+  setLoadingStates(prev => ({ ...prev, profileImage: true }));
+  setError("");
+
+  try {
+    console.log("📤 Comprimiendo imagen de perfil...");
+    
+    // Comprimir imagen antes de subir
+    const compressedFile = await compressProfileImage(file);
+    
+    console.log("📤 Subiendo imagen de perfil comprimida...");
+    const result = await uploadProfileImage(businessId, compressedFile);
+
+    if (result.profileImage) {
+      const newImageUrl = result.profileImage;
+      
+      setBusinessData(prev => ({
+        ...prev,
+        profileImage: newImageUrl
+      }));
+      
+      setDraft(prev => ({
+        ...prev,
+        profileImage: newImageUrl
+      }));
+      
+      setProfileImageFile(null);
+      showSuccessMessage("✅ Imagen de perfil actualizada");
+    } else {
+      throw new Error("No se recibió la URL de la imagen actualizada");
+    }
+  } catch (err) {
+    console.error("❌ Error al subir imagen:", err);
+    showErrorMessage(err.message || "Error al subir imagen de perfil");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, profileImage: false }));
+  }
+};
+
+// Modificar handleCoverImageUpload
+const handleCoverImageUpload = async (file) => {
+  if (!businessId) {
+    setError("Primero debes crear el negocio antes de subir imágenes");
+    return;
+  }
+
+  setLoadingStates(prev => ({ ...prev, coverImage: true }));
+  setError("");
+
+  try {
+    console.log("📤 Comprimiendo imagen de portada...");
+    
+    // Comprimir imagen antes de subir
+    const compressedFile = await compressCoverImage(file);
+    
+    console.log("📤 Subiendo imagen de portada comprimida...");
+    const result = await uploadCoverImage(businessId, compressedFile);
+
+    if (result.coverImage) {
+      setBusinessData(prev => ({
+        ...prev,
+        coverImage: result.coverImage
+      }));
+      
+      if (isEditing) {
+        setDraft(prev => ({
+          ...prev,
+          coverImage: result.coverImage
+        }));
+      }
+      
+      setCoverImageFile(null);
+      showSuccessMessage("✅ Imagen de portada actualizada");
+    } else {
+      throw new Error("No se recibió la URL de la imagen actualizada");
+    }
+  } catch (err) {
+    console.error("❌ Error al subir portada:", err);
+    showErrorMessage(err.message || "Error al subir imagen de portada");
+  } finally {
+    setLoadingStates(prev => ({ ...prev, coverImage: false }));
+  }
+};
+También aplicar en CreatePostModal.jsx:
+javascript
+import { compressPostImage } from '../../utils/imageCompressor';
+
+// CreatePostModal.jsx - Modificar handleImageChange
+const handleImageChange = async (e) => {
+  const files = Array.from(e.target.files);
+  
+  if (files.length > availableSlots) {
+    alert(`Solo puedes agregar ${availableSlots} imágenes más (máximo ${MAX_IMAGES} total)`);
+    return;
+  }
+  
+  try {
+    // Comprimir todas las imágenes
+    console.log("📦 Comprimiendo imágenes...");
+    const compressedFiles = await Promise.all(
+      files.map(file => compressPostImage(file))
+    );
+    
+    // Crear URLs temporales para preview
+    const newUrls = compressedFiles.map(file => URL.createObjectURL(file));
+    
+    setPreviewUrls(prev => [...prev, ...newUrls]);
+    setImageFiles(prev => [...prev, ...compressedFiles]);
+    setActiveIndex(previewUrls.length);
+    
+    console.log("✅ Imágenes comprimidas y listas");
+  } catch (error) {
+    console.error("❌ Error al comprimir imágenes:", error);
+    alert("Error al procesar las imágenes. Intenta con archivos más pequeños.");
+  }
+};
+Tiempo estimado: 1-2 horas
+
+Problema 10: Sin gestión de caché
+Ubicación: Todo el proyecto (necesita nueva dependencia)
+Problema: Cada navegación recarga datos desde cero.
+Solución: Implementar React Query
+Paso 1: Instalar dependencia
+bash
+npm install @tanstack/react-query
+Paso 2: Configurar en main.jsx
+javascript
+// src/main.jsx
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { UserProvider } from "./pages/UserContext";
+import './index.css';
+import App from './App.jsx';
+
+// Configurar React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 30 * 60 * 1000, // 30 minutos
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <UserProvider>
+        <App />
+        {/* DevTools solo en desarrollo */}
+        {import.meta.env.MODE === 'development' && <ReactQueryDevtools />}
+      </UserProvider>
+    </QueryClientProvider>
+  </StrictMode>,
+);
+Paso 3: Crear hooks personalizados
+javascript
+// src/hooks/useBusinessQuery.js
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  getBusinessById, 
+  updateBusiness, 
+  uploadProfileImage,
+  uploadCoverImage 
+} from '../Api/Api';
+
+// Hook para obtener negocio
+export const useBusinessQuery = (businessId, enabled = true) => {
+  return useQuery({
+    queryKey: ['business', businessId],
+    queryFn: () => getBusinessById(businessId),
+    enabled: enabled && !!businessId,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+};
+
+// Hook para actualizar negocio
+export const useUpdateBusiness = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, data }) => updateBusiness(id, data),
+    onSuccess: (data, variables) => {
+      // Actualizar caché automáticamente
+      queryClient.setQueryData(['business', variables.id], data);
+      
+      // Invalidar posts relacionados
+      queryClient.invalidateQueries(['posts', variables.id]);
+    },
+  });
+};
+
+// Hook para subir imagen de perfil
+export const useUploadProfileImage = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ businessId, file }) => uploadProfileImage(businessId, file),
+    onSuccess: (data, variables) => {
+      // Actualizar caché del negocio
+      queryClient.setQueryData(['business', variables.businessId], (old) => ({
+        ...old,
+        profileImage: data.profileImage,
+      }));
+    },
+  });
+};
+
+// Hook para subir imagen de portada
+export const useUploadCoverImage = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ businessId, file }) => uploadCoverImage(businessId, file),
+    onSuccess: (data, variables) => {
+      // Actualizar caché del negocio
+      queryClient.setQueryData(['business', variables.businessId], (old) => ({
+        ...old,
+        coverImage: data.coverImage,
+      }));
+    },
+  });
+};
+javascript
+// src/hooks/usePostsQuery.js
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { 
+  getPostsByCommerce, 
+  createPost, 
+  updatePostText,
+  deletePost,
+  deleteImagesFromPost,
+  addImagesToPost 
+} from '../Api/Api';
+
+// Hook para obtener posts con paginación infinita
+export const usePostsInfiniteQuery = (commerceId) => {
+  return useInfiniteQuery({
+    queryKey: ['posts', commerceId],
+    queryFn: ({ pageParam = 1 }) => getPostsByCommerce(commerceId, pageParam, 10),
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasMore ? lastPage.currentPage + 1 : undefined;
+    },
+    enabled: !!commerceId,
+  });
+};
+
+// Hook para crear post
+export const useCreatePost = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ description, commerceId, imageFiles }) => 
+      createPost(description, commerceId, imageFiles),
+    onSuccess: (data, variables) => {
+      // Invalidar lista de posts
+      queryClient.invalidateQueries(['posts', variables.commerceId]);
+    },
+  });
+};
+
+// Hook para eliminar post
+export const useDeletePost = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ postId }) => deletePost(postId),
+    onSuccess: (data, variables, context) => {
+      // Invalidar posts del comercio
+      if (context?.commerceId) {
+        queryClient.invalidateQueries(['posts', context.commerceId]);
+      }
+    },
+  });
+};
+
+// Hook para actualizar post
+export const useUpdatePost = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ postId, text, commerceId, imagesToDelete, newImages }) => {
+      // 1. Actualizar texto
+      await updatePostText(postId, text, commerceId);
+      
+      // 2. Eliminar imágenes si hay
+      if (imagesToDelete && imagesToDelete.length > 0) {
+        await deleteImagesFromPost(postId, imagesToDelete);
+      }
+      
+      // 3. Agregar nuevas imágenes si hay
+      if (newImages && newImages.length > 0) {
+        await addImagesToPost(postId, newImages);
+      }
+      
+      return { postId, commerceId };
+    },
+    onSuccess: (data) => {
+      // Invalidar posts del comercio
+      queryClient.invalidateQueries(['posts', data.commerceId]);
+    },
+  });
+};
+Paso 4: Usar en componentes
+javascript
+// ProfileHeader.jsx - Reemplazar lógica de carga
+import { useBusinessQuery, useUpdateBusiness, useUploadProfileImage } from '../../hooks/useBusinessQuery';
+import { usePostsInfiniteQuery, useCreatePost, useDeletePost, useUpdatePost } from '../../hooks/usePostsQuery';
+
+const ProfileHeader = ({ isOwner = false, businessData: externalBusinessData = null }) => {
+  const { user } = useContext(UserContext);
+  
+  // Queries
+  const { 
+    data: businessFromQuery, 
+    isLoading: loadingBusiness, 
+    error: businessError 
+  } = useBusinessQuery(
+    externalBusinessData ? externalBusinessData.id_business : user?.id_user,
+    !externalBusinessData // Solo cargar si no hay datos externos
+  );
+  
+  const {
+    data: postsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: loadingPosts,
+  } = usePostsInfiniteQuery(businessId);
+  
+  // Mutations
+  const updateBusinessMutation = useUpdateBusiness();
+  const uploadProfileMutation = useUploadProfileImage();
+  const uploadCoverMutation = useUploadCoverImage();
+  const createPostMutation = useCreatePost();
+  const deletePostMutation = useDeletePost();
+  const updatePostMutation = useUpdatePost();
+  
+  // Usar datos externos o del query
+  const businessData = externalBusinessData || businessFromQuery;
+  
+  // Aplanar posts de paginación infinita
+  const posts = postsData?.pages.flatMap(page => page.posts) || [];
+  
+  // Guardar cambios con mutation
+  const handleSave = async () => {
+    try {
+      await updateBusinessMutation.mutateAsync({
+        id: businessId,
+        data: {
+          name: draft.name,
+          description: draft.description,
+          // ... otros campos
+        },
+      });
+      
+      showSuccessMessage("✅ Datos guardados correctamente");
+      setIsEditing(false);
+    } catch (error) {
+      showErrorMessage(error.message);
+    }
+  };
+  
+  // Crear post con mutation
+  const handleSubmitPost = async (data) => {
+    try {
+      await createPostMutation.mutateAsync({
+        description: data.text,
+        commerceId: businessId,
+        imageFiles: data.imageFiles,
+      });
+      
+      showSuccessMessage("✅ Publicación creada");
+      setShowModal(false);
+    } catch (error) {
+      showErrorMessage(error.message);
+    }
+  };
+  
+  // Eliminar post
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('¿Eliminar publicación?')) return;
+    
+    try {
+      await deletePostMutation.mutateAsync(
+        { postId },
+        { context: { commerceId: businessId } }
+      );
+      
+      showSuccessMessage("✅ Publicación eliminada");
+    } catch (error) {
+      showErrorMessage(error.message);
+    }
+  };
+  
+  // Cargar más posts
+  const handleLoadMorePosts = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
+  
+  // ... resto del código
+};
+Tiempo estimado: 3-4 horas
+
+Problema 11: Console.logs en producción
+Ubicación: Todos los archivos (40+ console.logs)
+Problema: Logs expuestos en producción degradan rendimiento y exponen lógica.
+Solución:
+javascript
+// src/utils/logger.js
+const isDev = import.meta.env.MODE === 'development';
+
+class Logger {
+  constructor(context = '') {
+    this.context = context;
+  }
+  
+  private(message, ...args) {
+    // Logs privados solo en desarrollo
+    if (isDev) {
+      const emoji = this._getEmoji('private');
+      console.log(`${emoji} [${this.context}]`, message, ...args);
+    }
+  }
+  
+  log(message, ...args) {
+    if (isDev) {
+      const emoji = this._getEmoji('log');
+      console.log(`${emoji} [${this.context}]`, message, ...args);
+    }
+  }
+  
+  info(message, ...args) {
+    if (isDev) {
+      const emoji = this._getEmoji('info');
+      console.info(`${emoji} [${this.context}]`, message, ...args);
+    }
+  }
+  
+  warn(message, ...args) {
+    const emoji = this._getEmoji('warn');
+    console.warn(`${emoji} [${this.context}]`, message, ...args);
+  }
+  
+  error(message, ...args) {
+    const emoji = this._getEmoji('error');
+    
+    if (isDev) {
+      console.error(`${emoji} [${this.context}]`, message, ...args);
+    } else {
+      // En producción solo loggear mensaje sanitizado
+      console.error(`${emoji} [${this.context}]`, message);
+      
+      // Aquí enviarías a servicio de monitoring (ej: Sentry)
+      // this._sendToMonitoring(message, args);
+    }
+  }
+  
+  success(message, ...args) {
+    if (isDev) {
+      const emoji = this._getEmoji('success');
+      console.log(`${emoji} [${this.context}]`, message, ...args);
+    }
+  }
+  
+  _getEmoji(type) {
+    const emojis = {
+      private: '🔒',
+      log: '📝',
+      info: 'ℹ️',
+      warn: '⚠️',
+      error: '❌',
+      success: '✅',
+    };
+    return emojis[type] || '📝';
+  }
+  
+  // Método para agrupar logs relacionados
+  group(label, callback) {
+    if (isDev) {
+      console.group(`📦 ${label}`);
+      callback();
+      console.groupEnd();
+    }
+  }
+}
+
+// Crear instancias por módulo
+export const apiLogger = new Logger('API');
+export const uiLogger = new Logger('UI');
+export const authLogger = new Logger('Auth');
+export const businessLogger = new Logger('Business');
+export const postLogger = new Logger('Posts');
+
+// Export por defecto
+export default Logger;
+Aplicar en Api.jsx:
+javascript
+import { apiLogger } from '../utils/logger';
+
+// Reemplazar:
+console.log("📥 Obteniendo publicaciones del comercio:", commerceId);
+// Por:
+apiLogger.private("Obteniendo publicaciones", { commerceId });
+
+// Reemplazar:
+console.log("✅ Publicaciones obtenidas:", Array.isArray(response) ? response.length : 0);
+// Por:
+apiLogger.success("Publicaciones obtenidas", { count: response?.length || 0 });
+
+// Reemplazar:
+console.error("❌ Error al cargar publicaciones:", err);
+// Por:
+apiLogger.error("Error al cargar publicaciones", err);
+Aplicar en ProfileHeader.jsx:
+javascript
+import { businessLogger, postLogger } from '../../utils/logger';
+
+// Reemplazar:
+console.log("✅ Negocio encontrado:", business);
+// Por:
+businessLogger.success("Negocio cargado", { name: business.name });
+
+// Reemplazar:
+console.log("📤 Creando nueva publicación:", {...});
+// Por:
+postLogger.private("Creando publicación", { imageCount: data.imageFiles.length });
+Script para buscar y reemplazar automáticamente:
+bash
+# Crear script: scripts/replace-console-logs.js
+const fs = require('fs');
+const path = require('path');
+
+const replaceInFile = (filePath) => {
+  let content = fs.readFileSync(filePath, 'utf8');
+  let modified = false;
+  
+  // Reemplazar console.log
+  if (content.includes('console.log')) {
+    content = content.replace(
+      /console\.log\(/g,
+      'logger.private('
+    );
+    modified = true;
+  }
+  
+  // Reemplazar console.error
+  if (content.includes('console.error')) {
+    content = content.replace(
+      /console\.error\(/g,
+      'logger.error('
+    );
+    modified = true;
+  }
+  
+  // Agregar import si se modificó
+  if (modified && !content.includes('import { logger }')) {
+    content = `import { logger } from './utils/logger';\n\n${content}`;
+  }
+  
+  if (modified) {
+    fs.writeFileSync(filePath, content);
+    console.log(`✅ Modificado: ${filePath}`);
+  }
+};
+
+// Ejecutar en todos los archivos .jsx y .js
+// node scripts/replace-console-logs.js
+Tiempo estimado: 2-3 horas (manual) o 30 minutos (con script)
+
+Problema 12: Sin manejo de errores de red
+Ubicación: Todo el proyecto
+Problema: Si el usuario pierde conexión, la app se rompe sin avisar.
+Solución:
+javascript
+// src/hooks/useOnlineStatus.js
+import { useState, useEffect } from 'react';
+
+export const useOnlineStatus = () => {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [wasOffline, setWasOffline] = useState(false);
+  
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      
+      // Si estuvo offline, mostrar mensaje de reconexión
+      if (wasOffline) {
+        console.log('✅ Conexión restaurada');
+        setWasOffline(false);
+        
+        // Recargar datos críticos
+        window.dispatchEvent(new Event('online-restored'));
+      }
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      setWasOffline(true);
+      console.warn('⚠️ Sin conexión a Internet');
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Verificar conexión cada 30 segundos
+    const interval = setInterval(() => {
+      setIsOnline(navigator.onLine);
+    }, 30000);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
+    };
+  }, [wasOffline]);
+  
+  return { isOnline, wasOffline };
+};
+javascript
+// src/components/OfflineBanner/OfflineBanner.jsx
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { WifiOff, Wifi } from 'lucide-react';
+import styles from './OfflineBanner.module.css';
+
+const OfflineBanner = () => {
+  const { isOnline, wasOffline } = useOnlineStatus();
+  
+  if (isOnline && !wasOffline) return null;
+  
+  return (
+    <div className={`${styles.banner} ${isOnline ? styles.online : styles.offline}`}>
+      {isOnline ? (
+        <>
+          <Wifi size={20} />
+          <span>Conexión restaurada</span>
+        </>
+      ) : (
+        <>
+          <WifiOff size={20} />
+          <span>Sin conexión a Internet</span>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default OfflineBanner;
+css
+/* OfflineBanner.module.css */
+.banner {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  z-index: 9999;
+  animation: slideDown 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.offline {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.online {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+  animation: slideDown 0.3s ease, fadeOut 0.3s ease 3s forwards;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+Agregar en App.jsx:
+javascript
+import OfflineBanner from './components/OfflineBanner/OfflineBanner';
+
+const App = () => {
+  return (
+    <>
+      <OfflineBanner />
+      <AppRoutes />
+    </>
+  );
+};
+Interceptar requests cuando está offline:
+javascript
+// Api.jsx - Modificar apiRequest
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+
+const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) => {
+  // Verificar conexión antes de hacer request
+  if (!navigator.onLine) {
+    throw new Error('Sin conexión a Internet. Verifica tu red e intenta nuevamente.');
+  }
+  
+  logRequest(method, endpoint, data);
+  
+  // ... resto del código
+};
+Tiempo estimado: 1-2 horas
+
+🟢 MEJORAS - Resolver cuando tengas tiempo
+Problema 13: State management caótico
+Ubicación:
+src/pages/UserContext.jsx (hace demasiado)
+src/components/ProfileHeader/ProfileHeader.jsx (300+ líneas)
+Problema: El contexto de usuario tiene demasiadas responsabilidades.
+Solución: Implementar Zustand (más simple que Redux)
+bash
+npm install zustand
+javascript
+// src/stores/authStore.js
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { loginUser, registerUser, logoutUser } from '../Api/Api';
+
+export const useAuthStore = create(
+  persist(
+    (set, get) => ({
+      // Estado
+      user: null,
+      isAuthenticated: false,
+      loading: false,
+      error: null,
+      
+      // Acciones
+      login: async (email, password) => {
+        set({ loading: true, error: null });
+        
+        try {
+          const user = await loginUser(email, password);
+          set({ user, isAuthenticated: true, loading: false });
+          return { success: true };
+        } catch (error) {
+          set({ error: error.message, loading: false });
+          return { success: false, error: error.message };
+        }
+      },
+      
+      register: async (userData) => {
+        set({ loading: true, error: null });
+        
+        try {
+          const user = await registerUser(userData);
+          set({ user, isAuthenticated: true, loading: false });
+          return { success: true };
+        } catch (error) {
+          set({ error: error.message, loading: false });
+          return { success: false, error: error.message };
+        }
+      },
+      
+      logout: async () => {
+        const { user } = get();
+        set({ loading: true });
+        
+        try {
+          if (user?.id_user) {
+            await logoutUser(user.id_user);
+          }
+        } finally {
+          set({ user: null, isAuthenticated: false, loading: false, error: null });
+        }
+      },
+      
+      updateUser: (userData) => {
+        set({ user: { ...get().user, ...userData } });
+      },
+      
+      clearError: () => set({ error: null }),
+    }),
+    {
+      name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+javascript
+// src/stores/uiStore.js
+import { create } from 'zustand';
+
+export const useUIStore = create((set) => ({
+  toasts: [],
+  modals: {},
+  
+  showToast: (message, type = 'info', duration = 4000) => {
+    const id = Date.now();
+    
+    set((state) => ({
+      toasts: [...state.toasts, { id, message, type }],
+    }));
+    
+    setTimeout(() => {
+      set((state) => ({
+        toasts: state.toasts.filter((t) => t.id !== id),
+      }));
+    }, duration);
+  },
+  
+  openModal: (modalId, data = {}) => {
+    set((state) => ({
+      modals: { ...state.modals, [modalId]: { open: true, data } },
+    }));
+  },
+  
+  closeModal: (modalId) => {
+    set((state) => ({
+      modals: { ...state.modals, [modalId]: { open: false, data: {} } },
+    }));
+  },
+}));
+Usar en componentes:
+javascript
+// LoginModal.jsx
+import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
+
+const LoginModal = () => {
+  const { login, loading, error } = useAuthStore();
+  const { showToast } = useUIStore();
+  
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    
+    const result = await login(email, password);
+    
+    if (result.success) {
+      showToast('¡Bienvenido!', 'success');
+    }
+  };
+  
+  // ... resto del código
+};
+Eliminar UserContext.jsx y reemplazar todos los useContext(UserContext) por useAuthStore()
+Tiempo estimado: 4-6 horas
+
+Problema 14: Sin skeleton loaders
+Ubicación: Todos los componentes que muestran "Cargando..."
+Problema: UX pobre durante la carga.
+Solución:
+javascript
+// src/components/Skeleton/Skeleton.jsx
+import styles from './Skeleton.module.css';
+
+export const SkeletonLine = ({ width = '100%', height = '1rem', className = '' }) => (
+  <div 
+    className={`${styles.skeleton} ${className}`} 
+    style={{ width, height }} 
+  />
+);
+
+export const SkeletonCircle = ({ size = '40px', className = '' }) => (
+  <div 
+    className={`${styles.skeleton} ${styles.circle} ${className}`} 
+    style={{ width: size, height: size }} 
+  />
+);
+
+export const SkeletonCard = () => (
+  <div className={styles.card}>
+    <SkeletonLine height="200px" />
+    <div className={styles.content}>
+      <SkeletonLine width="70%" height="1.5rem" />
+      <SkeletonLine width="90%" />
+      <SkeletonLine width="60%" />
+    </div>
+  </div>
+);
+
+export const SkeletonProfile = () => (
+  <div className={styles.profile}>
+    <div className={styles.header}>
+      <SkeletonCircle size="80px" />
+      <div className={styles.info}>
+        <SkeletonLine width="250px" height="2rem" />
+        <SkeletonLine width="150px" />
+      </div>
+    </div>
+    <SkeletonLine height="100px" />
+    <div className={styles.details}>
+      <SkeletonLine width="200px" />
+      <SkeletonLine width="180px" />
+      <SkeletonLine
+
+

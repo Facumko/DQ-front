@@ -1,41 +1,24 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { UserContext } from "../../pages/UserContext";
 import { getUserById, updateUser } from "../../Api/Api";
 import styles from "./Profile.module.css";
-import { User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle, Loader } from "lucide-react";
+import { 
+  User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle, 
+  Loader, Eye, EyeOff, RefreshCw, Shield, Info 
+} from "lucide-react";
 
 const Profile = () => {
   const { user, updateUserContext, logout } = useContext(UserContext);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [error, setError] = useState(""); // VUELTO: Mensaje de error inline
+  const [success, setSuccess] = useState(""); // VUELTO: Mensaje de éxito inline
   const [loadingData, setLoadingData] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Estado para los datos originales del usuario
-  const [originalData, setOriginalData] = useState({
-    username: "",
-    name: "",
-    lastname: "",
-    email: "",
-    recoveryEmail: "",
-    phone: ""
-  });
-
-  // Estado para el formulario (datos editables)
+  // Estados de datos
+  const [originalData, setOriginalData] = useState(null);
   const [formData, setFormData] = useState({
-    username: "",
-    name: "",
-    lastname: "",
-    email: "",
-    password: "",
-    recoveryEmail: "",
-    phone: ""
-  });
-
-  // Estado para errores de validación por campo
-  const [fieldErrors, setFieldErrors] = useState({
     username: "",
     name: "",
     lastname: "",
@@ -45,196 +28,184 @@ const Profile = () => {
     password: ""
   });
 
-  // Estado para cambiar contraseña
+  // Estado de validación
+  const [validationStatus, setValidationStatus] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
+  
+  // Estado contraseña
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: ""
   });
 
-  // Estado para modal de confirmación
+  // Modal
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(null);
-
-  // Timer para validación con delay
-  const [inputTimer, setInputTimer] = useState(null);
 
   // ============================================
   // VALIDACIONES
   // ============================================
 
-  const VALIDATIONS = {
+  const VALIDATIONS = useMemo(() => ({
     email: {
+      min: 5,
       max: 100,
-      pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/,
-      message: 'Email inválido (máximo 100 caracteres)',
+      pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      message: 'Email inválido (ej: usuario@ejemplo.com)',
       required: true
     },
-    
     recoveryEmail: {
+      min: 5,
       max: 100,
-      pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/,
-      message: 'Email de recuperación inválido (máximo 100 caracteres)',
+      pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      message: 'Formato de email inválido',
       required: false,
-      customValidation: (value, allFormData) => {
-        if (value && value.trim() !== '' && value === allFormData.email) {
-          return 'El email de recuperación debe ser diferente al email principal';
+      customValidation: (value, allData) => {
+        if (value && value === allData.email) {
+          return 'Debe ser diferente al email principal';
         }
         return null;
       }
     },
-    
     username: {
       min: 3,
       max: 25,
       pattern: /^[a-zA-Z0-9_-]+$/,
-      message: 'Usuario: 3-25 caracteres (letras, números, _ y -)',
+      message: '3-25 caracteres (letras, números, _ y -)',
       required: false
     },
-    
     name: {
       min: 2,
       max: 45,
       pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/,
-      message: 'Nombre: 2-45 caracteres (solo letras)',
+      message: '2-45 caracteres (solo letras)',
       required: false
     },
-    
     lastname: {
       min: 2,
       max: 45,
       pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/,
-      message: 'Apellido: 2-45 caracteres (solo letras)',
+      message: '2-45 caracteres (solo letras)',
       required: false
     },
-    
     phone: {
       min: 10,
-      max: 20,
+      max: 10,
       pattern: /^[\d\s+()-]+$/,
-      message: 'Teléfono: 10-20 caracteres (números, +, -, espacios)',
+      message: '10 caracteres (ej: (364) 4123456)',
       required: false
     },
-    
     password: {
       min: 8,
       max: 100,
-      message: 'Contraseña: mínimo 8 caracteres',
-      required: false
+      message: 'Mínimo 8 caracteres',
+      required: false,
+      validateStrength: (value) => {
+        if (!value) return null;
+        const hasUpper = /[A-Z]/.test(value);
+        const hasLower = /[a-z]/.test(value);
+        const hasNumber = /\d/.test(value);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(value);
+        
+        if (value.length < 8) return { level: 'weak', message: 'Muy débil: mínimo 8 caracteres' };
+        if (hasUpper && hasLower && hasNumber && hasSpecial && value.length >= 12) {
+          return { level: 'strong', message: 'Muy fuerte' };
+        }
+        if ((hasUpper || hasLower) && hasNumber && value.length >= 8) {
+          return { level: 'medium', message: 'Media' };
+        }
+        return { level: 'weak', message: 'Débil: usa mayúsculas, números y símbolos' };
+      }
     }
-  };
+  }), []);
 
-  /**
-   * Validar un campo individual
-   */
-  const validateField = (fieldName, value, allFormData = null) => {
+  // Validar campo individual
+  const validateField = useCallback((fieldName, value, allFormData) => {
     const rules = VALIDATIONS[fieldName];
-    if (!rules) return null;
+    if (!rules) return { isValid: true, error: null, status: 'valid' };
+
+    const trimmedValue = value?.trim() || '';
+    let error = null;
     
-    const trimmedValue = value ? value.trim() : '';
-    
-    // Campo obligatorio vacío
+    // Campo obligatorio
     if (rules.required && trimmedValue === '') {
-      return `El ${fieldName === 'email' ? 'email' : 'campo'} no puede estar vacío`;
+      error = `El campo es requerido`;
     }
     
-    // Campo opcional vacío = OK
-    if (!rules.required && trimmedValue === '') {
-      return null;
+    // Validación personalizada
+    if (!error && rules.customValidation && allFormData) {
+      error = rules.customValidation(trimmedValue, allFormData);
     }
     
-    // Validación personalizada (recovery_email)
-    if (rules.customValidation && allFormData) {
-      const customError = rules.customValidation(trimmedValue, allFormData);
-      if (customError) return customError;
+    // Longitud mínima
+    if (!error && rules.min && trimmedValue.length < rules.min) {
+      error = `Mínimo ${rules.min} caracteres`;
     }
     
-    // Validar longitud mínima
-    if (rules.min && trimmedValue.length < rules.min) {
-      return rules.message;
+    // Longitud máxima (ya no debería pasar por el truncado, pero lo mantenemos)
+    if (!error && rules.max && trimmedValue.length > rules.max) {
+      error = `Máximo ${rules.max} caracteres`;
     }
     
-    // Validar longitud máxima
-    if (rules.max && trimmedValue.length > rules.max) {
-      return rules.message;
+    // Patrón
+    if (!error && rules.pattern && trimmedValue && !rules.pattern.test(trimmedValue)) {
+      error = rules.message;
     }
-    
-    // Validar patrón
-    if (rules.pattern && !rules.pattern.test(trimmedValue)) {
-      return rules.message;
-    }
-    
-    return null;
-  };
 
-  /**
-   * Parsear errores de la base de datos
-   */
-  const parseDatabaseError = (errorMessage) => {
-    const message = errorMessage.toLowerCase();
-    
-    // Errores de duplicados (UNIQUE constraint)
-    if (message.includes('duplicate') || message.includes('unique')) {
-      if (message.includes('username')) {
-        return 'El nombre de usuario ya está en uso. Por favor elige otro.';
-      }
-      if (message.includes('email')) {
-        return 'El email ya está registrado. Por favor usa otro.';
-      }
-      return 'Ya existe un registro con estos datos.';
+    // Fortaleza contraseña
+    let strength = null;
+    if (!error && rules.validateStrength && trimmedValue) {
+      strength = rules.validateStrength(trimmedValue);
     }
-    
-    // Errores de longitud
-    if (message.includes('too long') || message.includes('length')) {
-      return 'Uno o más campos exceden la longitud permitida.';
-    }
-    
-    // Errores de NOT NULL
-    if (message.includes('null') || message.includes('required')) {
-      return 'Faltan campos obligatorios. Por favor completa todos los datos requeridos.';
-    }
-    
-    // Errores de tipo ENUM (role)
-    if (message.includes('enum') || message.includes('role')) {
-      return 'Valor de rol inválido.';
-    }
-    
-    // Errores de foreign key
-    if (message.includes('foreign key') || message.includes('subscription')) {
-      return 'Error de suscripción. Contacta al administrador.';
-    }
-    
-    return errorMessage;
-  };
 
-  /**
-   * Normalizar datos antes de enviar
-   */
-  const normalizeData = (data) => {
-    const normalized = {};
-    
+    return {
+      isValid: !error,
+      error,
+      status: error ? 'error' : trimmedValue ? 'success' : 'idle',
+      strength
+    };
+  }, [VALIDATIONS]);
+
+  // Validar todos los campos
+  const validateAllFields = useCallback((data) => {
+    const results = {};
+    let isValid = true;
+
     Object.keys(data).forEach(key => {
-      if (typeof data[key] === 'string') {
-        // Trim + remover espacios múltiples
-        normalized[key] = data[key].trim().replace(/\s+/g, ' ');
-      } else {
-        normalized[key] = data[key];
-      }
+      if (key === 'password' && !data[key]) return;
+      const result = validateField(key, data[key], data);
+      results[key] = result;
+      if (!result.isValid) isValid = false;
     });
-    
-    return normalized;
-  };
+
+    return { results, isValid };
+  }, [validateField]);
 
   // ============================================
-  // CARGAR DATOS DEL USUARIO
+  // CARGAR DATOS
   // ============================================
 
-  useEffect(() => {
-    loadUserData();
-  }, [user?.id_user]);
+  const showNotification = useCallback((message, type = 'error') => {
+    // VUELTO: Usar el sistema de notificación inline original
+    if (type === 'success') {
+      setSuccess(message);
+      setError(""); // Limpiar error si hay éxito
+      setTimeout(() => setSuccess(""), 4000);
+    } else {
+      setError(message);
+      setSuccess(""); // Limpiar éxito si hay error
+      setTimeout(() => setError(""), 4000);
+    }
+  }, []);
 
-  const loadUserData = async (isRetry = false) => {
+  const loadUserData = useCallback(async (isRetry = false) => {
     if (!user?.id_user) {
       setLoadingData(false);
       setError("No hay usuario autenticado");
@@ -242,330 +213,230 @@ const Profile = () => {
     }
 
     setLoadingData(true);
-    setError("");
+    setError(""); // Limpiar errores al cargar
 
     try {
-      console.log("📥 Cargando datos del usuario:", user.id_user);
       const userData = await getUserById(user.id_user);
-      console.log("✅ Datos recibidos del backend:", userData);
+      
+      if (!userData.email) throw new Error("Datos incompletos del servidor");
 
-      // Validar que vengan datos importantes
-      if (!userData.email) {
-        throw new Error("Datos incompletos recibidos del servidor");
-      }
-
-      const normalizedData = {
+      const normalized = {
         username: userData.username || "",
         name: userData.name || "",
         lastname: userData.lastname || "",
         email: userData.email || "",
-        recoveryEmail: userData.recovery_email || userData.recoveryEmail || "",
+        recoveryEmail: userData.recovery_email || "",
         phone: userData.phone || ""
       };
 
-      console.log("📋 Datos normalizados:", normalizedData);
-
-      setOriginalData(normalizedData);
-      setFormData({
-        ...normalizedData,
-        password: ""
-      });
-      
-      // Reset retry count on success
+      setOriginalData(normalized);
+      setFormData({ ...normalized, password: "" });
       if (isRetry) setRetryCount(0);
-
+      
     } catch (err) {
-      console.error("❌ Error al cargar datos:", err);
-      const friendlyError = parseDatabaseError(err.message || "No se pudieron cargar los datos del usuario");
-      setError(friendlyError);
+      console.error("Error al cargar:", err);
+      setError("Error al cargar datos. Intenta nuevamente.");
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [user?.id_user]);
 
-  /**
-   * Reintentar carga de datos
-   */
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    loadUserData(true);
-  };
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
 
   // ============================================
   // MANEJO DE INPUTS
   // ============================================
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  // NUEVO: Función para truncar automáticamente al máximo
+  const truncateValue = (fieldName, value) => {
+    const rules = VALIDATIONS[fieldName];
+    if (!rules || !value) return value;
     
-    // Actualizar valor
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Limpiar timer anterior
-    if (inputTimer) clearTimeout(inputTimer);
-    
-    // Validar después de 500ms de que dejó de escribir
-    const timer = setTimeout(() => {
-      const error = validateField(name, value, { ...formData, [name]: value });
-      setFieldErrors(prev => ({
-        ...prev,
-        [name]: error || ""
-      }));
-    }, 500);
-    
-    setInputTimer(timer);
-    
-    // Limpiar mensajes generales al editar
-    if (error) setError("");
-    if (success) setSuccess("");
+    // Si el valor excede el máximo, truncarlo
+    if (rules.max && value.length > rules.max) {
+      return value.substring(0, rules.max);
+    }
+    return value;
   };
 
-  /**
-   * Deshacer cambio en un campo específico
-   */
-  const handleUndoField = (fieldName) => {
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: originalData[fieldName]
-    }));
+  const handleInputChange = useCallback((e) => {
+    const { name, value } = e.target;
     
-    setFieldErrors(prev => ({
-      ...prev,
-      [fieldName]: ""
-    }));
-  };
+    // NUEVO: Truncar automáticamente si excede el máximo
+    const truncatedValue = truncateValue(name, value);
+    
+    setFormData(prev => {
+      const newData = { ...prev, [name]: truncatedValue };
+      
+      // Validar con debounce
+      setTimeout(() => {
+        const result = validateField(name, truncatedValue, newData);
+        setValidationStatus(prev => ({ ...prev, [name]: result }));
+        setFieldErrors(prev => ({ ...prev, [name]: result.error }));
+      }, 300);
+
+      return newData;
+    });
+
+    // Limpiar mensajes al editar
+    if (error) setError("");
+    if (success) setSuccess("");
+  }, [validateField, error, success]);
+
+  const handleUndoField = useCallback((fieldName) => {
+    setFormData(prev => ({ ...prev, [fieldName]: originalData[fieldName] }));
+    setValidationStatus(prev => ({ ...prev, [fieldName]: { isValid: true, error: null, status: 'idle' } }));
+    setFieldErrors(prev => ({ ...prev, [fieldName]: null }));
+  }, [originalData]);
 
   // ============================================
   // GUARDAR CAMBIOS
   // ============================================
 
-  const handleSave = async () => {
-    setError("");
-    setSuccess("");
+  const hasUnsavedChanges = useMemo(() => {
+    if (!originalData) return false;
+    return Object.keys(originalData).some(key => 
+      formData[key] !== originalData[key]
+    ) || (formData.password && formData.password.trim() !== "");
+  }, [formData, originalData]);
+
+  const handleSave = useCallback(async () => {
+    if (!originalData) return;
+
+    // Validar todos los campos
+    const validation = validateAllFields(formData);
+    setValidationStatus(validation.results);
     
-    // 1. Validar todos los campos editados
-    const errors = {};
-    let hasValidationErrors = false;
-    
-    Object.keys(formData).forEach(key => {
-      if (key === 'password') return; // Validar password aparte
-      
-      const error = validateField(key, formData[key], formData);
-      if (error) {
-        errors[key] = error;
-        hasValidationErrors = true;
-      }
-    });
-    
-    // Validar password si hay valor
-    if (formData.password && formData.password.trim() !== "") {
-      const passwordError = validateField('password', formData.password);
-      if (passwordError) {
-        errors.password = passwordError;
-        hasValidationErrors = true;
-      }
-    }
-    
-    // Si hay errores de validación, mostrarlos
-    if (hasValidationErrors) {
-      setFieldErrors(errors);
-      setError("Por favor corrige los errores antes de guardar");
+    if (!validation.isValid) {
+      setError("Corrige los errores antes de guardar");
       return;
     }
-    
-    // 2. Preparar solo los campos que cambiaron
+
+    // Preparar datos modificados
     const dataToSend = {};
     let hasChanges = false;
 
     Object.keys(originalData).forEach(key => {
-      const newValue = formData[key].trim();
-      const oldValue = originalData[key];
-      
-      if (newValue !== oldValue && newValue !== "") {
+      const newValue = formData[key]?.trim();
+      if (newValue !== originalData[key] && newValue) {
         dataToSend[key] = newValue;
         hasChanges = true;
       }
     });
 
-    // Si hay nueva contraseña
-    if (formData.password && formData.password.trim() !== "") {
+    if (formData.password?.trim()) {
       dataToSend.password = formData.password;
       hasChanges = true;
     }
 
-    // Validar que haya cambios
     if (!hasChanges) {
       setError("No hay cambios para guardar");
       return;
     }
 
-    // 3. Normalizar datos
-    const normalizedData = normalizeData(dataToSend);
-
-    // 4. Si cambió el email, pedir confirmación
-    if (normalizedData.email && normalizedData.email !== originalData.email) {
-      setPendingChanges(normalizedData);
+    // Confirmación especial para email
+    if (dataToSend.email) {
+      setPendingChanges(dataToSend);
       setShowConfirmModal(true);
       return;
     }
 
-    // 5. Guardar directamente si no cambió email
-    await saveChanges(normalizedData);
-  };
+    await saveChanges(dataToSend);
+  }, [formData, originalData, validateAllFields]);
 
-  /**
-   * Guardar cambios (después de validaciones/confirmaciones)
-   */
-  const saveChanges = async (dataToSend) => {
+  const saveChanges = useCallback(async (dataToSend) => {
     setLoading(true);
-
     try {
-      console.log("📤 Enviando solo campos modificados:", dataToSend);
-
       const updatedUser = await updateUser(user.id_user, dataToSend);
-      console.log("✅ Usuario actualizado:", updatedUser);
-
-      // Actualizar contexto
-      if (updateUserContext) {
-        updateUserContext(updatedUser);
-      }
-
-      // Recargar datos del backend
-      await loadUserData();
-
-      setSuccess("✅ Datos actualizados correctamente");
-      setIsEditing(false);
       
-      // Limpiar contraseña
+      if (updateUserContext) updateUserContext(updatedUser);
+      
+      await loadUserData();
+      setIsEditing(false);
       setFormData(prev => ({ ...prev, password: "" }));
-      setFieldErrors({});
-
-      setTimeout(() => setSuccess(""), 4000);
-
+      setValidationStatus({});
+      setSuccess("✅ Datos actualizados correctamente"); // VUELTO: Mensaje inline
+      
     } catch (err) {
-      console.error("❌ Error al actualizar usuario:", err);
-      const friendlyError = parseDatabaseError(err.message);
-      setError(friendlyError || "Error al actualizar los datos. Por favor intenta nuevamente.");
+      console.error("Error al actualizar:", err);
+      setError("Error al guardar. Intenta nuevamente.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [user.id_user, updateUserContext, loadUserData]);
 
-  /**
-   * Confirmar guardado (desde modal)
-   */
-  const confirmSave = async () => {
+  const confirmSave = useCallback(() => {
     setShowConfirmModal(false);
-    await saveChanges(pendingChanges);
+    saveChanges(pendingChanges);
     setPendingChanges(null);
-  };
+  }, [pendingChanges, saveChanges]);
 
-  /**
-   * Cancelar guardado (desde modal)
-   */
-  const cancelSave = () => {
+  const cancelSave = useCallback(() => {
     setShowConfirmModal(false);
     setPendingChanges(null);
-  };
+  }, []);
 
-  /**
-   * Cancelar edición
-   */
-  const handleCancel = () => {
-    setFormData({
-      ...originalData,
-      password: ""
-    });
+  const handleCancel = useCallback(() => {
+    setFormData({ ...originalData, password: "" });
     setIsEditing(false);
-    setError("");
-    setSuccess("");
+    setValidationStatus({});
     setFieldErrors({});
-  };
-
-  // ============================================
-  // CAMBIO DE CONTRASEÑA
-  // ============================================
-
-  const handlePasswordChange = async () => {
     setError("");
     setSuccess("");
+  }, [originalData]);
 
-    // Validaciones
-    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      setError("Todos los campos de contraseña son obligatorios");
+  // ============================================
+  // CONTRASEÑA
+  // ============================================
+
+  const handlePasswordChange = useCallback(async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordData;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError("Todos los campos son obligatorios");
       return;
     }
 
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setError("Las contraseñas nuevas no coinciden");
       return;
     }
 
-    const passwordError = validateField('password', passwordData.newPassword);
-    if (passwordError) {
-      setError(passwordError);
+    const result = validateField('password', newPassword);
+    if (!result.isValid) {
+      setError(result.error);
       return;
     }
 
     setLoading(true);
-
     try {
-      // TODO: Endpoint específico para cambiar contraseña que valide la actual
-      await updateUser(user.id_user, {
-        password: passwordData.newPassword
-      });
-
-      setSuccess("✅ Contraseña cambiada correctamente");
+      await updateUser(user.id_user, { password: newPassword });
+      setSuccess("✅ Contraseña actualizada correctamente");
       setShowPasswordChange(false);
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: ""
-      });
-
-      setTimeout(() => setSuccess(""), 4000);
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
-      console.error("❌ Error al cambiar contraseña:", err);
-      const friendlyError = parseDatabaseError(err.message);
-      setError(friendlyError || "Error al cambiar la contraseña. Verifica tu contraseña actual.");
+      setError("Error al cambiar contraseña");
     } finally {
       setLoading(false);
     }
-  };
+  }, [passwordData, user.id_user, validateField]);
 
-  // ============================================
-  // UTILIDADES
-  // ============================================
-
-  /**
-   * Verificar si hay cambios pendientes
-   */
-  const hasUnsavedChanges = () => {
-    return Object.keys(originalData).some(key => 
-      formData[key] !== originalData[key]
-    ) || (formData.password && formData.password.trim() !== "");
-  };
-
-  /**
-   * Alerta al salir con cambios sin guardar
-   */
+  // Alerta al salir con cambios
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (isEditing && hasUnsavedChanges()) {
+      if (isEditing && hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = "";
       }
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isEditing, formData, originalData]);
+  }, [isEditing, hasUnsavedChanges]);
 
   // ============================================
-  // RENDERIZADO
+  // RENDER
   // ============================================
 
   if (loadingData) {
@@ -597,31 +468,24 @@ const Profile = () => {
     );
   }
 
-  if (error && !loadingData) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.card}>
-          <div style={{ textAlign: "center", padding: "3rem" }}>
-            <AlertCircle size={48} color="#dc2626" style={{ marginBottom: "1rem" }} />
-            <p style={{ color: "#dc2626", fontSize: "1.1rem", marginBottom: "1rem" }}>
-              {error}
-            </p>
-            <button 
-              className={styles.retryButton}
-              onClick={handleRetry}
-            >
-              🔄 Reintentar ({retryCount > 0 ? `Intento ${retryCount + 1}` : 'Cargar datos'})
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const getFieldStatus = (fieldName) => {
+    const status = validationStatus[fieldName]?.status;
+    if (status === 'success') return styles.inputSuccess;
+    if (status === 'error') return styles.inputError;
+    return '';
+  };
+
+  const getFieldIcon = (fieldName) => {
+    const status = validationStatus[fieldName]?.status;
+    if (status === 'success') return <Check size={18} className={styles.successIcon} />;
+    if (status === 'error') return <AlertCircle size={18} className={styles.errorIcon} />;
+    return null;
+  };
 
   return (
     <div className={styles.container}>
       <div className={styles.card}>
-        {/* Header con botón de editar */}
+        {/* Header */}
         <div className={styles.header}>
           <div className={styles.avatarSection}>
             <div className={styles.avatar}>
@@ -645,22 +509,12 @@ const Profile = () => {
           ) : (
             <div className={styles.editActions}>
               <button 
-                className={styles.saveButton} 
+                className={`${styles.saveButton} ${!hasUnsavedChanges ? styles.disabled : ''}`}
                 onClick={handleSave}
-                disabled={loading || !hasUnsavedChanges()}
-                title={!hasUnsavedChanges() ? "No hay cambios para guardar" : ""}
+                disabled={loading || !hasUnsavedChanges}
               >
-                {loading ? (
-                  <>
-                    <Loader size={18} className={styles.spinnerIcon} />
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Save size={18} />
-                    Guardar
-                  </>
-                )}
+                {loading ? <Loader size={18} className={styles.spinnerIcon} /> : <Save size={18} />}
+                {loading ? 'Guardando...' : 'Guardar'}
               </button>
               <button 
                 className={styles.cancelButton} 
@@ -674,7 +528,7 @@ const Profile = () => {
           )}
         </div>
 
-        {/* Mensajes de error y éxito */}
+        {/* Mensajes de error y éxito (VUELTO AL SISTEMA ORIGINAL) */}
         {error && (
           <div className={styles.errorMessage}>
             <AlertCircle size={18} />
@@ -689,286 +543,81 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Indicador de cambios pendientes */}
-        {isEditing && hasUnsavedChanges() && (
+        {/* Indicador de cambios */}
+        {isEditing && hasUnsavedChanges && (
           <div className={styles.infoMessage}>
             <AlertCircle size={18} />
             Tienes cambios sin guardar
           </div>
         )}
 
-        {/* Formulario de datos */}
+        {/* Formulario */}
         <div className={styles.form}>
-          {/* Username */}
-          <div className={styles.field}>
-            <label className={styles.label}>
-              <User size={18} />
-              Nombre de usuario
-              {isEditing && (
-                <span className={styles.charCount}>
-                  {formData.username.length}/25
+          {[
+            { key: 'username', label: 'Nombre de usuario', icon: User, type: 'text', placeholder: 'Ej: usuario123' },
+            { key: 'name', label: 'Nombre', icon: User, type: 'text', placeholder: 'Ej: Juan' },
+            { key: 'lastname', label: 'Apellido', icon: User, type: 'text', placeholder: 'Ej: Pérez' },
+            { key: 'email', label: 'Correo electrónico', icon: Mail, type: 'email', placeholder: 'Ej: usuario@ejemplo.com', required: true },
+            { key: 'recoveryEmail', label: 'Correo de recuperación', icon: Mail, type: 'email', placeholder: 'Ej: recuperacion@ejemplo.com' },
+            { key: 'phone', label: 'Teléfono', icon: Phone, type: 'tel', placeholder: 'Ej: +34 123 456 789' }
+          ].map(field => (
+            <div key={field.key} className={styles.field}>
+              <label className={styles.label}>
+                <field.icon size={18} />
+                {field.label}
+                {field.required && <span className={styles.requiredBadge}>*</span>}
+                {isEditing && (
+                  <span className={styles.charCount}>
+                    {formData[field.key]?.length || 0}/{VALIDATIONS[field.key].max}
+                  </span>
+                )}
+                {isEditing && originalData?.[field.key] !== formData[field.key] && formData[field.key] && (
+                  <span className={styles.modifiedDot}>●</span>
+                )}
+              </label>
+              
+              {isEditing ? (
+                <div className={styles.inputWrapper}>
+                  <input
+                    type={field.type}
+                    name={field.key}
+                    value={formData[field.key] || ''}
+                    onChange={handleInputChange}
+                    className={`${styles.input} ${getFieldStatus(field.key)}`}
+                    placeholder={field.placeholder}
+                    disabled={loading}
+                    aria-invalid={validationStatus[field.key]?.status === 'error'}
+                    aria-describedby={`${field.key}-error`}
+                    maxLength={VALIDATIONS[field.key].max} // NUEVO: Límite estricto
+                  />
+                  {getFieldIcon(field.key)}
+                </div>
+              ) : (
+                <p className={`${styles.value} ${!formData[field.key] ? styles.empty : ''}`}>
+                  {formData[field.key] || "Sin especificar"}
+                </p>
+              )}
+
+              {isEditing && validationStatus[field.key]?.error && (
+                <span id={`${field.key}-error`} className={styles.fieldError}>
+                  {validationStatus[field.key].error}
                 </span>
               )}
-              {isEditing && originalData.username !== formData.username && (
-                <span className={styles.modifiedDot}>●</span>
-              )}
-            </label>
-            {isEditing ? (
-              <>
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  className={`${styles.input} ${fieldErrors.username ? styles.inputError : ''}`}
-                  placeholder="Ingresa tu nombre de usuario"
-                  disabled={loading}
-                />
-                {fieldErrors.username && (
-                  <span className={styles.fieldError}>{fieldErrors.username}</span>
-                )}
-                {originalData.username !== formData.username && formData.username && (
-                  <button 
-                    className={styles.undoButton}
-                    onClick={() => handleUndoField('username')}
-                    type="button"
-                  >
-                    <X size={14} /> Deshacer
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className={styles.value} data-empty={!formData.username}>
-                {formData.username || "Sin especificar"}
-              </p>
-            )}
-          </div>
 
-          {/* Name */}
-          <div className={styles.field}>
-            <label className={styles.label}>
-              <User size={18} />
-              Nombre
-              {isEditing && (
-                <span className={styles.charCount}>
-                  {formData.name.length}/45
-                </span>
+              {isEditing && originalData?.[field.key] !== formData[field.key] && formData[field.key] && (
+                <button 
+                  className={styles.undoButton}
+                  onClick={() => handleUndoField(field.key)}
+                  type="button"
+                >
+                  <RefreshCw size={14} />
+                  Restaurar
+                </button>
               )}
-              {isEditing && originalData.name !== formData.name && (
-                <span className={styles.modifiedDot}>●</span>
-              )}
-            </label>
-            {isEditing ? (
-              <>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className={`${styles.input} ${fieldErrors.name ? styles.inputError : ''}`}
-                  placeholder="Ingresa tu nombre"
-                  disabled={loading}
-                />
-                {fieldErrors.name && (
-                  <span className={styles.fieldError}>{fieldErrors.name}</span>
-                )}
-                {originalData.name !== formData.name && formData.name && (
-                  <button 
-                    className={styles.undoButton}
-                    onClick={() => handleUndoField('name')}
-                    type="button"
-                  >
-                    <X size={14} /> Deshacer
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className={styles.value} data-empty={!formData.name}>
-                {formData.name || "Sin especificar"}
-              </p>
-            )}
-          </div>
+            </div>
+          ))}
 
-          {/* Lastname */}
-          <div className={styles.field}>
-            <label className={styles.label}>
-              <User size={18} />
-              Apellido
-              {isEditing && (
-                <span className={styles.charCount}>
-                  {formData.lastname.length}/45
-                </span>
-              )}
-              {isEditing && originalData.lastname !== formData.lastname && (
-                <span className={styles.modifiedDot}>●</span>
-              )}
-            </label>
-            {isEditing ? (
-              <>
-                <input
-                  type="text"
-                  name="lastname"
-                  value={formData.lastname}
-                  onChange={handleInputChange}
-                  className={`${styles.input} ${fieldErrors.lastname ? styles.inputError : ''}`}
-                  placeholder="Ingresa tu apellido"
-                  disabled={loading}
-                />
-                {fieldErrors.lastname && (
-                  <span className={styles.fieldError}>{fieldErrors.lastname}</span>
-                )}
-                {originalData.lastname !== formData.lastname && formData.lastname && (
-                  <button 
-                    className={styles.undoButton}
-                    onClick={() => handleUndoField('lastname')}
-                    type="button"
-                  >
-                    <X size={14} /> Deshacer
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className={styles.value} data-empty={!formData.lastname}>
-                {formData.lastname || "Sin especificar"}
-              </p>
-            )}
-          </div>
-
-          {/* Email */}
-          <div className={styles.field}>
-            <label className={styles.label}>
-              <Mail size={18} />
-              Correo electrónico
-              <span className={styles.requiredBadge}>*</span>
-              {isEditing && (
-                <span className={styles.charCount}>
-                  {formData.email.length}/100
-                </span>
-              )}
-              {isEditing && originalData.email !== formData.email && (
-                <span className={styles.modifiedDot}>●</span>
-              )}
-            </label>
-            {isEditing ? (
-              <>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={`${styles.input} ${fieldErrors.email ? styles.inputError : ''}`}
-                  placeholder="Ingresa tu correo"
-                  disabled={loading}
-                />
-                {fieldErrors.email && (
-                  <span className={styles.fieldError}>{fieldErrors.email}</span>
-                )}
-                {originalData.email !== formData.email && formData.email && (
-                  <button 
-                    className={styles.undoButton}
-                    onClick={() => handleUndoField('email')}
-                    type="button"
-                  >
-                    <X size={14} /> Deshacer
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className={styles.value}>{formData.email}</p>
-            )}
-          </div>
-
-          {/* Recovery Email */}
-          <div className={styles.field}>
-            <label className={styles.label}>
-              <Mail size={18} />
-              Correo de recuperación
-              {isEditing && (
-                <span className={styles.charCount}>
-                  {formData.recoveryEmail.length}/100
-                </span>
-              )}
-              {isEditing && originalData.recoveryEmail !== formData.recoveryEmail && (
-                <span className={styles.modifiedDot}>●</span>
-              )}
-            </label>
-            {isEditing ? (
-              <>
-                <input
-                  type="email"
-                  name="recoveryEmail"
-                  value={formData.recoveryEmail}
-                  onChange={handleInputChange}
-                  className={`${styles.input} ${fieldErrors.recoveryEmail ? styles.inputError : ''}`}
-                  placeholder="Ingresa tu correo de recuperación"
-                  disabled={loading}
-                />
-                {fieldErrors.recoveryEmail && (
-                  <span className={styles.fieldError}>{fieldErrors.recoveryEmail}</span>
-                )}
-                {originalData.recoveryEmail !== formData.recoveryEmail && formData.recoveryEmail && (
-                  <button 
-                    className={styles.undoButton}
-                    onClick={() => handleUndoField('recoveryEmail')}
-                    type="button"
-                  >
-                    <X size={14} /> Deshacer
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className={styles.value} data-empty={!formData.recoveryEmail}>
-                {formData.recoveryEmail || "Sin especificar"}
-              </p>
-            )}
-          </div>
-
-          {/* Phone */}
-          <div className={styles.field}>
-            <label className={styles.label}>
-              <Phone size={18} />
-              Teléfono
-              {isEditing && (
-                <span className={styles.charCount}>
-                  {formData.phone.length}/20
-                </span>
-              )}
-              {isEditing && originalData.phone !== formData.phone && (
-                <span className={styles.modifiedDot}>●</span>
-              )}
-            </label>
-            {isEditing ? (
-              <>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className={`${styles.input} ${fieldErrors.phone ? styles.inputError : ''}`}
-                  placeholder="Ingresa tu teléfono"
-                  disabled={loading}
-                />
-                {fieldErrors.phone && (
-                  <span className={styles.fieldError}>{fieldErrors.phone}</span>
-                )}
-                {originalData.phone !== formData.phone && formData.phone && (
-                  <button 
-                    className={styles.undoButton}
-                    onClick={() => handleUndoField('phone')}
-                    type="button"
-                  >
-                    <X size={14} /> Deshacer
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className={styles.value} data-empty={!formData.phone}>
-                {formData.phone || "Sin especificar"}
-              </p>
-            )}
-          </div>
-
-          {/* Password (solo en edición) */}
+          {/* Campo de contraseña (solo edición) */}
           {isEditing && (
             <div className={styles.field}>
               <label className={styles.label}>
@@ -978,28 +627,36 @@ const Profile = () => {
                   <span className={styles.modifiedDot}>●</span>
                 )}
               </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                className={`${styles.input} ${fieldErrors.password ? styles.inputError : ''}`}
-                placeholder="Deja en blanco para mantener la actual"
-                disabled={loading}
-              />
-              {fieldErrors.password && (
-                <span className={styles.fieldError}>{fieldErrors.password}</span>
+              <div className={styles.inputWrapper}>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password || ''}
+                  onChange={handleInputChange}
+                  className={`${styles.input} ${getFieldStatus('password')}`}
+                  placeholder="Mínimo 8 caracteres"
+                  disabled={loading}
+                  maxLength={VALIDATIONS.password.max} // NUEVO: Límite estricto
+                />
+                {formData.password && (
+                  <span className={`${styles.strengthBadge} ${styles[validationStatus.password?.strength?.level]}`}>
+                    {validationStatus.password?.strength?.message}
+                  </span>
+                )}
+              </div>
+              {validationStatus.password?.error && (
+                <span className={styles.fieldError}>
+                  {validationStatus.password.error}
+                </span>
               )}
-              <p className={styles.hint}>
-                Solo completa este campo si deseas cambiar tu contraseña (mínimo 8 caracteres)
-              </p>
-              {formData.password && formData.password.trim() !== "" && (
+              {originalData && formData.password && (
                 <button 
                   className={styles.undoButton}
                   onClick={() => handleUndoField('password')}
                   type="button"
                 >
-                  <X size={14} /> Limpiar
+                  <X size={14} />
+                  Limpiar
                 </button>
               )}
             </div>
@@ -1009,7 +666,10 @@ const Profile = () => {
         {/* Sección de seguridad */}
         {!isEditing && (
           <div className={styles.securitySection}>
-            <h2 className={styles.sectionTitle}>Seguridad</h2>
+            <h2 className={styles.sectionTitle}>
+              <Shield size={22} />
+              Seguridad
+            </h2>
             
             {!showPasswordChange ? (
               <button 
@@ -1020,88 +680,67 @@ const Profile = () => {
                 Cambiar contraseña
               </button>
             ) : (
-              <div className={styles.passwordChangeForm}>
-                <div className={styles.warningBox}>
-                  <AlertCircle size={18} />
-                  <p>
-                    ⚠️ Nota: Por el momento no se valida la contraseña actual en el backend. 
-                    Asegúrate de recordar tu nueva contraseña.
-                  </p>
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Contraseña actual</label>
-                  <input
-                    type="password"
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                    className={styles.input}
-                    placeholder="Ingresa tu contraseña actual"
-                  />
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Nueva contraseña</label>
-                  <input
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                    className={styles.input}
-                    placeholder="Ingresa tu nueva contraseña"
-                  />
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Confirmar nueva contraseña</label>
-                  <input
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                    className={styles.input}
-                    placeholder="Confirma tu nueva contraseña"
-                  />
-                </div>
+              <div className={styles.passwordForm}>
+                {['currentPassword', 'newPassword', 'confirmPassword'].map((field, idx) => {
+                  const labels = {
+                    currentPassword: 'Contraseña actual',
+                    newPassword: 'Nueva contraseña',
+                    confirmPassword: 'Confirmar nueva contraseña'
+                  };
+                  const isVisible = passwordVisibility[field.replace('Password', '')];
+                  
+                  return (
+                    <div key={field} className={styles.field}>
+                      <label className={styles.label}>{labels[field]}</label>
+                      <div className={styles.inputWrapper}>
+                        <input
+                          type={isVisible ? 'text' : 'password'}
+                          value={passwordData[field]}
+                          onChange={(e) => setPasswordData(prev => ({ ...prev, [field]: e.target.value }))}
+                          className={styles.input}
+                          placeholder={labels[field]}
+                          maxLength={VALIDATIONS.password.max} // NUEVO: Límite estricto
+                        />
+                        <button
+                          type="button"
+                          className={styles.togglePassword}
+                          onClick={() => setPasswordVisibility(prev => ({ 
+                            ...prev, 
+                            [field.replace('Password', '')]: !prev[field.replace('Password', '')] 
+                          }))}
+                        >
+                          {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
 
                 {passwordData.confirmPassword && (
-                  <p style={{ 
-                    color: passwordData.newPassword === passwordData.confirmPassword ? "#10b981" : "#dc2626", 
-                    fontSize: "0.9rem",
-                    margin: "0",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px"
-                  }}>
-                    {passwordData.newPassword === passwordData.confirmPassword 
-                      ? <><Check size={16} /> Las contraseñas coinciden</> 
-                      : <><X size={16} /> Las contraseñas no coinciden</>}
-                  </p>
+                  <div className={`${styles.passwordMatch} ${
+                    passwordData.newPassword === passwordData.confirmPassword ? styles.match : styles.mismatch
+                  }`}>
+                    {passwordData.newPassword === passwordData.confirmPassword ? (
+                      <><Check size={16} /> Las contraseñas coinciden</>
+                    ) : (
+                      <><X size={16} /> Las contraseñas no coinciden</>
+                    )}
+                  </div>
                 )}
 
-                <div className={styles.editActions}>
+                <div className={styles.passwordActions}>
                   <button 
                     className={styles.saveButton}
                     onClick={handlePasswordChange}
                     disabled={loading}
                   >
-                    {loading ? (
-                      <>
-                        <Loader size={18} className={styles.spinnerIcon} />
-                        Cambiando...
-                      </>
-                    ) : (
-                      "Cambiar contraseña"
-                    )}
+                    {loading ? <Loader size={18} className={styles.spinnerIcon} /> : 'Actualizar contraseña'}
                   </button>
                   <button 
                     className={styles.cancelButton}
                     onClick={() => {
                       setShowPasswordChange(false);
-                      setPasswordData({
-                        currentPassword: "",
-                        newPassword: "",
-                        confirmPassword: ""
-                      });
-                      setError("");
+                      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
                     }}
                     disabled={loading}
                   >
@@ -1112,50 +751,58 @@ const Profile = () => {
             )}
           </div>
         )}
+      </div>
 
-        {/* Modal de confirmación */}
-        {showConfirmModal && (
-          <div className={styles.modalOverlay} onClick={cancelSave}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.modalHeader}>
-                <AlertCircle size={32} color="#f59e0b" />
-                <h3>⚠️ Confirmar cambio de email</h3>
+      {/* Modal de confirmación */}
+      {showConfirmModal && (
+        <div className={styles.modalOverlay} onClick={cancelSave}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.warningIcon}>
+                <AlertCircle size={32} />
               </div>
+              <h3>Cambio de email requiere confirmación</h3>
+            </div>
+            
+            <div className={styles.modalBody}>
+              <p>Estás a punto de cambiar tu email principal:</p>
               
-              <div className={styles.modalBody}>
-                <p>
-                  Estás cambiando tu email principal de:
-                </p>
-                <div className={styles.emailComparison}>
-                  <span className={styles.oldEmail}>{originalData.email}</span>
-                  <span className={styles.arrow}>→</span>
+              <div className={styles.emailComparison}>
+                <div className={styles.emailBox}>
+                  <span className={styles.emailLabel}>Actual</span>
+                  <span className={styles.oldEmail}>{originalData?.email}</span>
+                </div>
+                <div className={styles.arrowIcon}>
+                  <RefreshCw size={20} />
+                </div>
+                <div className={styles.emailBox}>
+                  <span className={styles.emailLabel}>Nuevo</span>
                   <span className={styles.newEmail}>{pendingChanges?.email}</span>
                 </div>
-                <p className={styles.modalWarning}>
-                  <strong>Importante:</strong> Necesitarás este nuevo email para iniciar sesión en el futuro.
+              </div>
+
+              <div className={styles.alertBox}>
+                <Info size={20} />
+                <p>
+                  <strong>Importante:</strong> Usarás este nuevo email para iniciar sesión. 
+                  Asegúrate de tener acceso a él.
                 </p>
               </div>
-              
-              <div className={styles.modalActions}>
-                <button 
-                  className={styles.confirmButton}
-                  onClick={confirmSave}
-                >
-                  <Check size={18} />
-                  Confirmar cambio
-                </button>
-                <button 
-                  className={styles.cancelModalButton}
-                  onClick={cancelSave}
-                >
-                  <X size={18} />
-                  Cancelar
-                </button>
-              </div>
+            </div>
+            
+            <div className={styles.modalActions}>
+              <button className={styles.confirmButton} onClick={confirmSave}>
+                <Check size={18} />
+                Confirmar cambio
+              </button>
+              <button className={styles.cancelModalButton} onClick={cancelSave}>
+                <X size={18} />
+                Cancelar
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

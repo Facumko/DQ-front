@@ -459,46 +459,52 @@ export const createBusiness = async (businessData) => {
     throw new Error('La descripción del negocio es obligatoria');
   }
   
-  if (!businessData.id_user) {
+  // ✅ CORREGIDO: Verificar idOwner en lugar de id_user
+  if (!businessData.idOwner) {
+    console.log("❌ FALTA idOwner en businessData:", businessData);
     throw new Error('El ID de usuario es obligatorio');
   }
   
+  // ✅ FORMATO EXACTO QUE ESPERA CommerceDto
   const dataToSend = {
-    idOwner: businessData.id_user,
     name: businessData.name.trim(),
     description: businessData.description.trim(),
-    email: businessData.email?.trim() || '',
     phone: businessData.phone?.trim() || '',
-    link: businessData.link?.trim() || '',
+    website: businessData.website?.trim() || '',
+    instagram: businessData.instagram?.trim() || null,
+    facebook: businessData.facebook?.trim() || null,
+    whatsapp: businessData.whatsapp?.trim() || null,
+    email: businessData.email?.trim() || '',
     branchOf: businessData.branchOf || null,
+    idOwner: Number(businessData.idOwner), // ✅ idOwner como número
   };
   
-  if (isDevelopment) {
-    console.log("📤 Enviando al backend:", dataToSend);
-  }
+  console.log("📤 Enviando al backend (formato CommerceDto):", dataToSend);
+  console.log("🔗 URL completa:", `${API_URL}${ENDPOINTS.CREATE_BUSINESS}`);
   
-  const response = await apiRequest('POST', ENDPOINTS.CREATE_BUSINESS, dataToSend);
-  
-  if (isDevelopment) {
+  try {
+    const response = await apiRequest('POST', ENDPOINTS.CREATE_BUSINESS, dataToSend);
     console.log("📦 Respuesta del backend:", response);
+    
+    return {
+      id_business: response.idCommerce,
+      id_user: response.idOwner,
+      name: response.name,
+      description: response.description,
+      email: response.email,
+      phone: response.phone,
+      website: response.website,
+      instagram: response.instagram,
+      facebook: response.facebook,
+      whatsapp: response.whatsapp,
+      branchOf: response.branchOf,
+      profileImage: response.profileImage?.url || null,
+      coverImage: response.coverImage?.url || null,
+    };
+  } catch (error) {
+    console.error("❌ Error en createBusiness:", error);
+    throw error;
   }
-  
-  // ✅ CORREGIDO: Usar datos directos del backend
-  const profileImageUrl = response.profileImage?.url || null;
-  const coverImageUrl = response.coverImage?.url || null;
-  
-  return {
-    id_business: response.idCommerce,
-    id_user: response.idOwner,
-    name: response.name,
-    description: response.description,
-    email: response.email,
-    phone: response.phone,
-    link: response.link,
-    branchOf: response.branchOf,
-    profileImage: profileImageUrl,
-    coverImage: coverImageUrl,
-  };
 };
 
 export const updateBusiness = async (businessId, businessData) => {
