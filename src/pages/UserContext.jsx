@@ -1,30 +1,38 @@
 import { createContext, useState, useEffect, useCallback } from "react";
-import { loginUser, registerUser, logoutUser } from "../Api/Api";
+import { loginUser, registerUser, logoutUser, saveTokens, clearTokens, getStoredTokens } from "../Api/Api"; // 🆕
 
 export const UserContext = createContext();
 
 const MAX_LOGIN_ATTEMPTS = 3;
-const LOCKOUT_DURATION = 30000; // 30 segundos
-const ERROR_DISPLAY_DURATION = 5000; // 5 segundos
+const LOCKOUT_DURATION = 30000;
+const ERROR_DISPLAY_DURATION = 5000;
 
 export function UserProvider({ children }) {
-  // Estado del usuario
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
-  // Estados de UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Rate limiting
   const [loginAttempts, setLoginAttempts] = useState(() => {
     const stored = localStorage.getItem("loginAttempts");
     return stored ? JSON.parse(stored) : { count: 0, lockedUntil: null };
   });
 
-  // Auto-limpiar errores después de 5 segundos
+  // 🆕 Verificar si hay tokens válidos al iniciar
+  useEffect(() => {
+    const { accessToken } = getStoredTokens();
+    if (accessToken && user) {
+      console.log('✅ Sesión JWT restaurada');
+    } else if (!accessToken && user) {
+      console.warn('⚠️ Usuario sin token JWT, limpiando sesión');
+      setUser(null);
+      localStorage.removeItem("user");
+    }
+  }, []);
+
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => {
@@ -35,7 +43,6 @@ export function UserProvider({ children }) {
     }
   }, [error]);
 
-  // Verificar si está bloqueado por rate limiting
   const isLocked = useCallback(() => {
     if (!loginAttempts.lockedUntil) return false;
     
@@ -45,13 +52,11 @@ export function UserProvider({ children }) {
       return { locked: true, remainingSeconds };
     }
     
-    // Bloqueo expirado, resetear intentos
     setLoginAttempts({ count: 0, lockedUntil: null });
     localStorage.setItem("loginAttempts", JSON.stringify({ count: 0, lockedUntil: null }));
     return false;
   }, [loginAttempts]);
 
-  // Incrementar intentos fallidos
   const incrementFailedAttempts = useCallback(() => {
     const newCount = loginAttempts.count + 1;
     
@@ -78,18 +83,15 @@ export function UserProvider({ children }) {
     };
   }, [loginAttempts]);
 
-  // Resetear intentos fallidos (login exitoso)
   const resetFailedAttempts = useCallback(() => {
     setLoginAttempts({ count: 0, lockedUntil: null });
     localStorage.setItem("loginAttempts", JSON.stringify({ count: 0, lockedUntil: null }));
   }, []);
 
-  // Función de login mejorada
   const login = async (email, password) => {
     setLoading(true);
     setError(null);
     
-    // Verificar rate limiting
     const lockStatus = isLocked();
     if (lockStatus && lockStatus.locked) {
       setLoading(false);
@@ -101,7 +103,6 @@ export function UserProvider({ children }) {
       const response = await loginUser(email, password);
       console.log("Respuesta completa del backend:", response);
       
-      // Normalizar respuesta
       const userData = {
         id_user: response.idUser || response.id_user || response.user?.idUser || response.user?.id_user,
         username: response.username || response.user?.username,
@@ -110,18 +111,16 @@ export function UserProvider({ children }) {
         email: response.email || response.user?.email,
         recovery_email: response.recoveryEmail || response.recovery_email || response.user?.recoveryEmail,
         phone: response.phone || response.user?.phone,
-        token: response.token || response.user?.token,
         lastLogin: new Date().toISOString()
       };
 
       console.log("Usuario normalizado:", userData);
 
-      // Validar ID
       if (!userData.id_user) {
         throw new Error("No se recibió el ID del usuario del servidor");
       }
 
-      // Login exitoso - resetear intentos fallidos
+      // 🆕 Los tokens ya se guardaron en Api.jsx, solo resetear intentos
       resetFailedAttempts();
       
       setUser(userData);
@@ -131,8 +130,6 @@ export function UserProvider({ children }) {
       
     } catch (err) {
       const errorMessage = err.message || "Error al iniciar sesión";
-      
-      // Incrementar intentos fallidos
       const attemptResult = incrementFailedAttempts();
       
       let finalErrorMessage = errorMessage;
@@ -150,7 +147,6 @@ export function UserProvider({ children }) {
     }
   };
 
-  // Función de registro mejorada
   const register = async (userData) => {
     setLoading(true);
     setError(null);
@@ -159,7 +155,6 @@ export function UserProvider({ children }) {
       const response = await registerUser(userData);
       console.log("Respuesta completa del registro:", response);
       
-      // Normalizar respuesta
       const newUser = {
         id_user: response.idUser || response.id_user || response.user?.idUser || response.user?.id_user,
         username: response.username || response.user?.username,
@@ -168,17 +163,16 @@ export function UserProvider({ children }) {
         email: response.email || response.user?.email,
         recovery_email: response.recoveryEmail || response.recovery_email || response.user?.recoveryEmail,
         phone: response.phone || response.user?.phone,
-        token: response.token || response.user?.token,
         lastLogin: new Date().toISOString()
       };
 
       console.log("Usuario normalizado:", newUser);
 
-      // Validar ID
       if (!newUser.id_user) {
         throw new Error("No se recibió el ID del usuario del servidor");
       }
 
+      // 🆕 Los tokens ya se guardaron en Api.jsx
       setUser(newUser);
       localStorage.setItem("user", JSON.stringify(newUser));
       
@@ -194,28 +188,24 @@ export function UserProvider({ children }) {
     }
   };
 
-  // Cerrar sesión mejorado (backend + local)
   const logout = async () => {
     setLoading(true);
     
     try {
-      // Intentar logout en backend
       if (user?.id_user) {
-        await logoutUser(user.id_user);
+        await logoutUser(user.id_user); // 🆕 Ya limpia tokens en Api.jsx
       }
     } catch (err) {
       console.warn("Error al cerrar sesión en backend:", err);
-      // Continuar con logout local aunque falle el backend
     } finally {
-      // Limpiar estado local
       setUser(null);
       setError(null);
       localStorage.removeItem("user");
+      clearTokens(); // 🆕 Asegurar limpieza de tokens
       setLoading(false);
     }
   };
 
-  // Actualizar datos del usuario
   const updateUserContext = useCallback((updatedData) => {
     console.log("Actualizando contexto con:", updatedData);
     
@@ -227,7 +217,6 @@ export function UserProvider({ children }) {
       email: updatedData.email,
       recovery_email: updatedData.recoveryEmail || updatedData.recovery_email,
       phone: updatedData.phone,
-      token: updatedData.token || user?.token,
       lastLogin: user?.lastLogin
     };
 
@@ -238,29 +227,28 @@ export function UserProvider({ children }) {
     localStorage.setItem("user", JSON.stringify(newUser));
   }, [user]);
 
-  // Limpiar errores manualmente
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  // Verificar autenticación
   const isAuthenticated = useCallback(() => {
-    return user !== null && user.id_user !== undefined;
+    const { accessToken } = getStoredTokens(); // 🆕 Verificar token
+    return user !== null && user.id_user !== undefined && !!accessToken;
   }, [user]);
 
-  // Verificar sesión al cargar
   useEffect(() => {
     const checkSession = async () => {
       const storedUser = localStorage.getItem("user");
+      const { accessToken } = getStoredTokens(); // 🆕
       
-      if (storedUser) {
+      if (storedUser && accessToken) {
         try {
           const userData = JSON.parse(storedUser);
           
-          // Validar ID
           if (!userData.id_user) {
             console.warn("Usuario sin ID válido, limpiando sesión");
             localStorage.removeItem("user");
+            clearTokens(); // 🆕
             setUser(null);
             return;
           }
@@ -269,15 +257,20 @@ export function UserProvider({ children }) {
         } catch (error) {
           console.warn("Error al verificar sesión:", error);
           localStorage.removeItem("user");
+          clearTokens(); // 🆕
           setUser(null);
         }
+      } else if (storedUser && !accessToken) {
+        // 🆕 Usuario sin token = sesión inválida
+        console.warn("Usuario sin token JWT, limpiando");
+        localStorage.removeItem("user");
+        setUser(null);
       }
     };
     
     checkSession();
   }, []);
 
-  // Manejar errores de API (401 = sesión expirada)
   const handleApiError = useCallback((error) => {
     if (error.response?.status === 401) {
       logout();
@@ -287,7 +280,6 @@ export function UserProvider({ children }) {
     }
   }, []);
 
-  // Valores del contexto
   const contextValue = {
     user,
     loading,

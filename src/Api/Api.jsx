@@ -18,6 +18,7 @@ const ENDPOINTS = {
   LOGIN: '/auth/login',
   REGISTER: '/auth/registrarse',
   LOGOUT: '/auth/logout',
+  REFRESH_TOKEN: '/auth/refresh', 
   
   // Usuario
   GET_USER: (id) => `/usuario/traer/${id}`,
@@ -57,21 +58,232 @@ const ENDPOINTS = {
 };
 
 // ============================================
-// CONFIGURACIÓN GLOBAL DE AXIOS - ACTUALIZADA
+// 🆕 GESTIÓN DE TOKENS JWT
+// ============================================
+
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+export const setAuthToken = (token) => {
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete axios.defaults.headers.common['Authorization'];
+  }
+};
+
+export const getStoredTokens = () => {
+  try {
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+    return { accessToken, refreshToken };
+  } catch {
+    return { accessToken: null, refreshToken: null };
+  }
+};
+
+export const saveTokens = (accessToken, refreshToken) => {
+  try {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    setAuthToken(accessToken);
+  } catch (error) {
+    console.error('Error guardando tokens:', error);
+  }
+};
+
+export const clearTokens = () => {
+  try {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    setAuthToken(null);
+  } catch (error) {
+    console.error('Error limpiando tokens:', error);
+  }
+};
+
+// 🆕 Función para refrescar el token
+const refreshAccessToken = async () => {
+  const { refreshToken } = getStoredTokens();
+  
+  console.log('🔄 ========== INICIO REFRESH TOKEN ==========');
+  console.log('🔍 1. refreshToken obtenido de localStorage:', refreshToken ? '✅ Existe' : '❌ NULL');
+  console.log('🔍 2. Primeros 30 caracteres:', refreshToken ? refreshToken.substring(0, 30) : 'N/A');
+  console.log('🔍 3. Longitud total:', refreshToken?.length);
+  console.log('🔍 4. Tipo de dato:', typeof refreshToken);
+  
+  if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null' || refreshToken.trim() === '') {
+    console.error('❌ refreshToken inválido');
+    clearTokens();
+    throw new Error('No hay refresh token disponible');
+  }
+
+  // 🆕 CREAR PAYLOAD Y VERIFICAR
+  const payload = { refreshToken: refreshToken };
+  
+  console.log('🔍 5. Payload creado:', payload);
+  console.log('🔍 6. Payload.refreshToken existe?:', !!payload.refreshToken);
+  console.log('🔍 7. JSON.stringify del payload:', JSON.stringify(payload));
+
+  try {
+    console.log('📤 8. Enviando request a:', `${API_URL}${ENDPOINTS.REFRESH_TOKEN}`);
+    console.log('📤 9. Headers que se enviarán:', {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    });
+    
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.REFRESH_TOKEN}`, 
+      payload, // { refreshToken: "eyJhbG..." }
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        timeout: 10000,
+      }
+    );
+
+    console.log('✅ 10. Respuesta exitosa del backend:', response.data);
+    console.log('✅ 11. Status code:', response.status);
+
+    const { accessToken, refreshToken: newRefreshToken } = response.data;
+    
+    if (!accessToken) {
+      throw new Error('Backend no devolvió accessToken');
+    }
+    
+    saveTokens(accessToken, newRefreshToken || refreshToken);
+    
+    console.log('✅ ========== FIN REFRESH TOKEN EXITOSO ==========');
+    return accessToken;
+    
+  } catch (error) {
+    console.error('❌ ========== ERROR EN REFRESH TOKEN ==========');
+    console.error('❌ Error completo:', error);
+    console.error('❌ Error.message:', error.message);
+    console.error('❌ Error.response:', error.response);
+    console.error('❌ Error.response.data:', error.response?.data);
+    console.error('❌ Error.response.status:', error.response?.status);
+    console.error('❌ Error.config.data:', error.config?.data);
+    console.error('❌ ================================================');
+    clearTokens();
+    throw error;
+  }
+};
+// ============================================
+// INTERCEPTORES DE AXIOS
+// ============================================
+
+// 🆕 Request Interceptor - Agregar token automáticamente
+axios.interceptors.request.use(
+  (config) => {
+
+    if (config.url.includes('/auth/refresh')) {
+      console.log('🔍 INTERCEPTOR REQUEST - URL:', config.url);
+      console.log('🔍 INTERCEPTOR REQUEST - Body:', config.data);
+      console.log('🔍 INTERCEPTOR REQUEST - Body tipo:', typeof config.data);
+      console.log('🔍 INTERCEPTOR REQUEST - Body stringificado:', JSON.stringify(config.data));
+    }
+    // No agregar token a endpoints públicos
+    const publicEndpoints = [
+      ENDPOINTS.LOGIN,
+      ENDPOINTS.REGISTER,
+      ENDPOINTS.REFRESH_TOKEN
+    ];
+    
+    const isPublicEndpoint = publicEndpoints.some(endpoint => 
+      config.url.includes(endpoint)
+    );
+
+    if (!isPublicEndpoint) {
+      const { accessToken } = getStoredTokens();
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 🆕 Response Interceptor - Manejar 401 y refresh automático
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Si es 401 y no es refresh token endpoint
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (originalRequest.url.includes(ENDPOINTS.REFRESH_TOKEN)) {
+        clearTokens();
+        window.location.href = '/';
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(token => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return axios(originalRequest);
+          })
+          .catch(err => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await refreshAccessToken();
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return axios(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        clearTokens();
+        window.location.href = '/';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// ============================================
+// CONFIGURACIÓN GLOBAL DE AXIOS
 // ============================================
 
 axios.defaults.timeout = TIMEOUT;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
-
-// ✅ HEADERS ESPECÍFICOS PARA NGROK
 axios.defaults.headers.common['ngrok-skip-browser-warning'] = 'true';
 axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
 axios.defaults.headers.common['Access-Control-Allow-Headers'] = '*';
 axios.defaults.headers.common['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,PATCH,OPTIONS';
-
-// Configuración importante para CORS
 axios.defaults.withCredentials = false;
+
+// Cargar token al iniciar
+const { accessToken } = getStoredTokens();
+if (accessToken) {
+  setAuthToken(accessToken);
+}
 
 // ============================================
 // FUNCIONES AUXILIARES
@@ -118,17 +330,11 @@ const shouldRetry = (error) => {
   return false;
 };
 
-// ============================================
-// FUNCIÓN DE VALIDACIÓN DE RESPUESTA
-// ============================================
-
 const validateApiResponse = (response, endpoint) => {
-  // Si la respuesta es un string que contiene HTML, es un error
   if (typeof response === 'string' && response.includes('<!DOCTYPE html>')) {
     throw new Error(`El servidor respondió con una página HTML en lugar de datos JSON. Posible problema de CORS en el endpoint: ${endpoint}`);
   }
   
-  // Si la respuesta es un string que contiene ngrok, es un error
   if (typeof response === 'string' && response.includes('ngrok')) {
     throw new Error(`Ngrok está bloqueando la petición. Verifica la configuración de CORS. Endpoint: ${endpoint}`);
   }
@@ -141,7 +347,6 @@ const handleApiError = (error, endpoint) => {
     console.error(`❌ Error en ${endpoint}:`, error);
   }
   
-  // Verificar si es un error de ngrok/HTML
   if (error.response && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
     return new Error(`🔒 Ngrok está bloqueando la petición por CORS. Endpoint: ${endpoint}. Configura los headers CORS en el backend.`);
   }
@@ -192,10 +397,6 @@ const logResponse = (method, endpoint, data) => {
   }
 };
 
-// ============================================
-// FUNCIÓN CENTRALIZADA DE PETICIONES HTTP - ACTUALIZADA
-// ============================================
-
 const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) => {
   logRequest(method, endpoint, data);
   
@@ -206,10 +407,9 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'ngrok-skip-browser-warning': 'true', // ✅ Header específico para ngrok
+      'ngrok-skip-browser-warning': 'true',
       'Access-Control-Allow-Origin': '*',
     },
-    // ✅ Configuración importante para CORS
     withCredentials: false,
   };
 
@@ -219,10 +419,7 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
 
   try {
     const response = await axios(config);
-    
-    // ✅ VERIFICACIÓN CRÍTICA: Asegurar que la respuesta sea JSON, no HTML
     validateApiResponse(response.data, endpoint);
-    
     logResponse(method, endpoint, response.data);
     return response.data;
     
@@ -243,7 +440,7 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
 };
 
 // ============================================
-// FUNCIONES DE AUTENTICACIÓN
+// FUNCIONES DE AUTENTICACIÓN - 🆕 ACTUALIZADAS
 // ============================================
 
 export const loginUser = async (email, password) => {
@@ -258,6 +455,11 @@ export const loginUser = async (email, password) => {
     
     if (!response || !response.idUser) {
       throw new Error('Respuesta inválida del servidor: falta ID de usuario');
+    }
+    
+    // 🆕 Guardar tokens JWT
+    if (response.accessToken && response.refreshToken) {
+      saveTokens(response.accessToken, response.refreshToken);
     }
     
     return response;
@@ -296,6 +498,11 @@ export const registerUser = async (userData) => {
       throw new Error('Respuesta inválida del servidor');
     }
     
+    // 🆕 Guardar tokens JWT
+    if (response.accessToken && response.refreshToken) {
+      saveTokens(response.accessToken, response.refreshToken);
+    }
+    
     return response;
   } catch (error) {
     if (error.message.includes('duplicado') || error.message.includes('409')) {
@@ -310,6 +517,11 @@ export const registerUser = async (userData) => {
         throw new Error('Respuesta inválida del servidor');
       }
       
+      // 🆕 Guardar tokens JWT en retry
+      if (retryResponse.accessToken && retryResponse.refreshToken) {
+        saveTokens(retryResponse.accessToken, retryResponse.refreshToken);
+      }
+      
       return retryResponse;
     }
     
@@ -320,11 +532,15 @@ export const registerUser = async (userData) => {
 export const logoutUser = async (userId) => {
   try {
     const response = await apiRequest('POST', ENDPOINTS.LOGOUT, { userId });
+    // 🆕 Limpiar tokens JWT
+    clearTokens();
     return response;
   } catch (error) {
     if (isDevelopment) {
       console.warn('Error en logout del backend, limpiando sesión local:', error.message);
     }
+    // 🆕 Limpiar tokens JWT incluso si falla
+    clearTokens();
     return { success: true, message: 'Sesión cerrada localmente' };
   }
 };
@@ -388,7 +604,6 @@ export const getBusinessByUserId = async (userId) => {
     
     if (!business) return null;
     
-    // ✅ CORREGIDO: Usar datos directos del backend
     return {
       id_business: business.idCommerce,
       id_user: business.idOwner,
@@ -424,7 +639,6 @@ export const getBusinessById = async (businessId) => {
     throw new Error('Negocio no encontrado');
   }
   
-  // ✅ CORREGIDO: Usar datos directos del backend
   const profileImageUrl = business.profileImage?.url || null;
   const coverImageUrl = business.coverImage?.url || null;
   
@@ -459,13 +673,11 @@ export const createBusiness = async (businessData) => {
     throw new Error('La descripción del negocio es obligatoria');
   }
   
-  // ✅ CORREGIDO: Verificar idOwner en lugar de id_user
   if (!businessData.idOwner) {
     console.log("❌ FALTA idOwner en businessData:", businessData);
     throw new Error('El ID de usuario es obligatorio');
   }
   
-  // ✅ FORMATO EXACTO QUE ESPERA CommerceDto
   const dataToSend = {
     name: businessData.name.trim(),
     description: businessData.description.trim(),
@@ -476,7 +688,7 @@ export const createBusiness = async (businessData) => {
     whatsapp: businessData.whatsapp?.trim() || null,
     email: businessData.email?.trim() || '',
     branchOf: businessData.branchOf || null,
-    idOwner: Number(businessData.idOwner), // ✅ idOwner como número
+    idOwner: Number(businessData.idOwner),
   };
   
   console.log("📤 Enviando al backend (formato CommerceDto):", dataToSend);
@@ -537,7 +749,6 @@ export const updateBusiness = async (businessId, businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
-  // ✅ CORREGIDO: Usar datos directos del backend
   const profileImageUrl = response.profileImage?.url || null;
   const coverImageUrl = response.coverImage?.url || null;
   
@@ -559,9 +770,6 @@ export const updateBusiness = async (businessId, businessData) => {
 // FUNCIONES DE IMÁGENES DE COMERCIO
 // ============================================
 
-/**
- * Subir imagen de perfil y recargar negocio actualizado
- */
 export const uploadProfileImage = async (businessId, imageFile) => {
   validateParams({ businessId, imageFile }, ['businessId', 'imageFile']);
   
@@ -593,7 +801,7 @@ export const uploadProfileImage = async (businessId, imageFile) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
         timeout: 30000,
       }
@@ -620,9 +828,6 @@ export const uploadProfileImage = async (businessId, imageFile) => {
   }
 };
 
-/**
- * Subir imagen de portada y recargar negocio actualizado
- */
 export const uploadCoverImage = async (businessId, imageFile) => {
   validateParams({ businessId, imageFile }, ['businessId', 'imageFile']);
   
@@ -654,7 +859,7 @@ export const uploadCoverImage = async (businessId, imageFile) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
         timeout: 30000,
       }
@@ -681,9 +886,6 @@ export const uploadCoverImage = async (businessId, imageFile) => {
   }
 };
 
-/**
- * Subir múltiples imágenes a la galería
- */
 export const uploadGalleryImages = async (businessId, imageFiles) => {
   validateParams({ businessId, imageFiles }, ['businessId', 'imageFiles']);
   
@@ -718,7 +920,7 @@ export const uploadGalleryImages = async (businessId, imageFiles) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
         timeout: 60000,
       }
@@ -738,9 +940,6 @@ export const uploadGalleryImages = async (businessId, imageFiles) => {
 // FUNCIONES DE PUBLICACIONES
 // ============================================
 
-/**
- * Obtener publicaciones de un comercio específico
- */
 export const getPostsByCommerce = async (commerceId) => {
   validateParams({ commerceId }, ['commerceId']);
   
@@ -767,9 +966,6 @@ export const getPostsByCommerce = async (commerceId) => {
   }
 };
 
-/**
- * Crear publicación con imágenes
- */
 export const createPost = async (description, idCommerce, imageFiles = [], eventData = null) => {
   validateParams({ description, idCommerce }, ['description', 'idCommerce']);
   
@@ -826,7 +1022,7 @@ export const createPost = async (description, idCommerce, imageFiles = [], event
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
         timeout: 60000,
       }
@@ -842,9 +1038,6 @@ export const createPost = async (description, idCommerce, imageFiles = [], event
   }
 };
 
-/**
- * Obtener todas las publicaciones
- */
 export const getAllPosts = async () => {
   try {
     return await apiRequest('GET', ENDPOINTS.POST_GET_ALL);
@@ -853,17 +1046,11 @@ export const getAllPosts = async () => {
   }
 };
 
-/**
- * Obtener publicación por ID
- */
 export const getPostById = async (postId) => {
   validateParams({ postId }, ['postId']);
   return apiRequest('GET', ENDPOINTS.POST_GET_BY_ID(postId));
 };
 
-/**
- * Editar publicación (solo texto)
- */
 export const updatePostText = async (postId, description, idCommerce) => {
   validateParams({ postId, description, idCommerce }, ['postId', 'description', 'idCommerce']);
   
@@ -889,9 +1076,6 @@ export const updatePostText = async (postId, description, idCommerce) => {
   return normalizePostFromBackend(response);
 };
 
-/**
- * Editar publicación (deprecated - usar updatePostText)
- */
 export const updatePost = async (postId, postData) => {
   validateParams({ postId, postData }, ['postId', 'postData']);
   
@@ -911,9 +1095,6 @@ export const updatePost = async (postId, postData) => {
   return apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), dataToSend);
 };
 
-/**
- * Eliminar publicación
- */
 export const deletePost = async (postId) => {
   validateParams({ postId }, ['postId']);
   
@@ -927,7 +1108,7 @@ export const deletePost = async (postId) => {
       {
         timeout: TIMEOUT,
         headers: {
-          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
       }
     );
@@ -942,9 +1123,6 @@ export const deletePost = async (postId) => {
   }
 };
 
-/**
- * Agregar imágenes a publicación existente
- */
 export const addImagesToPost = async (postId, imageFiles) => {
   validateParams({ postId, imageFiles }, ['postId', 'imageFiles']);
   
@@ -964,7 +1142,7 @@ export const addImagesToPost = async (postId, imageFiles) => {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
         timeout: 60000,
       }
@@ -980,9 +1158,6 @@ export const addImagesToPost = async (postId, imageFiles) => {
   }
 };
 
-/**
- * Eliminar imágenes de publicación
- */
 export const deleteImagesFromPost = async (postId, imageIds) => {
   validateParams({ postId, imageIds }, ['postId', 'imageIds']);
   
@@ -995,8 +1170,6 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
       console.log('🗑️ Eliminando imágenes:', { postId, imageIds });
     }
     
-    // ✅ CORREGIDO: Usar query parameters en lugar de body
-    // El backend espera: /publicacion/eliminar/imagenes/{idPost}?imageIds=1&imageIds=2&imageIds=3
     const queryParams = imageIds.map(id => `imageIds=${id}`).join('&');
     
     const response = await axios.delete(
@@ -1004,7 +1177,7 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ✅ Header para ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
         timeout: TIMEOUT,
       }
@@ -1024,11 +1197,7 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
 // FUNCIONES NORMALIZADORAS
 // ============================================
 
-/**
- * Normalizar publicación desde el backend
- */
 export const normalizePostFromBackend = (post) => {
-  // Si el backend devuelve el formato con imágenes como array de objetos
   if (post.images && Array.isArray(post.images)) {
     const sortedImages = post.images.sort((a, b) => a.imageOrder - b.imageOrder);
     
@@ -1049,7 +1218,6 @@ export const normalizePostFromBackend = (post) => {
     };
   }
   
-  // Fallback para formato simple
   return {
     id: post.idPost || post.id,
     text: post.description || post.text,
@@ -1065,9 +1233,6 @@ export const normalizePostFromBackend = (post) => {
 // FUNCIONES DE BÚSQUEDA
 // ============================================
 
-/**
- * Buscar comercios por nombre o tag
- */
 export const searchCommerces = async (searchParam, limit = 10, offset = 0) => {
   if (!searchParam || searchParam.trim() === '') {
     throw new Error('Debes ingresar un término de búsqueda');
@@ -1108,6 +1273,12 @@ export default {
   loginUser,
   registerUser,
   logoutUser,
+  
+  // JWT 🆕
+  setAuthToken,
+  getStoredTokens,
+  saveTokens,
+  clearTokens,
   
   // Usuario
   getUserById,
