@@ -1,0 +1,327 @@
+/* ── CheckoutPage — Dónde Queda? ── */
+
+.page {
+  min-height: 100vh;
+  background: #f9fafb;
+  padding: 32px 16px 80px;
+  font-family: 'Arial', 'Helvetica Neue', sans-serif;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Volver */
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+  margin-bottom: 28px;
+  transition: color 0.15s ease;
+  font-family: inherit;
+}
+.backBtn:hover { color: #1a1a1a; }
+
+/* Grid 2 columnas */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── Columna resumen del plan ── */
+.summaryCard {
+  background: #fff;
+  border-radius: 16px;
+  border: 1.5px solid #e5e7eb;
+  padding: 28px 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.planHeader { margin-bottom: 20px; }
+
+.planBadge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 12px;
+  border-radius: 20px;
+  margin-bottom: 8px;
+}
+
+.planName {
+  font-family: 'Georgia', serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+}
+
+.planTagline {
+  font-size: 0.86rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.priceLabel {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+.price {
+  font-family: 'Georgia', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 16px 0;
+}
+
+.featureList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.87rem;
+  color: #374151;
+}
+.featureCheck {
+  color: #16a34a;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+/* Métodos de pago */
+.metodosWrap { margin-top: 4px; }
+.metodosTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #9ca3af;
+  margin: 0 0 10px;
+}
+.metodos { display: flex; flex-direction: column; gap: 8px; }
+.metodoItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.84rem;
+  color: #4b5563;
+}
+
+/* ── Columna pago ── */
+.payCard {
+  background: #fff;
+  border-radius: 16px;
+  border: 1.5px solid #e5e7eb;
+  padding: 28px 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.payHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.lockIcon {
+  color: #B00020;
+  font-size: 1.2rem;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.payTitle {
+  font-family: 'Georgia', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+}
+.paySubtitle {
+  font-size: 0.83rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Usuario */
+.userBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+.userAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #B00020, #8a0018);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.userName {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+.userEmail {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Invoice */
+.invoiceBox {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.invoiceLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  color: #4b5563;
+}
+.invoiceTotal {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #111827;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Error */
+.errorBox {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  color: #dc2626;
+  line-height: 1.5;
+}
+
+/* Botón pagar */
+.payBtn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #009ee3, #007bbf);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: filter 0.2s ease;
+  font-family: inherit;
+  box-shadow: 0 4px 16px rgba(0, 158, 227, 0.35);
+}
+.payBtn:hover:not(:disabled) { filter: brightness(1.08); }
+.payBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.mpLogo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* Spinner */
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Seguridad */
+.securityRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.securityIcon {
+  color: #16a34a;
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.securityText {
+  font-size: 0.78rem;
+  color: #6b7280;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Términos */
+.terms {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  line-height: 1.6;
+  margin: 0;
+  text-align: center;
+}
+.terms a {
+  color: #B00020;
+  text-decoration: none;
+}
+.terms a:hover { text-decoration: underline; }
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .grid { grid-template-columns: 1fr; }
+  .payCard, .summaryCard { padding: 20px 16px; }
+  .page { padding: 20px 12px 60px; }
+}

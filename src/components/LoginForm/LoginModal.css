@@ -107,7 +107,7 @@
 }
 
 /* ============================================
-   LOGO Y TÍTULOS - VERSIÓN MEJORADA
+   LOGO Y TÍTULOS
    ============================================ */
 .modal-logo {
   display: flex;
@@ -115,7 +115,7 @@
   justify-content: center;
   gap: 0.75rem;
   margin-bottom: 2rem;
-  padding: 1.5rem 1rem 1.25rem; /* Más padding abajo para la línea */
+  padding: 1.5rem 1rem 1.25rem;
   position: relative;
 }
 
@@ -141,13 +141,12 @@
   opacity: 1;
   width: 60px;
 }
-/* Línea decorativa superior en lugar del bloque rojo */
 
-
-.logo-icon {
-  font-size: 2rem;
-  color: var(--primary-red);
-  filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.2));
+/* Logo PNG */
+.logo-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
   animation: gentlePulse 3s ease-in-out infinite;
 }
 
@@ -286,22 +285,22 @@
   width: 100%;
   height: var(--input-height);
   padding: 0 1rem;
-  border: 2px solid var(--border-gray); /* Línea más fina */
+  border: 2px solid var(--border-gray);
   border-radius: var(--border-radius);
   font-size: 0.95rem;
-  transition: all 0.3s var(--transition-smooth); /* Transición más rápida */
+  transition: all 0.3s var(--transition-smooth);
   background: var(--bg-white);
   color: var(--text-dark);
   box-sizing: border-box;
 }
 
 .modal-input:hover {
-  border-color: #4b5563; /* Muy sutil, casi imperceptible */
+  border-color: #4b5563;
 }
 
 .modal-input:focus {
   outline: none;
-  border-color: #4b5563; /* Gray-600 */
+  border-color: #4b5563;
   border-width: 2px;
   box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.1);
   transform: translateY(-2px);
@@ -443,6 +442,46 @@
   text-align: center;
   margin: -0.25rem 0 0 0;
   transition: color 0.3s;
+}
+
+/* ============================================
+   TÉRMINOS Y CONDICIONES
+   ============================================ */
+.terms-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  cursor: pointer;
+  padding: 0.125rem 0;
+}
+
+.terms-checkbox {
+  width: 17px;
+  height: 17px;
+  min-width: 17px;
+  margin-top: 2px;
+  accent-color: var(--primary-red);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.terms-text {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  line-height: 1.5;
+  user-select: none;
+}
+
+.terms-link {
+  color: var(--primary-red);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s var(--transition-smooth), text-decoration 0.2s;
+}
+
+.terms-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
 }
 
 /* ============================================
@@ -656,24 +695,13 @@
   color: white;
 }
 
-.social-btn.apple {
-  color: #000;
-}
-
-.social-btn.apple:hover svg {
-  color: white;
-}
 
 /* ============================================
    ANIMACIONES
    ============================================ */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
@@ -716,30 +744,18 @@
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes shimmer {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 100%;
-  }
+  0% { left: -100%; }
+  100% { left: 100%; }
 }
 
 @keyframes checkmarkDraw {
-  0% {
-    transform: scale(0) rotate(-45deg);
-  }
-  50% {
-    transform: scale(1.2) rotate(5deg);
-  }
-  100% {
-    transform: scale(1) rotate(0);
-  }
+  0% { transform: scale(0) rotate(-45deg); }
+  50% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
 }
 
 @keyframes gentlePulse {
@@ -756,8 +772,6 @@
 /* ============================================
    ACCESIBILIDAD
    ============================================ */
-
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -806,6 +820,10 @@
     height: 45px;
     font-size: 1.25rem;
   }
+
+  .terms-text {
+    font-size: 0.78rem;
+  }
 }
 
 @media (max-width: 400px) {
@@ -820,4 +838,18 @@
   .modal-title {
     font-size: 1.25rem;
   }
+}
+/* ── Reset password — pantalla de enlace enviado ── */
+.reset-sent-icon {
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.reset-sent-note {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  text-align: center;
+  margin: -8px 0 4px;
+  line-height: 1.5;
 }

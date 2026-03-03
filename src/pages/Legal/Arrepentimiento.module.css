@@ -1,0 +1,237 @@
+/* ── Página de arrepentimiento ── */
+
+.page {
+  min-height: 100vh;
+  background: #f9fafb;
+  padding: 48px 16px 80px;
+}
+
+.container {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+}
+
+.iconWrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #B00020;
+  color: #fff;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  box-shadow: 0 4px 16px rgba(176, 0, 32, 0.3);
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 8px;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Caja legal */
+.legalBox {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px 32px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  border-left: 4px solid #B00020;
+}
+
+.legalTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 14px;
+}
+
+.legalBox p {
+  font-size: 0.92rem;
+  color: #374151;
+  line-height: 1.7;
+  margin: 0 0 12px;
+}
+
+.legalList {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legalList li {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+/* Formulario */
+.form {
+  background: #fff;
+  border-radius: 14px;
+  padding: 32px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroup label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+  padding: 10px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  background: #fafafa;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+  outline: none;
+  border-color: #B00020;
+  box-shadow: 0 0 0 3px rgba(176, 0, 32, 0.1);
+  background: #fff;
+}
+
+.formGroup textarea { resize: vertical; min-height: 100px; }
+
+.formFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.formNote {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin: 0;
+  flex: 1;
+}
+
+.submitBtn {
+  padding: 12px 28px;
+  background: #B00020;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.submitBtn:hover {
+  background: #8a0018;
+  transform: translateY(-1px);
+}
+
+/* Éxito */
+.successBox {
+  background: #fff;
+  border-radius: 14px;
+  padding: 48px 32px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.successIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.successBox h2 { font-size: 1.4rem; color: #1a1a1a; margin: 0; }
+.successBox p  { font-size: 0.92rem; color: #374151; margin: 0; max-width: 480px; line-height: 1.6; }
+.successNote   { font-size: 0.88rem !important; color: #6b7280 !important; }
+
+.backBtn {
+  margin-top: 8px;
+  padding: 11px 28px;
+  background: #B00020;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.backBtn:hover { background: #8a0018; }
+
+/* Contacto alternativo */
+.contactInfo {
+  text-align: center;
+  font-size: 0.84rem;
+  color: #6b7280;
+}
+.contactInfo a { color: #B00020; }
+
+@media (max-width: 600px) {
+  .formRow    { grid-template-columns: 1fr; }
+  .formFooter { flex-direction: column; align-items: stretch; }
+  .submitBtn  { text-align: center; }
+  .legalBox   { padding: 20px; }
+  .form       { padding: 20px; }
+}
