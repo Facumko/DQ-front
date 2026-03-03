@@ -1,323 +1,448 @@
+/* ============================================
+   NAVBAR — Dónde Queda?
+   ============================================ */
+
 .navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(90deg,#B00020,#800018);
-  padding: 0 25px;
-  height: 70px;
-  font-family: 'Helvetica Neue', sans-serif;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  background: linear-gradient(90deg, #B00020 0%, #7A0016 100%);
+  padding: 0 28px;
+  height: 68px;
+  font-family: 'Helvetica Neue', 'Segoe UI', sans-serif;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   position: sticky;
   top: 0;
   z-index: 1000;
-  border-radius: 45px;
   color: white;
+  /* Quitamos border-radius para que cubra todo el ancho */
 }
 
-/* Logo */
+/* ── Logo ── */
+/* ── Hamburger (izquierda) ── */
+.hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+  margin-right: 4px;
+   margin-right: -130px;
+}
+.hamburger:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.hamburger .outlineIcon {
+  font-size: 1.15rem;
+}
+
 .logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   font-weight: 700;
   cursor: pointer;
-  color: rgb(255, 255, 255);
-  transition: transform 0.25s ease, text-shadow 0.3s ease;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
 }
-.logo:hover {
-  transform: scale(1.1);
-  text-shadow: 0 0 14px rgba(255,255,255,0.85);
+.logo:hover { opacity: 0.88; }
+
+.logoIcon {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  pointer-events: none;
 }
 
-/* Buscador */
+/* ── Buscador ── */
 .searchContainer {
   position: relative;
   flex: 1;
-  max-width: 550px;
-  margin: 0 25px;
+  max-width: 520px;
+  margin: 0 28px;
   display: flex;
-  justify-content: center;
-  transition: max-width 0.3s ease;
-}
-.searchContainer.active { max-width: 620px; }
-
-.searchInput {
-  width: 100%;
-  padding: 12px 50px 12px 18px;
-  border-radius: 40px;
-  border: none;
-  font-size: 0.95rem;
-  box-shadow: inset 0 4px 15px rgba(0,0,0,0.2);
-  transition: all 0.3s ease;
-}
-.searchInput::placeholder { color: #888; }
-.searchInput:focus {
-  outline: none;
-  box-shadow: 0 0 20px rgba(26,188,156,0.65);
+  align-items: center;
 }
 
 .searchIcon {
   position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #888;
-  font-size: 1.15rem;
-  pointer-events: none;
+  left: 16px;
+  color: #999;
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 1;
+  transition: color 0.2s ease;
+}
+.searchIcon:hover { color: #B00020; }
+
+.searchInput {
+  width: 100%;
+  padding: 11px 18px 11px 44px;
+  border-radius: 40px;
+  border: none;
+  font-size: 0.92rem;
+  background: #fff;
+  color: #222;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.25s ease;
+}
+.searchInput::placeholder { color: #aaa; }
+.searchInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(176, 0, 32, 0.35), inset 0 2px 8px rgba(0,0,0,0.08);
 }
 
+/* ── Sugerencias ── */
 .suggestions {
   position: absolute;
-  top: 52px;
-  width: 100%;
-  background: white;
-  color: black;
-  border-radius: 12px;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  color: #222;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-  z-index: 100;
-  animation: fadeSlide 0.3s;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  z-index: 200;
+  animation: fadeSlide 0.2s ease;
+  max-height: 320px;
+  overflow-y: auto;
 }
-.suggestionItem { padding: 10px 15px; cursor: pointer; transition: background 0.2s ease; }
-.suggestionItem:hover { background: #f0f0f0; }
 
-.icons { display: flex; align-items: center; gap: 22px; }
+.suggestionItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.suggestionItem:hover { background: #fef2f4; }
+
+.suggestionIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #B00020;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.suggestionIcon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.suggestionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.suggestionName {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.suggestionDesc {
+  font-size: 0.78rem;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Loading dots */
+.loadingItem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+}
+.loadingDot {
+  width: 7px;
+  height: 7px;
+  background: #B00020;
+  border-radius: 50%;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+.loadingDot:nth-child(2) { animation-delay: 0.2s; }
+.loadingDot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Íconos área derecha ── */
+.icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 
 .iconWrapper {
   position: relative;
-  font-size: 1.35rem;
-  cursor: pointer;
-  transition: transform 0.25s ease, filter 0.25s ease;
-  overflow: visible;
-}
-
-/* Iconos premium: líneas blancas, halo, minimalistas */
-.outlineIcon {
-  stroke: rgba(255, 255, 255, 0.567);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: all 0.3s ease;
-}
-.iconWrapper:hover .outlineIcon {
-  fill: #16A085;
-  stroke: #FFFFFF;
-  stroke-width: 3.5px;
-  transform: scale(1.2);
-  filter: drop-shadow(0 0 8px rgba(22,160,133,0.65));
-}
-
-/* Ripple */
-.rippleDynamic {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: rgba(22,160,133,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  animation: rippleEffect 0.5s ease-out;
-  pointer-events: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  color: rgba(255,255,255,0.88);
 }
-@keyframes rippleEffect { to { transform: translate(-50%,-50%) scale(5); opacity:0; } }
+.iconWrapper:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+.activeIcon {
+  background: rgba(255,255,255,0.2);
+}
 
-/* Tooltip */
-.iconWrapper:hover::after {
-  content: attr(title);
+.outlineIcon {
+  font-size: 1.2rem;
+  display: block;
+}
+
+/* Tooltip personalizado */
+.iconTooltip {
   position: absolute;
-  bottom: -34px;
+  bottom: -30px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255,255,255,0.95);
-  color: #555;
-  font-weight: 400;
-  font-size: 0.75rem;
-  padding: 4px 8px;
-  border-radius: 6px;
+  background: rgba(30,30,30,0.9);
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 5px;
   white-space: nowrap;
+  pointer-events: none;
   opacity: 0;
-  animation: tooltipFadeSlide 0.25s forwards;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  transition: opacity 0.15s ease;
 }
-@keyframes tooltipFadeSlide { 0% { opacity:0; transform:translateX(-50%) translateY(5px);} 100% { opacity:1; transform:translateX(-50%) translateY(0);} }
+.iconWrapper:hover .iconTooltip { opacity: 1; }
 
-/* Click bounce */
-.clickBounce { animation: bounce 0.3s; }
-@keyframes bounce { 0% { transform: scale(1); } 50% { transform: scale(1.45);} 100% { transform: scale(1); } }
-
-/* Responsive */
-/* Responsive */
-@media (max-width:900px) { .searchContainer { max-width:280px; margin:0 10px;} .logoText{display:none;} }
-
-/* ⭐ Contenedor de categorías con posición relativa */
+/* ── Contenedor de categorías ── */
 .categoriesContainer {
   position: relative;
   display: flex;
   align-items: center;
 }
-.loginButton, .userButton {
+
+/* ── Botón Ingresar (sin sesión) ── */
+.loginButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: white;
   color: #B00020;
-  font-weight: 600;
-  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 8px 18px;
   border-radius: 25px;
   border: none;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  margin-left: 6px;
+}
+.loginButton:hover {
+  background: #ffe5e9;
+  transform: scale(1.04);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.loginBtnIcon {
   font-size: 0.9rem;
-  transition: all 0.3s ease;
 }
 
-.loginButton:hover, .userButton:hover {
-  background: #f5f5f5;
-  transform: scale(1.05);
-}
-
-.userButton {
-  background: #16A085;
-  color: white;
-}
-
-/* ===== Usuario / Menú desplegable ===== */
+/* ── Usuario logueado ── */
 .userWrapper {
   position: relative;
   display: flex;
   align-items: center;
+  margin-left: 6px;
 }
 
-.userIcon {
-  font-size: 1.30rem; /* igual que los otros */
-  stroke: rgba(255, 255, 255, 0.567);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: all 0.3s ease;
-}
-
-.userIcon:hover {
-  color: #16A085;
-  transform: scale(1.2);
-}
-
-.userMenu {
-  position: absolute;
-  top: 130%;
-  right: 0;
-  background: #fff;
-  color: #000;
-  border-radius: 8px;
-  box-shadow: 0 6px 15px rgba(0,0,0,0.25);
-  min-width: 160px;
-  z-index: 2000;
-  animation: fadeSlide 0.2s ease;
-  overflow: hidden;
-}
-
-.userMenuItem {
-  padding: 12px 16px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s ease;
-}
-
-.userMenuItem:hover {
-  background: #f5f5f5;
-}
-
-/* Animación suave para desplegar menú */
-@keyframes fadeSlide {
-  0% { opacity: 0; transform: translateY(-5px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-/* ===== ESTILOS PARA BÚSQUEDA CON SUGERENCIAS ===== */
-
-.suggestionInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.suggestionName {
-  font-weight: 500;
-  font-size: 0.9rem;
-  color: #333;
-}
-
-.suggestionDesc {
-  font-size: 0.8rem;
-  color: #666;
-  opacity: 0.8;
-}
-
-.searchIcon {
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.searchIcon:hover {
-  color: var(--brand-600);
-  transition: color 0.2s ease;
-}
-
-.suggestions {
-  position: absolute;
-  top: 52px;
-  width: 100%;
-  background: white;
-  color: black;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-  z-index: 100;
-  animation: fadeSlide 0.3s;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.suggestionItem {
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.2s ease;
+.userTrigger {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  cursor: pointer;
+  padding: 5px 12px 5px 5px;
+  border-radius: 25px;
+  transition: background 0.2s ease;
+  border: 1.5px solid rgba(255,255,255,0.3);
+}
+.userTrigger:hover,
+.userTriggerActive {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.55);
 }
 
-.suggestionItem:hover {
-  background: #f5f5f5;
-}
-
-.suggestionItem:first-child {
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
-}
-
-.suggestionItem:last-child {
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-}
-
-.suggestionContent {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
-
-.suggestionIcon {
-  width: 32px;
-  height: 32px;
+.userAvatar {
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: var(--brand-600);
-  color: white;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 0.85rem;
   flex-shrink: 0;
 }
 
-.suggestionIcon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.userName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fff;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.75);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+.chevronOpen { transform: rotate(180deg); }
+
+/* ── Menú desplegable ── */
+.userMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: #fff;
+  color: #222;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  min-width: 220px;
+  z-index: 2000;
+  animation: fadeSlide 0.2s ease;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.userMenuHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fef2f4;
+}
+.userMenuAvatar {
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
+  background: #B00020;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.userMenuName {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #1a1a1a;
+  margin: 0 0 2px;
+}
+.userMenuEmail {
+  font-size: 0.76rem;
+  color: #888;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.userMenuDivider {
+  height: 1px;
+  background: rgba(0,0,0,0.07);
+  margin: 4px 0;
+}
+
+.userMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: #333;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.userMenuItem:hover {
+  background: #fef2f4;
+  color: #B00020;
+}
+
+.menuItemIcon {
+  font-size: 0.9rem;
+  color: #999;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+.userMenuItem:hover .menuItemIcon { color: #B00020; }
+
+.logoutItem { color: #c0392b; }
+.logoutItem:hover { background: #fff0f0; color: #a02020; }
+.logoutItem .menuItemIcon { color: #c0392b; }
+
+/* Ícono de mapa — leve acento para distinguirlo */
+.mapIcon .outlineIcon { color: rgba(255, 190, 190, 0.95); }
+.mapIcon:hover .outlineIcon { fill: #ff8080 !important; color: #fff; }
+
+/* ── Animaciones ── */
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .searchContainer {
+    max-width: 260px;
+    margin: 0 12px;
+  }
+  .logoText { display: none; }
+  .userName  { display: none; }
+  .chevron   { display: none; }
+}
+
+@media (max-width: 600px) {
+  .navbar { padding: 0 14px; }
+  .searchContainer { max-width: 180px; margin: 0 8px; }
+  .icons { gap: 2px; }
+  .loginButton span { display: none; }
+  .loginButton { padding: 8px 10px; }
 }

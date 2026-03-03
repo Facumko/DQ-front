@@ -1,0 +1,265 @@
+/* ============================================================
+   CITY DRAWER — Dónde Queda?
+   Drawer lateral izquierdo estilo ML con secciones
+   ============================================================ */
+
+/* ── Overlay oscuro ─────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  z-index: 1100;
+  pointer-events: none;
+  transition: background 0.3s ease;
+}
+.overlayVisible {
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: all;
+}
+
+/* ── Drawer ─────────────────────────────────────────────────── */
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 88vw;
+  background: #fff;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.15);
+  font-family: 'Helvetica Neue', 'Segoe UI', sans-serif;
+  will-change: transform;
+}
+.drawerOpen {
+  transform: translateX(0);
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  height: 64px;
+  background: linear-gradient(90deg, #B00020, #8a0018);
+  flex-shrink: 0;
+}
+
+.drawerBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.drawerLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.closeBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+.closeBtn:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* ── Body scrolleable ───────────────────────────────────────── */
+.drawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 0 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #e0e0e0 transparent;
+}
+.drawerBody::-webkit-scrollbar { width: 4px; }
+.drawerBody::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 2px; }
+
+/* ── Sección genérica ───────────────────────────────────────── */
+.section {
+  padding: 0 16px 12px;
+}
+
+.sectionLabel {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #aaa;
+  padding: 0 4px;
+  margin-bottom: 10px;
+}
+
+.divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 8px 16px 18px;
+}
+
+/* ── Grid Explorar ──────────────────────────────────────────── */
+.exploreGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exploreCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1.5px solid #f0f0f0;
+  background: #fafafa;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  text-align: left;
+  font-family: inherit;
+}
+.exploreCard:hover {
+  background: #fff;
+  border-color: #ddd;
+  transform: translateX(3px);
+}
+.exploreCardHighlight {
+  background: #fff8f8;
+  border-width: 1.5px;
+}
+.exploreCardHighlight:hover {
+  background: #fff0f1;
+}
+
+.exploreIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.exploreCard:hover .exploreIcon { transform: scale(1.08); }
+
+.exploreText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.exploreLabel {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+.exploreSub {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.exploreArrow {
+  color: #ccc;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.exploreCard:hover .exploreArrow {
+  color: #aaa;
+  transform: translateX(2px);
+}
+
+/* ── Lista de categorías ────────────────────────────────────── */
+.catList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+  text-align: left;
+  font-family: inherit;
+}
+.catRow:hover {
+  background: #f5f5f5;
+  transform: translateX(3px);
+}
+
+.catIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  transition: transform 0.12s ease;
+}
+.catRow:hover .catIconWrap { transform: scale(1.1); }
+
+.catLabel {
+  flex: 1;
+  font-size: 0.87rem;
+  font-weight: 500;
+  color: #2a2a2a;
+}
+
+.catArrow {
+  color: #ddd;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+.catRow:hover .catArrow {
+  color: #bbb;
+  transform: translateX(2px);
+}
+
+/* ── Footer del drawer ──────────────────────────────────────── */
+.drawerFooter {
+  padding: 12px 20px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.72rem;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .drawer { width: 290px; }
+  .exploreLabel { font-size: 0.84rem; }
+  .catLabel { font-size: 0.83rem; }
+}

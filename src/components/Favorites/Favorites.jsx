@@ -5,7 +5,7 @@ import styles from "./Favorites.module.css";
 
 
 export default function Favorites() {
-  const { favorites = [], removeFavorite } = useContext(UserContext);v
+  const { favorites = [], removeFavorite } = useContext(UserContext);
 
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -114,10 +114,20 @@ export default function Favorites() {
 
       {filteredAndSortedFavorites.length === 0 ? (
         <div className={styles.emptyState}>
-          <p>No se encontraron negocios favoritos</p>
+          <div className={styles.emptyIcon}>🔖</div>
+          <h3>No hay favoritos guardados</h3>
+          <p>
+            {searchTerm || selectedCategory !== "all"
+              ? "No encontramos negocios que coincidan con tu búsqueda."
+              : "Explorá el directorio y guardá los negocios que más te gusten."}
+          </p>
         </div>
       ) : (
-        <div className={styles.grid}>
+        <>
+          <p className={styles.resultsCount}>
+            {filteredAndSortedFavorites.length} negocio{filteredAndSortedFavorites.length !== 1 ? "s" : ""} guardado{filteredAndSortedFavorites.length !== 1 ? "s" : ""}
+          </p>
+          <div className={styles.grid}>
           <AnimatePresence>
             {filteredAndSortedFavorites.map((negocio) => (
               <motion.div
@@ -181,7 +191,8 @@ export default function Favorites() {
               </motion.div>
             ))}
           </AnimatePresence>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useContext, useEffect, useRef } from "react";
 import { UserContext } from "../../pages/UserContext";
 import { validateEmail, validatePasswordStrength } from "../../Api/Api";
 import "./LoginModal.css";
-import { FaEye, FaEyeSlash, FaMapMarkerAlt, FaGoogle, FaFacebook, FaApple, FaCheckCircle } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaCheckCircle } from "react-icons/fa";
 
 export default function LoginModal({ onClose }) {
   const { login, register, loading, error, clearError, isLocked } = useContext(UserContext);
@@ -22,14 +22,47 @@ export default function LoginModal({ onClose }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   
   // Reset password
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetCode, setResetCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [resetEmail, setResetEmail]                   = useState("");
+  const [newPassword, setNewPassword]                 = useState("");
+  const [confirmNewPassword, setConfirmNewPassword]   = useState("");
+  const [showNewPassword, setShowNewPassword]         = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
+  // ── Cooldown persistido en localStorage ──────────────────────────────────
+  // Clave: "dq_reset_<email>" → { count, lastSentAt (timestamp ms) }
+  const COOLDOWN_SECS = 60;
+  const MAX_RESENDS   = 3;
+  const LS_KEY        = (email) => `dq_reset_${email}`;
+
+  // Leer estado persistido para un email dado
+  const getPersistedState = (email) => {
+    if (!email) return { count: 0, secondsLeft: 0 };
+    try {
+      const raw = localStorage.getItem(LS_KEY(email));
+      if (!raw) return { count: 0, secondsLeft: 0 };
+      const { count, lastSentAt } = JSON.parse(raw);
+      const elapsed = Math.floor((Date.now() - lastSentAt) / 1000);
+      const secondsLeft = Math.max(0, COOLDOWN_SECS - elapsed);
+      return { count, secondsLeft };
+    } catch {
+      return { count: 0, secondsLeft: 0 };
+    }
+  };
+
+  // Persistir un nuevo envío
+  const persistSend = (email) => {
+    const { count } = getPersistedState(email);
+    localStorage.setItem(LS_KEY(email), JSON.stringify({
+      count: count + 1,
+      lastSentAt: Date.now(),
+    }));
+  };
+
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendCount,    setResendCount]    = useState(0);
   
   // UI states
   const [localError, setLocalError] = useState('');
@@ -77,12 +110,32 @@ export default function LoginModal({ onClose }) {
   // Auto-limpiar mensajes de éxito
   useEffect(() => {
     if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage('');
-      }, 3000);
+      const timer = setTimeout(() => setSuccessMessage(''), 3000);
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
+
+  // Cuando se vuelve al paso resetSent (por ej. recarga o reapertura),
+  // restaurar el cooldown desde localStorage
+  useEffect(() => {
+    if (step === "resetSent" && resetEmail) {
+      const { count, secondsLeft } = getPersistedState(resetEmail);
+      setResendCount(count);
+      setResendCooldown(secondsLeft);
+    }
+  }, [step, resetEmail]);
+
+  // Countdown del cooldown de reenvío
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
   
   // Countdown para bloqueo
   useEffect(() => {
@@ -142,7 +195,6 @@ export default function LoginModal({ onClose }) {
     setLocalError('');
     if (clearError) clearError();
     
-    // Validaciones
     if (!loginEmail.trim() || !loginPassword.trim()) {
       setLocalError('Por favor completa todos los campos');
       return;
@@ -169,7 +221,6 @@ export default function LoginModal({ onClose }) {
     setLocalError('');
     if (clearError) clearError();
     
-    // Validaciones
     if (!registerEmail.trim() || !registerPassword.trim() || !confirmPassword.trim()) {
       setLocalError('Por favor completa todos los campos');
       return;
@@ -189,6 +240,11 @@ export default function LoginModal({ onClose }) {
       setLocalError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
+
+    if (!acceptedTerms) {
+      setLocalError('Debes aceptar los Términos de Uso y la Política de Privacidad');
+      return;
+    }
     
     const result = await register({
       email: registerEmail,
@@ -204,22 +260,33 @@ export default function LoginModal({ onClose }) {
   };
   
   // --- OLVIDÉ CONTRASEÑA ---
-  const handleForgotPassword = (e) => {
+  const handleForgotPassword = async (e) => {
     e.preventDefault();
     setLocalError('');
-    
+
     if (!resetEmail.trim()) {
       setLocalError('Por favor ingresa tu correo electrónico');
       return;
     }
-    
     if (!validateEmail(resetEmail)) {
       setLocalError('Por favor ingresa un email válido');
       return;
     }
-    
-    setSuccessMessage(`Código enviado a ${resetEmail} ✉️`);
-    setStep("resetCode");
+    if (resendCount >= MAX_RESENDS) {
+      setLocalError('Alcanzaste el límite de reenvíos. Esperá unos minutos e intentá de nuevo.');
+      return;
+    }
+
+    try {
+      // TODO: await requestPasswordReset(resetEmail);
+      persistSend(resetEmail);
+      const { count, secondsLeft } = getPersistedState(resetEmail);
+      setResendCount(count);
+      setResendCooldown(secondsLeft);
+      setStep("resetSent");
+    } catch {
+      setLocalError('Ocurrió un error. Intentá de nuevo más tarde.');
+    }
   };
   
   const handleResetPassword = (e) => {
@@ -264,7 +331,7 @@ export default function LoginModal({ onClose }) {
         
         {/* Logo */}
         <div className="modal-logo">
-          <FaMapMarkerAlt className="logo-icon" />
+          <img src="/logoDQ.png" alt="Dónde Queda logo" className="logo-img" />
           <span className="logo-text">Dónde Queda?</span>
         </div>
         
@@ -362,9 +429,6 @@ export default function LoginModal({ onClose }) {
                   <button type="button" className="social-btn facebook" onClick={() => handleSocialLogin('Facebook')} title="Próximamente">
                     <FaFacebook />
                   </button>
-                  <button type="button" className="social-btn apple" onClick={() => handleSocialLogin('Apple')} title="Próximamente">
-                    <FaApple />
-                  </button>
                 </div>
               </form>
             )}
@@ -438,11 +502,45 @@ export default function LoginModal({ onClose }) {
                     {registerPassword === confirmPassword ? "✓ Las contraseñas coinciden" : "✗ Las contraseñas no coinciden"}
                   </p>
                 )}
+
+                {/* Aceptación de términos y políticas */}
+                <label className="terms-label">
+                  <input
+                    type="checkbox"
+                    className="terms-checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    disabled={loading}
+                  />
+                  <span className="terms-text">
+                    Acepto los{" "}
+                    <a
+                      href="/terminos-de-uso"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="terms-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Términos de Uso
+                    </a>
+                    {" "}y la{" "}
+                    <a
+                      href="/politica-de-privacidad"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="terms-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Política de Privacidad
+                    </a>
+                    {" "}de Dónde Queda
+                  </span>
+                </label>
                 
                 <button
                   type="submit"
                   className="modal-button register-btn"
-                  disabled={loading || !registerPassword || !confirmPassword || registerPassword !== confirmPassword}
+                  disabled={loading || !registerPassword || !confirmPassword || registerPassword !== confirmPassword || !acceptedTerms}
                 >
                   {loading ? (
                     <span className="spinner"></span>
@@ -455,110 +553,101 @@ export default function LoginModal({ onClose }) {
           </>
         )}
         
-        {/* OLVIDÉ CONTRASEÑA */}
+        {/* OLVIDÉ CONTRASEÑA — ingresar email */}
         {step === "forgot" && (
           <>
             <h2 className="modal-title">Restablecer contraseña</h2>
-            <p className="modal-subtitle">Ingresa tu correo y te enviaremos un código</p>
-            
+            <p className="modal-subtitle">
+              Ingresá tu correo y te enviaremos un enlace para crear una nueva contraseña.
+            </p>
+
             {(error || localError) && (
               <div className="error-message">
                 {localError || error}
               </div>
             )}
-            
+
             <form onSubmit={handleForgotPassword} className="modal-form">
               <input
                 type="email"
                 placeholder="Correo electrónico"
                 value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setResetEmail(email);
+                  // Cargar cooldown persistido para este email
+                  if (validateEmail(email)) {
+                    const { count, secondsLeft } = getPersistedState(email);
+                    setResendCount(count);
+                    setResendCooldown(secondsLeft);
+                  }
+                }}
                 className="modal-input"
                 disabled={loading}
                 autoFocus
               />
-              
+
               <button type="submit" className="modal-button login-btn" disabled={loading}>
-                {loading ? <span className="spinner"></span> : 'Enviar código'}
+                {loading ? <span className="spinner"></span> : 'Enviar enlace'}
               </button>
-              
+
               <button type="button" className="modal-link" onClick={() => setStep("main")}>
-                ← Volver al inicio
+                ← Volver al inicio de sesión
               </button>
             </form>
           </>
         )}
-        
-        {/* RESET CONTRASEÑA */}
-        {step === "resetCode" && (
+
+        {/* ENLACE ENVIADO — confirmación */}
+        {step === "resetSent" && (
           <>
-            <h2 className="modal-title">Código de confirmación</h2>
-            <p className="modal-subtitle">Revisa tu correo <b>{resetEmail}</b></p>
-            
-            {(error || localError) && (
-              <div className="error-message">
-                {localError || error}
-              </div>
-            )}
-            
-            <form onSubmit={handleResetPassword} className="modal-form">
-              <input
-                type="text"
-                placeholder="Código de confirmación"
-                value={resetCode}
-                onChange={(e) => setResetCode(e.target.value)}
-                className="modal-input"
-                disabled={loading}
-                autoFocus
-              />
-              
-              <div className="password-container">
-                <input
-                  type={showNewPassword ? "text" : "password"}
-                  placeholder="Nueva contraseña"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="modal-input password-input"
-                  disabled={loading}
-                />
-                <span className="toggle-password" onClick={() => setShowNewPassword(!showNewPassword)}>
-                  {showNewPassword ? <FaEyeSlash /> : <FaEye />}
-                </span>
-              </div>
-              
-              <div className="password-container">
-                <input
-                  type={showConfirmNewPassword ? "text" : "password"}
-                  placeholder="Confirma nueva contraseña"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  onPaste={(e) => e.preventDefault()}
-                  className="modal-input password-input"
-                  disabled={loading}
-                />
-                <span className="toggle-password" onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}>
-                  {showConfirmNewPassword ? <FaEyeSlash /> : <FaEye />}
-                </span>
-              </div>
-              
-              {confirmNewPassword && (
-                <p className="password-match" style={{ color: newPassword === confirmNewPassword ? "#00cc66" : "#ff4444" }}>
-                  {newPassword === confirmNewPassword ? "✓ Las contraseñas coinciden" : "✗ Las contraseñas no coinciden"}
-                </p>
-              )}
-              
+            <div className="reset-sent-icon">✉️</div>
+            <h2 className="modal-title">Revisá tu correo</h2>
+            <p className="modal-subtitle">
+              Te enviamos un enlace a <b>{resetEmail}</b>.<br />
+              Hacé clic en el enlace del email para crear tu nueva contraseña.<br />
+              El enlace expira en <b>1 hora</b>.
+            </p>
+            <p className="reset-sent-note">
+              ¿No lo encontrás? Revisá la carpeta de spam o correo no deseado.
+            </p>
+
+            {localError && <div className="error-message">{localError}</div>}
+
+            {/* Botón reenviar con cooldown */}
+            {resendCount < MAX_RESENDS ? (
               <button
-                type="submit"
+                type="button"
                 className="modal-button login-btn"
-                disabled={loading || !resetCode || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword}
+                style={{ marginTop: '8px' }}
+                disabled={resendCooldown > 0}
+                onClick={async () => {
+                  setLocalError('');
+                  try {
+                    // TODO: await requestPasswordReset(resetEmail);
+                    persistSend(resetEmail);
+                    const { count, secondsLeft } = getPersistedState(resetEmail);
+                    setResendCount(count);
+                    setResendCooldown(secondsLeft);
+                  } catch {
+                    setLocalError('Error al reenviar. Intentá más tarde.');
+                  }
+                }}
               >
-                {loading ? <span className="spinner"></span> : 'Restablecer contraseña'}
+                {resendCooldown > 0
+                  ? `Reenviar en ${resendCooldown}s`
+                  : `Reenviar enlace`
+                }
               </button>
-              
-              <button type="button" className="modal-link" onClick={() => setStep("forgot")}>
-                ← Volver
-              </button>
-            </form>
+            ) : (
+              <p className="reset-sent-note" style={{ color: '#dc2626', marginTop: '8px' }}>
+                Alcanzaste el límite de reenvíos. Esperá unos minutos e intentá de nuevo.
+              </p>
+            )}
+
+            <button type="button" className="modal-link" onClick={() => setStep("main")}>
+              ← Volver al inicio de sesión
+            </button>
           </>
         )}
       </div>

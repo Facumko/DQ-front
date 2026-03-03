@@ -5,70 +5,70 @@ import { useNavigate } from "react-router-dom";
 import { searchCommerces, getBusinessByUserId } from "../../Api/Api";
 import styles from "./Navbar.module.css";
 import {
-  FaMapMarkerAlt, FaRegStar, FaRegBell, FaRegCalendarAlt,
-  FaRegCreditCard, FaRegUser, FaSearch, FaBars
+  FaRegStar, FaRegBell, FaRegCalendarAlt,
+  FaRegCreditCard, FaRegUser, FaSearch, FaBars,
+  FaMapMarkerAlt, FaStore, FaCog, FaSignOutAlt, FaChevronDown
 } from "react-icons/fa";
-import Categories from "../Categories/Categories";
+import CityDrawer from "../CityDrawer/CityDrawer";
 
 const Navbar = () => {
   const { user, logout } = useContext(UserContext);
   const navigate = useNavigate();
 
-  // Estados de menú y login
-  const [showLogin, setShowLogin] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  const [showLogin, setShowLogin]     = useState(false);
+  const [showMenu, setShowMenu]       = useState(false);
+  const [showDrawer, setShowDrawer]   = useState(false);
   const [hasBusiness, setHasBusiness] = useState(false);
-  const [checkingBusiness, setCheckingBusiness] = useState(false);
   const menuRef = useRef(null);
 
-  // Estados de búsqueda
-  const [searchText, setSearchText] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
+  // Búsqueda
+  const [searchText, setSearchText]             = useState("");
+  const [suggestions, setSuggestions]           = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showCategories, setShowCategories] = useState(false);
+  const [showSuggestions, setShowSuggestions]   = useState(false);
   const searchTimeoutRef = useRef(null);
 
-  // Verificar si el usuario tiene un negocio
+  // Cerrar menú usuario al hacer click afuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Verificar si el usuario tiene negocio
   useEffect(() => {
     const checkBusiness = async () => {
       if (!user?.id_user) return;
-      setCheckingBusiness(true);
       try {
         const business = await getBusinessByUserId(user.id_user);
         setHasBusiness(!!business);
-      } catch (error) {
-        console.log("Usuario sin negocio o error:", error.message);
+      } catch {
         setHasBusiness(false);
-      } finally {
-        setCheckingBusiness(false);
       }
     };
-
     checkBusiness();
   }, [user]);
 
   // Búsqueda con debounce
   const handleSearchChange = useCallback((text) => {
     setSearchText(text);
-
     if (text.trim().length === 0) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
-
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
     setLoadingSuggestions(true);
-
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const results = await searchCommerces(text.trim(), 3, 0);
+        const results = await searchCommerces(text.trim(), 5, 0);
         setSuggestions(results);
         setShowSuggestions(true);
-      } catch (error) {
-        console.error("Error en búsqueda:", error);
+      } catch {
         setSuggestions([]);
       } finally {
         setLoadingSuggestions(false);
@@ -76,7 +76,6 @@ const Navbar = () => {
     }, 300);
   }, []);
 
-  // Navegar a página de búsqueda
   const handleSearch = useCallback(() => {
     if (!searchText.trim()) return;
     navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
@@ -84,22 +83,15 @@ const Navbar = () => {
     setSearchText("");
   }, [searchText, navigate]);
 
-  // Enter para buscar
   const handleKeyPress = useCallback(
-    (e) => {
-      if (e.key === "Enter") handleSearch();
-    },
+    (e) => { if (e.key === "Enter") handleSearch(); },
     [handleSearch]
   );
 
-  // Limpiar timeout al desmontar
   useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, []);
 
-  // Navegación según tipo de usuario
   const handleMiCommerceClick = () => {
     if (!user) return setShowLogin(true);
     if (hasBusiness) navigate("/Mycommerce");
@@ -107,43 +99,48 @@ const Navbar = () => {
     setShowMenu(false);
   };
 
-  // Navegación para íconos superiores (favoritos, notificaciones, etc.)
-  const handleIconClick = (link, e) => {
-    e.stopPropagation();
-    navigate(link);
-  };
-
-  // Lista de íconos del navbar
-  const icons = [
-    { icon: FaRegStar, label: "Favoritos", link: "/favorites" },
+  // Íconos solo visibles con sesión
+  const authIcons = [
+    { icon: FaRegStar, label: "Favoritos",     link: "/favorites"      },
     { icon: FaRegBell, label: "Notificaciones", link: "/notificaciones" },
+  ];
+
+  // Íconos siempre visibles
+  const publicIcons = [
+    { icon: FaMapMarkerAlt,   label: "Mapa",    link: "/mapa"   },
     { icon: FaRegCalendarAlt, label: "Eventos", link: "/eventos" },
-    { icon: FaRegCreditCard, label: "Métodos de pago", link: "/pagos" },
+    { icon: FaRegCreditCard,  label: "Planes",  link: "/planes"  },
   ];
 
   return (
     <>
       <nav className={styles.navbar}>
-        {/* Logo */}
+
+        {/* ── Hamburger (izquierda) → abre CityDrawer ── */}
+        <div
+          className={`${styles.hamburger} ${showDrawer ? styles.activeIcon : ""}`}
+          title="Categorías y más"
+          onClick={() => setShowDrawer(true)}
+        >
+          <FaBars className={styles.outlineIcon} />
+        </div>
+
+        {/* ── Logo ── */}
         <div className={styles.logo} onClick={() => navigate("/")}>
-          <FaMapMarkerAlt className={styles.icon} />
+          <img src="/logoDQ.png" alt="Logo" className={styles.logoIcon} />
           <span className={styles.logoText}>Dónde Queda?</span>
         </div>
 
-        {/* Buscador */}
+        {/* ── Buscador ── */}
         <div className={styles.searchContainer}>
+          <FaSearch className={styles.searchIcon} onClick={handleSearch} />
           <input
             type="text"
-            placeholder="Buscar negocio, servicio o lugar..."
+            placeholder="Buscá negocios, servicios, lugares..."
             className={styles.searchInput}
             value={searchText}
             onChange={(e) => handleSearchChange(e.target.value)}
             onKeyPress={handleKeyPress}
-          />
-          <FaSearch
-            className={styles.searchIcon}
-            onClick={handleSearch}
-            style={{ cursor: "pointer", pointerEvents: "all" }}
           />
 
           {/* Sugerencias */}
@@ -159,22 +156,19 @@ const Navbar = () => {
                     setSearchText("");
                   }}
                 >
-                  <div className={styles.suggestionContent}>
-                    <div className={styles.suggestionIcon}>
-                      {commerce.profileImage?.url ? (
-                        <img src={commerce.profileImage.url} alt="" />
-                      ) : (
-                        <span>{commerce.name.charAt(0).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <div className={styles.suggestionInfo}>
-                      <span className={styles.suggestionName}>{commerce.name}</span>
-                      {commerce.description && (
-                        <span className={styles.suggestionDesc}>
-                          {commerce.description.substring(0, 50)}...
-                        </span>
-                      )}
-                    </div>
+                  <div className={styles.suggestionIcon}>
+                    {commerce.profileImage?.url
+                      ? <img src={commerce.profileImage.url} alt="" />
+                      : <span>{commerce.name.charAt(0).toUpperCase()}</span>
+                    }
+                  </div>
+                  <div className={styles.suggestionInfo}>
+                    <span className={styles.suggestionName}>{commerce.name}</span>
+                    {commerce.description && (
+                      <span className={styles.suggestionDesc}>
+                        {commerce.description.substring(0, 55)}...
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -183,85 +177,113 @@ const Navbar = () => {
 
           {loadingSuggestions && (
             <div className={styles.suggestions}>
-              <div className={styles.suggestionItem}>Buscando...</div>
+              <div className={styles.loadingItem}>
+                <span className={styles.loadingDot} />
+                <span className={styles.loadingDot} />
+                <span className={styles.loadingDot} />
+              </div>
             </div>
           )}
         </div>
 
-        {/* Íconos principales + Categorías + Usuario */}
+        {/* ── Íconos área derecha ── */}
         <div className={styles.icons}>
-          {icons.map((item, idx) => {
+
+          {/* Íconos con sesión */}
+          {user && authIcons.map((item, idx) => {
             const IconComp = item.icon;
             return (
               <div
                 key={idx}
                 className={styles.iconWrapper}
                 title={item.label}
-                onClick={(e) => handleIconClick(item.link, e)}
+                onClick={() => navigate(item.link)}
               >
                 <IconComp className={styles.outlineIcon} />
+                <span className={styles.iconTooltip}>{item.label}</span>
               </div>
             );
           })}
 
-          {/* Icono de Categorías */}
-          <div className={styles.categoriesContainer}>
-            <div
-              className={styles.iconWrapper}
-              title="Categorías"
-              onClick={() => setShowCategories(!showCategories)}
-            >
-              <FaBars className={styles.outlineIcon} />
-            </div>
-
-            {/* Dropdown de categorías */}
-            <Categories expanded={showCategories} onClose={() => setShowCategories(false)} />
-          </div>
-
-          {/* Ícono de usuario */}
-          <div className={styles.userWrapper} ref={menuRef}>
-            <FaRegUser
-              className={`${styles.outlineIcon} ${styles.userIcon}`}
-              onClick={() => {
-                if (user) setShowMenu((prev) => !prev);
-                else setShowLogin(true);
-              }}
-              title={user ? "Cuenta" : "Iniciar sesión"}
-            />
-
-            {user && showMenu && (
-              <div className={styles.userMenu}>
-                <div
-                  className={styles.userMenuItem}
-                  onClick={() => {
-                    navigate("/profile");
-                    setShowMenu(false);
-                  }}
-                >
-                  Mi cuenta
-                </div>
-
-                <div
-                  className={styles.userMenuItem}
-                  onClick={handleMiCommerceClick}
-                >
-                  Mi negocio
-                </div>
-
-                <div
-                  className={styles.userMenuItem}
-                  onClick={() => {
-                    logout();
-                    setShowMenu(false);
-                  }}
-                >
-                  Cerrar sesión
-                </div>
+          {/* Íconos públicos */}
+          {publicIcons.map((item, idx) => {
+            const IconComp = item.icon;
+            return (
+              <div
+                key={idx}
+                className={`${styles.iconWrapper} ${item.link === "/mapa" ? styles.mapIcon : ""}`}
+                title={item.label}
+                onClick={() => navigate(item.link)}
+              >
+                <IconComp className={styles.outlineIcon} />
+                <span className={styles.iconTooltip}>{item.label}</span>
               </div>
-            )}
-          </div>
+            );
+          })}
+
+          {/* ── Botón / menú de usuario ── */}
+          {!user ? (
+            <button className={styles.loginButton} onClick={() => setShowLogin(true)}>
+              <FaRegUser className={styles.loginBtnIcon} />
+              <span>Ingresar</span>
+            </button>
+          ) : (
+            <div className={styles.userWrapper} ref={menuRef}>
+              <div
+                className={`${styles.userTrigger} ${showMenu ? styles.userTriggerActive : ""}`}
+                onClick={() => setShowMenu((p) => !p)}
+              >
+                <div className={styles.userAvatar}>
+                  {user.name ? user.name.charAt(0).toUpperCase() : <FaRegUser />}
+                </div>
+                <span className={styles.userName}>
+                  {user.name?.split(" ")[0] || "Mi cuenta"}
+                </span>
+                <FaChevronDown className={`${styles.chevron} ${showMenu ? styles.chevronOpen : ""}`} />
+              </div>
+
+              {showMenu && (
+                <div className={styles.userMenu}>
+                  <div className={styles.userMenuHeader}>
+                    <div className={styles.userMenuAvatar}>
+                      {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                    </div>
+                    <div>
+                      <p className={styles.userMenuName}>{user.name || "Usuario"}</p>
+                      <p className={styles.userMenuEmail}>{user.email || ""}</p>
+                    </div>
+                  </div>
+
+                  <div className={styles.userMenuDivider} />
+
+                  <div className={styles.userMenuItem} onClick={() => { navigate("/profile"); setShowMenu(false); }}>
+                    <FaRegUser className={styles.menuItemIcon} />
+                    Mi perfil
+                  </div>
+                  <div className={styles.userMenuItem} onClick={handleMiCommerceClick}>
+                    <FaStore className={styles.menuItemIcon} />
+                    {hasBusiness ? "Mi negocio" : "Registrar negocio"}
+                  </div>
+                  <div className={styles.userMenuItem} onClick={() => { navigate("/configuracion"); setShowMenu(false); }}>
+                    <FaCog className={styles.menuItemIcon} />
+                    Configuración
+                  </div>
+
+                  <div className={styles.userMenuDivider} />
+
+                  <div className={`${styles.userMenuItem} ${styles.logoutItem}`} onClick={() => { logout(); setShowMenu(false); }}>
+                    <FaSignOutAlt className={styles.menuItemIcon} />
+                    Cerrar sesión
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </nav>
+
+      {/* Drawer lateral */}
+      <CityDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
 
       {/* Modal login */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
