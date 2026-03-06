@@ -2,56 +2,44 @@ import React, { useContext, useState, useEffect, useRef, useCallback } from "rea
 import { UserContext } from "../../pages/UserContext";
 import LoginModal from "../LoginForm/LoginModal";
 import { useNavigate } from "react-router-dom";
-import { searchCommerces, getBusinessByUserId } from "../../Api/Api";
+import { searchCommerces } from "../../Api/Api";
 import styles from "./Navbar.module.css";
 import {
   FaRegStar, FaRegBell, FaRegCalendarAlt,
   FaRegCreditCard, FaRegUser, FaSearch, FaBars,
-  FaMapMarkerAlt, FaStore, FaCog, FaSignOutAlt, FaChevronDown
+  FaMapMarkerAlt, FaStore, FaCog, FaSignOutAlt,
+  FaChevronDown, FaChevronRight, FaPlus
 } from "react-icons/fa";
 import CityDrawer from "../CityDrawer/CityDrawer";
 
 const Navbar = () => {
-  const { user, logout } = useContext(UserContext);
+  const { user, logout, businesses, hasBusiness, loadBusinesses } = useContext(UserContext);
   const navigate = useNavigate();
 
-  const [showLogin, setShowLogin]     = useState(false);
-  const [showMenu, setShowMenu]       = useState(false);
-  const [showDrawer, setShowDrawer]   = useState(false);
-  const [hasBusiness, setHasBusiness] = useState(false);
+  const [showLogin, setShowLogin]         = useState(false);
+  const [showMenu, setShowMenu]           = useState(false);
+  const [showDrawer, setShowDrawer]       = useState(false);
+  const [showBusinesses, setShowBusinesses] = useState(false); // 🆕 submenu negocios
   const menuRef = useRef(null);
 
   // Búsqueda
-  const [searchText, setSearchText]             = useState("");
-  const [suggestions, setSuggestions]           = useState([]);
+  const [searchText, setSearchText]                 = useState("");
+  const [suggestions, setSuggestions]               = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [showSuggestions, setShowSuggestions]   = useState(false);
+  const [showSuggestions, setShowSuggestions]       = useState(false);
   const searchTimeoutRef = useRef(null);
 
-  // Cerrar menú usuario al hacer click afuera
+  // Cerrar menú al hacer click afuera
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowMenu(false);
+        setShowBusinesses(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Verificar si el usuario tiene negocio
-  useEffect(() => {
-    const checkBusiness = async () => {
-      if (!user?.id_user) return;
-      try {
-        const business = await getBusinessByUserId(user.id_user);
-        setHasBusiness(!!business);
-      } catch {
-        setHasBusiness(false);
-      }
-    };
-    checkBusiness();
-  }, [user]);
 
   // Búsqueda con debounce
   const handleSearchChange = useCallback((text) => {
@@ -92,31 +80,43 @@ const Navbar = () => {
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, []);
 
-  const handleMiCommerceClick = () => {
+  // 🆕 Click en "Mi negocio / Mis negocios / Registrar negocio"
+  const handleBusinessMenuClick = () => {
     if (!user) return setShowLogin(true);
-    if (hasBusiness) navigate("/Mycommerce");
-    else navigate("/register-commerce");
-    setShowMenu(false);
+    if (!hasBusiness) {
+      navigate("/register-commerce");
+      setShowMenu(false);
+      return;
+    }
+    // Si tiene negocios, toggle el submenu
+    setShowBusinesses((prev) => !prev);
   };
 
-  // Íconos solo visibles con sesión
+  // Íconos con sesión
   const authIcons = [
-    { icon: FaRegStar, label: "Favoritos",     link: "/favorites"      },
+    { icon: FaRegStar, label: "Favoritos",      link: "/favorites"      },
     { icon: FaRegBell, label: "Notificaciones", link: "/notificaciones" },
   ];
 
-  // Íconos siempre visibles
+  // Íconos públicos
   const publicIcons = [
-    { icon: FaMapMarkerAlt,   label: "Mapa",    link: "/mapa"   },
+    { icon: FaMapMarkerAlt,   label: "Mapa",    link: "/mapa"    },
     { icon: FaRegCalendarAlt, label: "Eventos", link: "/eventos" },
     { icon: FaRegCreditCard,  label: "Planes",  link: "/planes"  },
   ];
+
+  // 🆕 Label dinámico según cantidad de negocios
+  const businessMenuLabel = !hasBusiness
+    ? "Registrar negocio"
+    : businesses.length === 1
+    ? "Mi negocio"
+    : "Mis negocios";
 
   return (
     <>
       <nav className={styles.navbar}>
 
-        {/* ── Hamburger (izquierda) → abre CityDrawer ── */}
+        {/* Hamburger */}
         <div
           className={`${styles.hamburger} ${showDrawer ? styles.activeIcon : ""}`}
           title="Categorías y más"
@@ -125,13 +125,13 @@ const Navbar = () => {
           <FaBars className={styles.outlineIcon} />
         </div>
 
-        {/* ── Logo ── */}
+        {/* Logo */}
         <div className={styles.logo} onClick={() => navigate("/")}>
           <img src="/logoDQ.png" alt="Logo" className={styles.logoIcon} />
           <span className={styles.logoText}>Dónde Queda?</span>
         </div>
 
-        {/* ── Buscador ── */}
+        {/* Buscador */}
         <div className={styles.searchContainer}>
           <FaSearch className={styles.searchIcon} onClick={handleSearch} />
           <input
@@ -143,7 +143,6 @@ const Navbar = () => {
             onKeyPress={handleKeyPress}
           />
 
-          {/* Sugerencias */}
           {showSuggestions && suggestions.length > 0 && (
             <div className={styles.suggestions}>
               {suggestions.map((commerce) => (
@@ -186,26 +185,18 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* ── Íconos área derecha ── */}
+        {/* Íconos derecha */}
         <div className={styles.icons}>
-
-          {/* Íconos con sesión */}
           {user && authIcons.map((item, idx) => {
             const IconComp = item.icon;
             return (
-              <div
-                key={idx}
-                className={styles.iconWrapper}
-                title={item.label}
-                onClick={() => navigate(item.link)}
-              >
+              <div key={idx} className={styles.iconWrapper} title={item.label} onClick={() => navigate(item.link)}>
                 <IconComp className={styles.outlineIcon} />
                 <span className={styles.iconTooltip}>{item.label}</span>
               </div>
             );
           })}
 
-          {/* Íconos públicos */}
           {publicIcons.map((item, idx) => {
             const IconComp = item.icon;
             return (
@@ -221,7 +212,7 @@ const Navbar = () => {
             );
           })}
 
-          {/* ── Botón / menú de usuario ── */}
+          {/* Botón / menú usuario */}
           {!user ? (
             <button className={styles.loginButton} onClick={() => setShowLogin(true)}>
               <FaRegUser className={styles.loginBtnIcon} />
@@ -231,7 +222,7 @@ const Navbar = () => {
             <div className={styles.userWrapper} ref={menuRef}>
               <div
                 className={`${styles.userTrigger} ${showMenu ? styles.userTriggerActive : ""}`}
-                onClick={() => setShowMenu((p) => !p)}
+                onClick={() => { setShowMenu((p) => !p); setShowBusinesses(false); }}
               >
                 <div className={styles.userAvatar}>
                   {user.name ? user.name.charAt(0).toUpperCase() : <FaRegUser />}
@@ -244,6 +235,7 @@ const Navbar = () => {
 
               {showMenu && (
                 <div className={styles.userMenu}>
+                  {/* Header */}
                   <div className={styles.userMenuHeader}>
                     <div className={styles.userMenuAvatar}>
                       {user.name ? user.name.charAt(0).toUpperCase() : "U"}
@@ -256,14 +248,67 @@ const Navbar = () => {
 
                   <div className={styles.userMenuDivider} />
 
+                  {/* Mi perfil */}
                   <div className={styles.userMenuItem} onClick={() => { navigate("/profile"); setShowMenu(false); }}>
                     <FaRegUser className={styles.menuItemIcon} />
                     Mi perfil
                   </div>
-                  <div className={styles.userMenuItem} onClick={handleMiCommerceClick}>
+
+                  {/* 🆕 Negocios — con submenu expandible */}
+                  <div
+                    className={`${styles.userMenuItem} ${hasBusiness ? styles.userMenuItemExpandable : ""}`}
+                    onClick={handleBusinessMenuClick}
+                  >
                     <FaStore className={styles.menuItemIcon} />
-                    {hasBusiness ? "Mi negocio" : "Registrar negocio"}
+                    {businessMenuLabel}
+                    {hasBusiness && (
+                      <FaChevronRight
+                        className={`${styles.menuItemChevron} ${showBusinesses ? styles.menuItemChevronOpen : ""}`}
+                      />
+                    )}
                   </div>
+
+                  {/* 🆕 Lista de negocios */}
+                  {hasBusiness && showBusinesses && (
+                    <div className={styles.businessSubmenu}>
+                      {businesses.map((biz) => (
+                        <div
+                          key={biz.id_business}
+                          className={styles.businessSubmenuItem}
+                          onClick={() => {
+                            navigate(`/negocios/${biz.id_business}`);
+                            setShowMenu(false);
+                            setShowBusinesses(false);
+                          }}
+                        >
+                          <div className={styles.businessSubmenuAvatar}>
+                            {biz.profileImage
+                              ? <img src={biz.profileImage} alt={biz.name} />
+                              : <span>{biz.name.charAt(0).toUpperCase()}</span>
+                            }
+                          </div>
+                          <span className={styles.businessSubmenuName}>{biz.name}</span>
+                        </div>
+                      ))}
+
+                      {/* 🆕 Agregar otro negocio */}
+                      <div
+                        className={`${styles.businessSubmenuItem} ${styles.businessSubmenuAdd}`}
+                        onClick={() => {
+                          navigate("/register-commerce");
+                          setShowMenu(false);
+                          setShowBusinesses(false);
+                        }}
+                      >
+                        <div className={styles.businessSubmenuAvatar}>
+                          <FaPlus />
+                        </div>
+                        <span className={styles.businessSubmenuName}>Agregar negocio</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Configuración */}
                   <div className={styles.userMenuItem} onClick={() => { navigate("/configuracion"); setShowMenu(false); }}>
                     <FaCog className={styles.menuItemIcon} />
                     Configuración
@@ -271,6 +316,7 @@ const Navbar = () => {
 
                   <div className={styles.userMenuDivider} />
 
+                  {/* Cerrar sesión */}
                   <div className={`${styles.userMenuItem} ${styles.logoutItem}`} onClick={() => { logout(); setShowMenu(false); }}>
                     <FaSignOutAlt className={styles.menuItemIcon} />
                     Cerrar sesión
@@ -282,10 +328,7 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* Drawer lateral */}
       <CityDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
-
-      {/* Modal login */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </>
   );
