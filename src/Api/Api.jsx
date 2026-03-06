@@ -4,7 +4,7 @@ import axios from "axios";
 // CONFIGURACIÓN
 // ============================================
 
-const API_URL = import.meta.env.VITE_API_URL || "https://superadditional-septariate-olevia.ngrok-free.dev";
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
 const TIMEOUT = 15000;
 const MAX_RETRIES = 2;
 const isDevelopment = import.meta.env.MODE === 'development';

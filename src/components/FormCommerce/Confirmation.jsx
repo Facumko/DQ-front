@@ -1,176 +1,122 @@
-"use client";
-import "./Confirmation.css";
 import { useNavigate } from "react-router-dom";
+import { FaCheckCircle, FaArrowLeft, FaTimes } from "react-icons/fa";
+import "./Confirmation.css";
+import "./FormStep.css";
 
-function Confirmation({ data, onSuccess, isSubmitting, onBack }) { // ✅ Agregar onBack
+const PLAN_NAMES = {
+  basic:   "Básico — Punto de Encuentro",
+  mid:     "Intermedio — Lugar en el Mapa",
+  premium: "Premium — Referente de la Ciudad",
+};
+
+const PLAN_COLORS = {
+  basic:   { color: "#0369a1", bg: "#e0f2fe" },
+  mid:     { color: "#b45309", bg: "#fef3c7" },
+  premium: { color: "#9d174d", bg: "#fce7f3" },
+};
+
+function Row({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="confirm-row">
+      <span className="confirm-label">{label}</span>
+      <span className="confirm-value">{value}</span>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="confirm-section">
+      <h4 className="confirm-section-title">{title}</h4>
+      {children}
+    </div>
+  );
+}
+
+function Confirmation({ data, onSuccess, isSubmitting, onBack }) {
   const navigate = useNavigate();
 
-  const planNames = {
-    basic: "Básico",
-    professional: "Profesional", 
-    enterprise: "Empresarial",
-  };
-
-  const handleConfirm = () => {
-    console.log("🟢 Botón Confirmar clickeado");
-    if (onSuccess && !isSubmitting) {
-      console.log("🟢 Ejecutando onSuccess...");
-      onSuccess();
-    } else {
-      console.log("🔴 onSuccess no disponible o submitting:", { 
-        hasOnSuccess: !!onSuccess, 
-        isSubmitting 
-      });
-    }
-  };
-
-  const handleGoHome = () => {
-    navigate("/");
-  };
+  const planColor = PLAN_COLORS[data?.selectedPlan] || PLAN_COLORS.basic;
 
   return (
-    <div className="confirmation fade-in">
-      <div className="success-icon">
-        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-          <circle cx="40" cy="40" r="40" fill="#8B1538" fillOpacity="0.1" />
-          <circle cx="40" cy="40" r="32" fill="#8B1538" />
-          <path d="M28 40L36 48L52 32" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-
-      <h2 className="success-title">¡Revisa tu información!</h2>
-      <p className="success-description">
-        Por favor confirma que todos los datos son correctos antes de crear tu negocio.
-      </p>
-
-      <div className="business-preview">
-        <h3 className="preview-title">Resumen del Negocio</h3>
-
-        <div className="preview-content">
-          <div className="preview-section">
-            <h4>Información del Propietario</h4>
-            <div className="preview-item">
-              <span className="preview-label">Nombre:</span>
-              <span className="preview-value">{data?.firstName} {data?.lastName}</span>
-            </div>
-            <div className="preview-item">
-              <span className="preview-label">DNI:</span>
-              <span className="preview-value">{data?.idNumber || "No especificado"}</span>
-            </div>
-            <div className="preview-item">
-              <span className="preview-label">Teléfono:</span>
-              <span className="preview-value">{data?.phone || "No especificado"}</span>
-            </div>
-          </div>
-
-          <div className="preview-section">
-            <h4>Información del Negocio</h4>
-            <div className="preview-item">
-              <span className="preview-label">Nombre:</span>
-              <span className="preview-value">{data?.businessName || "Sin nombre"}</span>
-            </div>
-            <div className="preview-item">
-              <span className="preview-label">Categoría:</span>
-              <span className="preview-value">{data?.category || "Sin categoría"}</span>
-            </div>
-            <div className="preview-item full-width">
-              <span className="preview-label">Descripción:</span>
-              <span className="preview-value">{data?.businessDescription || "Sin descripción"}</span>
-            </div>
-          </div>
-
-          <div className="preview-section">
-            <h4>Contacto y Plan</h4>
-            <div className="preview-item">
-              <span className="preview-label">Plan:</span>
-              <span className="preview-value plan-badge">{planNames[data?.selectedPlan] || "Básico"}</span>
-            </div>
-            {data?.email && (
-              <div className="preview-item">
-                <span className="preview-label">Email:</span>
-                <span className="preview-value">{data.email}</span>
-              </div>
-            )}
-            {data?.businessPhone && (
-              <div className="preview-item">
-                <span className="preview-label">Teléfono Negocio:</span>
-                <span className="preview-value">{data.businessPhone}</span>
-              </div>
-            )}
-          </div>
-
-          {(data?.website || data?.instagram || data?.facebook) && (
-            <div className="preview-section">
-              <h4>Redes Sociales</h4>
-              <div className="social-links">
-                {data?.website && (
-                  <div className="preview-item">
-                    <span className="preview-label">Sitio Web:</span>
-                    <span className="preview-value">{data.website}</span>
-                  </div>
-                )}
-                {data?.instagram && (
-                  <div className="preview-item">
-                    <span className="preview-label">Instagram:</span>
-                    <span className="preview-value">{data.instagram}</span>
-                  </div>
-                )}
-                {data?.facebook && (
-                  <div className="preview-item">
-                    <span className="preview-label">Facebook:</span>
-                    <span className="preview-value">{data.facebook}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+    <div className="form-step fade-in">
+      <div className="confirm-header">
+        <FaCheckCircle className="confirm-header-icon" />
+        <div>
+          <h2 className="step-title" style={{ marginBottom: 4 }}>Revisá tu información</h2>
+          <p className="step-description" style={{ marginBottom: 0 }}>
+            Confirmá que todos los datos son correctos antes de crear tu negocio.
+          </p>
         </div>
       </div>
 
-      <div className="confirmation-actions">
-        <button 
-          className="btn btn-primary" 
-          onClick={handleConfirm} // ✅ Usar handleConfirm en lugar de onSuccess directo
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Creando Negocio..." : "✅ Confirmar y Crear Negocio"}
-        </button>
-        
-        {/* ✅ Botón para volver atrás */}
-        <button 
-          className="btn btn-secondary" 
+      <div className="confirm-preview">
+
+        {/* Plan contratado */}
+        <Section title="Plan contratado">
+          <div className="confirm-plan-badge" style={{ background: planColor.bg, color: planColor.color }}>
+            {PLAN_NAMES[data?.selectedPlan] || "—"}
+          </div>
+        </Section>
+
+        {/* Propietario */}
+        <Section title="Datos del propietario">
+          <Row label="Nombre"   value={`${data?.firstName || ""} ${data?.lastName || ""}`.trim() || null} />
+          <Row label="DNI"      value={data?.idNumber} />
+          <Row label="Teléfono" value={data?.phone} />
+        </Section>
+
+        {/* Negocio */}
+        <Section title="Datos del negocio">
+          <Row label="Nombre"      value={data?.businessName} />
+          <Row label="Categoría"   value={data?.category} />
+          <Row label="Descripción" value={data?.businessDescription} />
+          <Row label="Dirección"   value={data?.businessAddress} />
+          <Row label="Teléfono"    value={data?.businessPhone} />
+          <Row label="Email"       value={data?.email} />
+        </Section>
+
+        {/* Redes — solo si hay algo */}
+        {(data?.website || data?.instagram || data?.facebook) && (
+          <Section title="Redes y web">
+            <Row label="Sitio web"  value={data?.website} />
+            <Row label="Instagram"  value={data?.instagram} />
+            <Row label="Facebook"   value={data?.facebook} />
+          </Section>
+        )}
+
+      </div>
+
+      <div className="form-actions">
+        <button
+          className="btn btn-secondary"
           onClick={onBack}
           disabled={isSubmitting}
         >
-          Atrás
+          <FaArrowLeft style={{ marginRight: 6 }} /> Atrás
         </button>
-        
-        {/* ✅ Botón cancelar */}
-        <button 
-          className="btn btn-secondary" 
-          onClick={handleGoHome}
+
+        <button
+          className="btn btn-secondary"
+          onClick={() => navigate("/")}
           disabled={isSubmitting}
         >
-          Cancelar
+          <FaTimes style={{ marginRight: 6 }} /> Cancelar
+        </button>
+
+        <button
+          className="btn btn-primary"
+          onClick={onSuccess}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <><span className="loading-spinner small" style={{ marginRight: 8 }} /> Creando negocio...</>
+          ) : (
+            "Confirmar y crear negocio"
+          )}
         </button>
       </div>
-
-      {isSubmitting && (
-        <div className="submitting-overlay">
-          <div className="loading-spinner large"></div>
-          <p>Creando tu negocio, por favor espera...</p>
-        </div>
-      )}
-
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{ marginTop: '20px', padding: '10px', background: '#f5f5f5', borderRadius: '5px', fontSize: '12px' }}>
-          <strong>Debug Confirmation:</strong><br/>
-          Business Name: {data?.businessName}<br/>
-          Has onSuccess: {!!onSuccess}<br/>
-          Is Submitting: {isSubmitting ? 'Sí' : 'No'}
-        </div>
-      )}
     </div>
   );
 }
