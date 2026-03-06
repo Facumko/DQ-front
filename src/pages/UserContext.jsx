@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useCallback } from "react";
-import { loginUser, registerUser, logoutUser, saveTokens, clearTokens, getStoredTokens } from "../Api/Api"; // 🆕
+import { loginUser, registerUser, logoutUser, saveTokens, clearTokens, getStoredTokens } from "../Api/Api";
 
 export const UserContext = createContext();
 
@@ -21,7 +21,7 @@ export function UserProvider({ children }) {
     return stored ? JSON.parse(stored) : { count: 0, lockedUntil: null };
   });
 
-  // 🆕 Verificar si hay tokens válidos al iniciar
+  // Verificar si hay tokens válidos al iniciar
   useEffect(() => {
     const { accessToken } = getStoredTokens();
     if (accessToken && user) {
@@ -120,7 +120,7 @@ export function UserProvider({ children }) {
         throw new Error("No se recibió el ID del usuario del servidor");
       }
 
-      // 🆕 Los tokens ya se guardaron en Api.jsx, solo resetear intentos
+      // Los tokens ya se guardaron en Api.jsx, solo resetear intentos
       resetFailedAttempts();
       
       setUser(userData);
@@ -172,7 +172,7 @@ export function UserProvider({ children }) {
         throw new Error("No se recibió el ID del usuario del servidor");
       }
 
-      // 🆕 Los tokens ya se guardaron en Api.jsx
+      // Los tokens ya se guardaron en Api.jsx
       setUser(newUser);
       localStorage.setItem("user", JSON.stringify(newUser));
       
@@ -193,7 +193,7 @@ export function UserProvider({ children }) {
     
     try {
       if (user?.id_user) {
-        await logoutUser(user.id_user); // 🆕 Ya limpia tokens en Api.jsx
+        await logoutUser(user.id_user); // Ya limpia tokens en Api.jsx
       }
     } catch (err) {
       console.warn("Error al cerrar sesión en backend:", err);
@@ -201,7 +201,7 @@ export function UserProvider({ children }) {
       setUser(null);
       setError(null);
       localStorage.removeItem("user");
-      clearTokens(); // 🆕 Asegurar limpieza de tokens
+      clearTokens(); // Asegurar limpieza de tokens
       setLoading(false);
     }
   };
@@ -232,14 +232,14 @@ export function UserProvider({ children }) {
   }, []);
 
   const isAuthenticated = useCallback(() => {
-    const { accessToken } = getStoredTokens(); // 🆕 Verificar token
+    const { accessToken } = getStoredTokens(); // Verificar token
     return user !== null && user.id_user !== undefined && !!accessToken;
   }, [user]);
 
   useEffect(() => {
     const checkSession = async () => {
       const storedUser = localStorage.getItem("user");
-      const { accessToken } = getStoredTokens(); // 🆕
+      const { accessToken } = getStoredTokens();
       
       if (storedUser && accessToken) {
         try {
@@ -248,7 +248,7 @@ export function UserProvider({ children }) {
           if (!userData.id_user) {
             console.warn("Usuario sin ID válido, limpiando sesión");
             localStorage.removeItem("user");
-            clearTokens(); // 🆕
+            clearTokens();
             setUser(null);
             return;
           }
@@ -257,11 +257,11 @@ export function UserProvider({ children }) {
         } catch (error) {
           console.warn("Error al verificar sesión:", error);
           localStorage.removeItem("user");
-          clearTokens(); // 🆕
+          clearTokens();
           setUser(null);
         }
       } else if (storedUser && !accessToken) {
-        // 🆕 Usuario sin token = sesión inválida
+        // Usuario sin token = sesión inválida
         console.warn("Usuario sin token JWT, limpiando");
         localStorage.removeItem("user");
         setUser(null);
