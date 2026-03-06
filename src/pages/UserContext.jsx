@@ -23,11 +23,11 @@ export function UserProvider({ children }) {
     return stored ? JSON.parse(stored) : { count: 0, lockedUntil: null };
   });
 
-  // 🆕 Array de negocios del usuario
+  // Array de negocios del usuario
   const [businesses, setBusinesses] = useState([]);
   const hasBusiness = businesses.length > 0;
 
-  // 🆕 Cargar todos los negocios del usuario
+  // Cargar todos los negocios del usuario
   const loadBusinesses = useCallback(async (userId) => {
     if (!userId) {
       setBusinesses([]);
@@ -63,7 +63,7 @@ export function UserProvider({ children }) {
     loadBusinesses(user?.id_user);
   }, [user?.id_user, loadBusinesses]);
 
-  // Verificar tokens al iniciar
+  // Verificar si hay tokens válidos al iniciar
   useEffect(() => {
     const { accessToken } = getStoredTokens();
     if (accessToken && user) {
@@ -135,7 +135,14 @@ export function UserProvider({ children }) {
         phone: response.phone || response.user?.phone,
         lastLogin: new Date().toISOString(),
       };
-      if (!userData.id_user) throw new Error("No se recibió el ID del usuario del servidor");
+
+      console.log("Usuario normalizado:", userData);
+
+      if (!userData.id_user) {
+        throw new Error("No se recibió el ID del usuario del servidor");
+      }
+
+      // Los tokens ya se guardaron en Api.jsx, solo resetear intentos
       resetFailedAttempts();
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
@@ -169,7 +176,14 @@ export function UserProvider({ children }) {
         phone: response.phone || response.user?.phone,
         lastLogin: new Date().toISOString(),
       };
-      if (!newUser.id_user) throw new Error("No se recibió el ID del usuario del servidor");
+
+      console.log("Usuario normalizado:", newUser);
+
+      if (!newUser.id_user) {
+        throw new Error("No se recibió el ID del usuario del servidor");
+      }
+
+      // Los tokens ya se guardaron en Api.jsx
       setUser(newUser);
       localStorage.setItem("user", JSON.stringify(newUser));
       return { success: true, data: newUser };
@@ -185,15 +199,17 @@ export function UserProvider({ children }) {
   const logout = async () => {
     setLoading(true);
     try {
-      if (user?.id_user) await logoutUser(user.id_user);
+      if (user?.id_user) {
+        await logoutUser(user.id_user); // Ya limpia tokens en Api.jsx
+      }
     } catch (err) {
       console.warn("Error al cerrar sesión en backend:", err);
     } finally {
       setUser(null);
       setError(null);
-      setBusinesses([]); // 🆕 limpiar negocios al cerrar sesión
+      setBusinesses([]); // Limpiar negocios al cerrar sesión
       localStorage.removeItem("user");
-      clearTokens();
+      clearTokens(); // Asegurar limpieza de tokens
       setLoading(false);
     }
   };
@@ -220,7 +236,7 @@ export function UserProvider({ children }) {
   const clearError = useCallback(() => setError(null), []);
 
   const isAuthenticated = useCallback(() => {
-    const { accessToken } = getStoredTokens();
+    const { accessToken } = getStoredTokens(); // Verificar token
     return user !== null && user.id_user !== undefined && !!accessToken;
   }, [user]);
 
@@ -228,6 +244,7 @@ export function UserProvider({ children }) {
     const checkSession = async () => {
       const storedUser = localStorage.getItem("user");
       const { accessToken } = getStoredTokens();
+
       if (storedUser && accessToken) {
         try {
           const userData = JSON.parse(storedUser);
@@ -244,6 +261,8 @@ export function UserProvider({ children }) {
           setUser(null);
         }
       } else if (storedUser && !accessToken) {
+        // Usuario sin token = sesión inválida
+        console.warn("Usuario sin token JWT, limpiando");
         localStorage.removeItem("user");
         setUser(null);
       }
@@ -274,7 +293,7 @@ export function UserProvider({ children }) {
     isLoggedIn: isAuthenticated(),
     loginAttempts: loginAttempts.count,
     isLocked: isLocked(),
-    // 🆕 Negocios
+    // Negocios
     businesses,
     setBusinesses,
     hasBusiness,

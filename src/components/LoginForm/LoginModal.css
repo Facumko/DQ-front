@@ -24,832 +24,511 @@
   --border-radius: 12px;
 }
 
-/* ============================================
-   OVERLAY Y MODAL BASE
-   ============================================ */
+/* ── Overlay ─────────────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(3px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
-  animation: fadeIn 0.3s var(--transition-smooth);
+  padding: 16px;
+  animation: overlayIn 0.2s ease;
 }
 
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
 .modal-card {
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 20px;
-  padding: 2rem;
-  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 36px 32px 28px;
   width: 100%;
-  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  max-width: 420px;
   position: relative;
-  animation: slideUp 0.4s var(--transition-bounce);
-  max-height: 90vh;
-  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08);
+  animation: cardIn 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
-/* Scrollbar personalizado */
-.modal-card::-webkit-scrollbar {
-  width: 6px;
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)     scale(1);    }
 }
 
-.modal-card::-webkit-scrollbar-track {
-  background: var(--bg-gray);
-  border-radius: 10px;
-}
-
-.modal-card::-webkit-scrollbar-thumb {
-  background: var(--border-gray);
-  border-radius: 10px;
-  transition: background 0.3s;
-}
-
-.modal-card::-webkit-scrollbar-thumb:hover {
-  background: var(--text-light);
-}
-
-/* ============================================
-   BOTÓN CERRAR
-   ============================================ */
+/* ── Close ───────────────────────────────────────────────────────────────── */
 .modal-close {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: var(--bg-gray);
+  top: 14px;
+  right: 16px;
+  background: none;
   border: none;
+  font-size: 16px;
+  color: #888;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  width: 36px;
-  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  font-size: 1.25rem;
-  color: var(--text-light);
-  transition: all 0.3s var(--transition-smooth);
-  z-index: 10;
+  transition: background 0.15s, color 0.15s;
 }
+.modal-close:hover { background: #f0f0f0; color: #333; }
 
-.modal-close:hover {
-  background: var(--primary-red);
-  color: white;
-  transform: rotate(90deg) scale(1.1);
-}
-
-/* ============================================
-   LOGO Y TÍTULOS
-   ============================================ */
+/* ── Logo ────────────────────────────────────────────────────────────────── */
 .modal-logo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-  padding: 1.5rem 1rem 1.25rem;
-  position: relative;
+  gap: 8px;
+  margin-bottom: 24px;
 }
 
-.modal-logo::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 50px;
-  height: 2px;
-  background: linear-gradient(90deg, 
-    transparent 0%,
-    var(--primary-red) 30%,
-    var(--primary-dark) 70%,
-    transparent 100%);
-  border-radius: 1px;
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
-}
-
-.modal-logo:hover::after {
-  opacity: 1;
-  width: 60px;
-}
-
-/* Logo PNG */
 .logo-img {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
-  animation: gentlePulse 3s ease-in-out infinite;
 }
 
 .logo-text {
-  font-size: 1.5rem;
+  font-size: 17px;
   font-weight: 700;
-  color: var(--text-dark);
-  letter-spacing: -0.02em;
+  color: #B00020;
+  letter-spacing: -0.3px;
 }
 
+/* ── Títulos ─────────────────────────────────────────────────────────────── */
 .modal-title {
-  font-size: 1.75rem;
+  font-size: 22px;
   font-weight: 700;
-  color: var(--text-dark);
-  text-align: center;
-  margin-bottom: 0.5rem;
-  letter-spacing: -0.02em;
+  color: #111;
+  margin: 0 0 6px;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
 }
 
 .modal-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-light);
-  text-align: center;
-  margin-bottom: 1.5rem;
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px;
   line-height: 1.5;
 }
 
-/* ============================================
-   BANNERS (ÉXITO, ERROR, BLOQUEO)
-   ============================================ */
-.success-banner {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  padding: 1rem;
-  border-radius: var(--border-radius);
-  margin-bottom: 1rem;
+.modal-email-chip {
+  display: inline-block;
+  font-size: 13px;
+  color: #444;
+  background: #f4f4f4;
+  border-radius: 20px;
+  padding: 3px 12px;
+  margin: 4px 0 20px;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Step header con back ────────────────────────────────────────────────── */
+.step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #555;
+  font-size: 15px;
+  padding: 6px;
+  border-radius: 8px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.back-btn:hover { background: #f0f0f0; color: #111; }
+
+/* ── Social ──────────────────────────────────────────────────────────────── */
+.social-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.social-btn-full {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-weight: 500;
-  animation: slideDown 0.4s var(--transition-bounce);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
-}
-
-.success-banner svg {
-  animation: checkmarkDraw 0.6s var(--transition-bounce) 0.2s;
-}
-
-.error-message {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-  padding: 1rem;
-  border-radius: var(--border-radius);
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  animation: shake 0.5s var(--transition-smooth);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
-  line-height: 1.5;
-}
-
-.lockout-banner {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  padding: 1rem;
-  border-radius: var(--border-radius);
-  margin-bottom: 1rem;
-  text-align: center;
-  font-weight: 600;
-  animation: pulse 2s infinite;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
-}
-
-/* ============================================
-   TABS CON UNDERLINE ANIMADO
-   ============================================ */
-.tabs-container {
-  display: flex;
-  gap: 0;
-  margin-bottom: 1.5rem;
-  border-bottom: 2px solid var(--border-gray);
-  position: relative;
-}
-
-.tab {
-  flex: 1;
-  padding: 0.875rem 1rem;
-  border: none;
-  background: transparent;
-  color: var(--text-light);
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s var(--transition-smooth);
-  position: relative;
-  font-size: 0.95rem;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  border: 1.5px solid;
 }
 
-.tab::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--primary-red);
-  transform: scaleX(0);
-  transition: transform 0.3s var(--transition-smooth);
+.social-btn-full:active { transform: scale(0.98); }
+
+.social-btn-full.google {
+  background: #fbf3f3;
+  border-color: #a23535;
+  color: #333;
+}
+.social-btn-full.google:hover {
+  background: #fbdddd;
+  border-color: #a23535;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-.tab.active {
-  color: var(--primary-red);
+.social-btn-full.facebook {
+  background: #ecf4ff;
+  border-color: #1877f2;
+  color: #333;
+}
+.social-btn-full.facebook:hover {
+  background: #a5ccff;
+  border-color: #1464d0;
+  box-shadow: 0 2px 8px rgba(24,119,242,0.3);
 }
 
-.tab.active::after {
-  transform: scaleX(1);
+.social-icon {
+  font-size: 17px;
+  flex-shrink: 0;
 }
 
-.tab:hover:not(.active) {
-  color: var(--text-dark);
-  background: var(--bg-gray);
+/* ── Separador ───────────────────────────────────────────────────────────── */
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #aaa;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.separator::before,
+.separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e8e8e8;
 }
 
-/* ============================================
-   FORMULARIOS
-   ============================================ */
+/* ── Form ────────────────────────────────────────────────────────────────── */
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 12px;
 }
 
 .input-group {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .modal-input {
   width: 100%;
-  height: var(--input-height);
-  padding: 0 1rem;
-  border: 2px solid var(--border-gray);
-  border-radius: var(--border-radius);
-  font-size: 0.95rem;
-  transition: all 0.3s var(--transition-smooth);
-  background: var(--bg-white);
-  color: var(--text-dark);
+  padding: 12px 14px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #111;
+  background: #fafafa;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  outline: none;
   box-sizing: border-box;
 }
 
-.modal-input:hover {
-  border-color: #4b5563;
-}
-
 .modal-input:focus {
-  outline: none;
-  border-color: #4b5563;
-  border-width: 2px;
-  box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.1);
-  transform: translateY(-2px);
+  border-color: #B00020;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(176, 0, 32, 0.08);
 }
 
-.modal-input:disabled {
-  background: var(--bg-gray);
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.modal-input::placeholder {
-  color: #9ca3af;
-}
-
-/* Validación visual de email */
-.modal-input.valid {
-  border-color: var(--success-green);
-}
-
-.modal-input.invalid {
-  border-color: var(--error-red);
-}
+.modal-input.valid   { border-color: #22c55e; }
+.modal-input.invalid { border-color: #ef4444; }
+.modal-input:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .validation-icon {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.85rem;
+  font-size: 12px;
   font-weight: 500;
-  pointer-events: none;
+  padding-left: 2px;
 }
+.validation-icon.valid   { color: #22c55e; }
+.validation-icon.invalid { color: #ef4444; }
 
-.validation-icon.valid {
-  color: var(--success-green);
-}
-
-.validation-icon.invalid {
-  color: var(--error-red);
-}
-
-/* ============================================
-   PASSWORD CONTAINER Y TOGGLE
-   ============================================ */
+/* ── Password ────────────────────────────────────────────────────────────── */
 .password-container {
   position: relative;
-  display: flex;
-  align-items: center;
 }
 
-.password-input {
-  padding-right: 3rem;
-  height: var(--input-height);
-}
+.password-input { padding-right: 42px; }
 
 .toggle-password {
   position: absolute;
-  right: 1rem;
+  right: 13px;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
-  color: var(--text-light);
-  font-size: 1.25rem;
-  transition: all 0.3s var(--transition-smooth);
+  color: #999;
+  font-size: 16px;
+  transition: color 0.15s;
   user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
+.toggle-password:hover { color: #555; }
 
-.toggle-password:hover {
-  color: var(--text-dark);
-  transform: translateY(-50%) scale(1.1);
+.forgot-password {
+  font-size: 13px;
+  color: #B00020;
+  text-decoration: none;
+  align-self: flex-end;
+  margin-top: -4px;
+  font-weight: 500;
+  transition: opacity 0.15s;
 }
+.forgot-password:hover { opacity: 0.75; text-decoration: underline; }
 
-/* ============================================
-   PASSWORD STRENGTH INDICATOR
-   ============================================ */
 .password-strength {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  margin-top: -0.25rem;
+  align-items: center;
+  gap: 8px;
 }
 
 .strength-bar {
-  width: 100%;
+  flex: 1;
   height: 4px;
-  background: var(--bg-gray);
-  border-radius: 10px;
+  background: #e8e8e8;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .strength-fill {
   height: 100%;
-  transition: width 0.5s var(--transition-smooth), background-color 0.5s var(--transition-smooth);
-  border-radius: 10px;
-  position: relative;
-  overflow: hidden;
-}
-
-.strength-fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-  animation: shimmer 2s infinite;
-}
-
-.strength-fill.weak {
-  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
-}
-
-.strength-fill.medium {
-  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
-}
-
-.strength-fill.strong {
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  border-radius: 4px;
+  transition: width 0.3s, background-color 0.3s;
 }
 
 .strength-text {
-  font-size: 0.8rem;
+  font-size: 12px;
   font-weight: 500;
-  text-align: center;
-  transition: color 0.3s;
+  white-space: nowrap;
 }
 
-/* ============================================
-   PASSWORD MATCH INDICATOR
-   ============================================ */
 .password-match {
-  font-size: 0.8rem;
+  font-size: 12px;
   font-weight: 500;
-  text-align: center;
-  margin: -0.25rem 0 0 0;
-  transition: color 0.3s;
+  margin: -4px 0 0;
 }
 
-/* ============================================
-   TÉRMINOS Y CONDICIONES
-   ============================================ */
-.terms-label {
+/* ── Botones principales ─────────────────────────────────────────────────── */
+.modal-button {
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s, opacity 0.15s;
+  margin-top: 4px;
+  letter-spacing: -0.1px;
+}
+
+.modal-button:active:not(:disabled) { transform: scale(0.98); }
+.modal-button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.login-btn {
+  background: #B00020;
+  color: #fff;
+}
+.login-btn:hover:not(:disabled) {
+  background: #8f0019;
+  box-shadow: 0 4px 14px rgba(176, 0, 32, 0.3);
+}
+
+.register-btn {
+  background: #111;
+  color: #fff;
+}
+.register-btn:hover:not(:disabled) {
+  background: #333;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+}
+
+/* ── Choose buttons ──────────────────────────────────────────────────────── */
+.choose-actions {
   display: flex;
-  align-items: flex-start;
-  gap: 0.625rem;
-  cursor: pointer;
-  padding: 0.125rem 0;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
-.terms-checkbox {
-  width: 17px;
-  height: 17px;
-  min-width: 17px;
-  margin-top: 2px;
-  accent-color: var(--primary-red);
+.choose-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 18px;
+  background: #fafafa;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 12px;
   cursor: pointer;
-  border-radius: 4px;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  text-align: left;
 }
 
-.terms-text {
-  font-size: 0.82rem;
-  color: var(--text-light);
-  line-height: 1.5;
-  user-select: none;
+.choose-btn:hover {
+  border-color: #B00020;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(176, 0, 32, 0.08);
+}
+
+.choose-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.choose-btn-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+}
+
+.choose-btn-sub {
+  font-size: 12px;
+  color: #888;
+}
+
+.choose-btn-arrow {
+  font-size: 16px;
+  color: #bbb;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.choose-btn:hover .choose-btn-arrow {
+  color: #B00020;
+  transform: translateX(3px);
+}
+
+/* ── Términos ────────────────────────────────────────────────────────────── */
+.terms-notice {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  margin-top: 16px;
+  line-height: 1.6;
 }
 
 .terms-link {
-  color: var(--primary-red);
-  text-decoration: none;
+  color: #555;
   font-weight: 600;
-  transition: color 0.2s var(--transition-smooth), text-decoration 0.2s;
-}
-
-.terms-link:hover {
-  color: var(--primary-dark);
   text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.terms-link:hover { color: #B00020; }
+
+/* ── Reset sent ──────────────────────────────────────────────────────────── */
+.reset-sent-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  text-align: center;
 }
 
-/* ============================================
-   BOTONES CON RIPPLE EFFECT
-   ============================================ */
-.modal-button {
-  width: 100%;
-  height: var(--input-height);
-  padding: 0 1.5rem;
-  border: none;
-  border-radius: var(--border-radius);
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s var(--transition-smooth);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.modal-button::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.modal-button:active::before {
-  width: 300px;
-  height: 300px;
-}
-
-.modal-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.modal-button:disabled::before {
-  display: none;
-}
-
-.login-btn,
-.register-btn {
-  background: linear-gradient(135deg, var(--primary-red) 0%, var(--primary-dark) 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
-}
-
-.login-btn:hover:not(:disabled),
-.register-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.35);
-  transform: translateY(-2px);
-}
-
-.login-btn:active:not(:disabled),
-.register-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-/* Spinner loading */
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-/* ============================================
-   LINKS Y TEXTOS
-   ============================================ */
-.forgot-password {
-  text-align: right;
-  font-size: 0.875rem;
-  color: var(--primary-red);
-  text-decoration: none;
-  font-weight: 500;
-  transition: all 0.3s var(--transition-smooth);
-  display: inline-block;
-}
-
-.forgot-password:hover {
-  color: var(--primary-dark);
-  text-decoration: underline;
-  transform: translateX(2px);
+.reset-sent-note {
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+  margin-top: 8px;
 }
 
 .modal-link {
   background: none;
   border: none;
-  color: var(--primary-red);
-  font-size: 0.9rem;
+  color: #B00020;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 14px;
+  padding: 0;
   font-weight: 500;
-  cursor: pointer;
-  padding: 0.5rem;
+  display: block;
+  width: 100%;
   text-align: center;
-  transition: all 0.3s var(--transition-smooth);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  transition: opacity 0.15s;
 }
+.modal-link:hover { opacity: 0.7; }
 
-.modal-link:hover {
-  color: var(--primary-dark);
-  text-decoration: underline;
-}
-
-/* ============================================
-   SEPARADOR
-   ============================================ */
-.separator {
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+.success-banner {
   display: flex;
   align-items: center;
-  text-align: center;
-  color: var(--text-light);
-  font-size: 0.85rem;
-  margin: 0.5rem 0;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #166534;
+  font-weight: 500;
+  margin-bottom: 14px;
+  animation: slideDown 0.2s ease;
 }
 
-.separator::before,
-.separator::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid var(--border-gray);
-}
-
-.separator::before {
-  margin-right: 1rem;
-}
-
-.separator::after {
-  margin-left: 1rem;
-}
-
-/* ============================================
-   BOTONES SOCIALES
-   ============================================ */
-.social-buttons {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-}
-
-.social-btn {
-  width: 50px;
-  height: 50px;
-  border: 2px solid var(--border-gray);
-  background: white;
-  border-radius: var(--border-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 1.5rem;
-  transition: all 0.3s var(--transition-smooth);
-  position: relative;
-  overflow: hidden;
-}
-
-.social-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: currentColor;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.social-btn:hover {
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: var(--shadow-md);
-}
-
-.social-btn:hover::before {
-  opacity: 1;
-}
-
-.social-btn svg {
-  position: relative;
-  z-index: 1;
-  transition: color 0.3s;
-}
-
-.social-btn.google {
-  color: #ea4335;
-}
-
-.social-btn.google:hover svg {
-  color: white;
-}
-
-.social-btn.facebook {
-  color: #1877f2;
-}
-
-.social-btn.facebook:hover svg {
-  color: white;
-}
-
-
-/* ============================================
-   ANIMACIONES
-   ============================================ */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.error-message {
+  background: #fff5f5;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #dc2626;
+  font-weight: 500;
+  margin-bottom: 14px;
+  animation: slideDown 0.2s ease;
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.02);
-  }
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-@keyframes shimmer {
-  0% { left: -100%; }
-  100% { left: 100%; }
-}
-
-@keyframes checkmarkDraw {
-  0% { transform: scale(0) rotate(-45deg); }
-  50% { transform: scale(1.2) rotate(5deg); }
-  100% { transform: scale(1) rotate(0); }
-}
-
-@keyframes gentlePulse {
-  0%, 100% { 
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% { 
-    transform: scale(1.05);
-    opacity: 0.8;
-  }
-}
-
-/* ============================================
-   ACCESIBILIDAD
-   ============================================ */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* ============================================
-   RESPONSIVE
-   ============================================ */
-@media (max-width: 640px) {
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
   .modal-card {
-    padding: 1.5rem;
-    border-radius: 16px;
-    max-height: 95vh;
+    padding: 28px 20px 24px;
+    border-radius: 20px;
+    max-width: 100%;
   }
 
-  .modal-title {
-    font-size: 1.5rem;
-  }
-
-  .modal-subtitle {
-    font-size: 0.85rem;
-  }
-
-  .tab {
-    padding: 0.75rem 0.875rem;
-    font-size: 0.9rem;
-  }
-
-  .modal-input,
-  .modal-button {
-    height: 44px;
-    font-size: 0.9rem;
-  }
-
-  .social-buttons {
-    gap: 0.5rem;
-  }
-
-  .social-btn {
-    width: 45px;
-    height: 45px;
-    font-size: 1.25rem;
-  }
-
-  .terms-text {
-    font-size: 0.78rem;
-  }
-}
-
-@media (max-width: 400px) {
-  .modal-card {
-    padding: 1.25rem;
-  }
-
-  .logo-text {
-    font-size: 1.25rem;
-  }
-
-  .modal-title {
-    font-size: 1.25rem;
-  }
-}
-/* ── Reset password — pantalla de enlace enviado ── */
-.reset-sent-icon {
-  font-size: 3rem;
-  text-align: center;
-  margin-bottom: 8px;
-}
-
-.reset-sent-note {
-  font-size: 0.82rem;
-  color: #9ca3af;
-  text-align: center;
-  margin: -8px 0 4px;
-  line-height: 1.5;
+  .modal-title { font-size: 20px; }
 }

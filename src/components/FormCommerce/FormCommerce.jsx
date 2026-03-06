@@ -1,68 +1,101 @@
-"use client";
 import { useState, useEffect, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { createBusiness } from "../../Api/Api";
+import { createBusiness, getBusinessByUserId } from "../../Api/Api";
 import ProgressBar from "./ProgressBar";
+import PlanStep from "./PlanStep";
+import PaymentStep from "./PaymentStep";
 import CreatorInfo from "./CreatorInfo";
 import BusinessInfo from "./BusinessInfo";
-import SubscriptionPlan from "./SubscriptionPlan";
 import Confirmation from "./Confirmation";
 import "./FormCommerce.css";
 
+// Pasos del formulario
+// 1 → Elegir plan
+// 2 → Pagar (CheckoutPage embebido / redirección a MP)
+// 3 → Datos del propietario
+// 4 → Datos del negocio
+// 5 → Confirmación
+
+const STEPS = ["Plan", "Pago", "Propietario", "Negocio", "Confirmación"];
+
 function FormCommerce() {
-  const navigate = useNavigate();
+  const navigate       = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loadBusinesses } = useContext(UserContext);
 
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // ── Leer params de retorno de MP ─────────────────────────────────────────
+  const paramStep = parseInt(searchParams.get("step"));
+  const paramPlan = searchParams.get("plan");
+  const paramPaid = searchParams.get("paid") === "true";
+
+  const [currentStep,      setCurrentStep]      = useState(paramPaid && paramStep ? paramStep : 1);
+  const [isSubmitting,     setIsSubmitting]      = useState(false);
+  const [checkingBusiness, setCheckingBusiness]  = useState(true);
+
   const [formData, setFormData] = useState({
+    selectedPlan: paramPlan || "",
+    planPaid:     paramPaid,
     firstName: "",
-    lastName: "",
-    idNumber: "",
-    phone: "",
-    businessName: "",
+    lastName:  "",
+    idNumber:  "",
+    phone:     "",
+    businessName:        "",
     businessDescription: "",
-    category: "",
-    categoryId: null,
-    businessAddress: "",
-    businessPhone: "",
-    instagram: "",
-    facebook: "",
-    website: "",
-    email: "",
-    selectedPlan: "basic",
+    category:            "",
+    categoryId:          null,
+    businessAddress:     "",
+    businessPhone:       "",
+    instagram:           "",
+    facebook:            "",
+    website:             "",
+    email:               "",
   });
 
-  const steps = ["Propietario", "Negocio", "Plan", "Confirmación"];
-
-  // ✅ Redirigir en useEffect, no durante el render
+  // ── Verificar sesión y negocio existente ─────────────────────────────────
+  // ✅ Fix: redirigir en useEffect, nunca durante el render
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
-    }
+    const check = async () => {
+      if (!user?.id_user) {
+        navigate("/login");
+        return;
+      }
+      try {
+        const existing = await getBusinessByUserId(user.id_user);
+        if (existing) navigate(`/negocios/${existing.id_business}`);
+      } catch {
+        // no tiene negocio, puede continuar
+      } finally {
+        setCheckingBusiness(false);
+      }
+    };
+    check();
   }, [user, navigate]);
+
+  // Limpiar params de URL una vez leídos
+  useEffect(() => {
+    if (paramPaid) {
+      navigate("/registro-negocio", { replace: true });
+    }
+  }, []); // eslint-disable-line
 
   if (!user) return null;
 
-  const handleNext = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length));
-  };
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const updateFormData = (data) => setFormData(prev => ({ ...prev, ...data }));
+  const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
+  const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
-  const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
-  };
-
-  const updateFormData = (data) => {
-    setFormData((prev) => ({ ...prev, ...data }));
-    console.log("📝 Datos actualizados:", data);
+  const handlePlanSelected = (planId) => {
+    updateFormData({ selectedPlan: planId });
+    setCurrentStep(2);
   };
 
   const handleSuccess = async () => {
-    console.log("🚀 EJECUTANDO handleSuccess - Creando negocio...");
+    if (!user?.id_user) { navigate("/login"); return; }
 
     if (!formData.businessName || !formData.businessDescription) {
-      alert("Por favor completa todos los campos requeridos del negocio");
+      alert("Por favor completá todos los campos requeridos");
       return;
     }
 
@@ -70,57 +103,73 @@ function FormCommerce() {
 
     try {
       const businessData = {
-        name: formData.businessName.trim(),
+        name:        formData.businessName.trim(),
         description: formData.businessDescription.trim(),
-        phone: formData.businessPhone?.replace(/\D/g, "") || formData.phone?.replace(/\D/g, "") || "",
-        website: formData.website?.trim() || "",
-        instagram: formData.instagram?.trim() || null,
-        facebook: formData.facebook?.trim() || null,
-        whatsapp: null,
-        email: formData.email?.trim() || "",
-        branchOf: null,
-        idOwner: Number(user.id_user),
+        phone:       formData.businessPhone?.replace(/\D/g, "") || formData.phone?.replace(/\D/g, "") || "",
+        website:     formData.website?.trim()   || "",
+        instagram:   formData.instagram?.trim() || null,
+        facebook:    formData.facebook?.trim()  || null,
+        whatsapp:    null,
+        email:       formData.email?.trim()     || "",
+        branchOf:    null,
+        idOwner:     Number(user.id_user),
       };
 
-      console.log("📤 ENVIANDO AL BACKEND...", businessData);
+      const created = await createBusiness(businessData);
 
-      const createdBusiness = await createBusiness(businessData);
-
-      console.log("📦 RESPUESTA COMPLETA DEL BACKEND:", createdBusiness);
-
+      // ✅ Fix: refrescar lista de negocios en el Navbar
       await loadBusinesses(user.id_user);
 
-      const extraData = {
-        businessAddress: formData.businessAddress,
-        instagram: formData.instagram,
-        facebook: formData.facebook,
-        selectedPlan: formData.selectedPlan,
-        category: formData.category,
-        categoryId: formData.categoryId,
-      };
-      localStorage.setItem("businessExtraData", JSON.stringify(extraData));
-
-      if (createdBusiness?.id_business) {
-        console.log("📍 REDIRIGIENDO a nuevo negocio:", `/negocios/${createdBusiness.id_business}`);
-        navigate(`/negocios/${createdBusiness.id_business}`);
+      if (created?.id_business) {
+        navigate(`/negocios/${created.id_business}`);
       } else {
-        console.log("❌ NO HAY ID VÁLIDA - Redirigiendo a inicio como fallback");
         navigate("/");
       }
-    } catch (error) {
-      console.error("❌ ERROR AL CREAR NEGOCIO:", error);
-      alert(`Error al crear el negocio: ${error.message}`);
+    } catch (err) {
+      alert(`Error al crear el negocio: ${err.message}`);
       setIsSubmitting(false);
     }
   };
 
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (checkingBusiness) {
+    return (
+      <div className="app">
+        <div className="form-container">
+          <div className="form-content form-loading">
+            <div className="loading-spinner" />
+            <p>Verificando tus datos...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="app">
       <div className="form-container">
-        <ProgressBar steps={steps} currentStep={currentStep} />
+        <ProgressBar steps={STEPS} currentStep={currentStep} />
 
         <div className="form-content">
+
           {currentStep === 1 && (
+            <PlanStep
+              selectedPlan={formData.selectedPlan}
+              onSelect={handlePlanSelected}
+              onCancel={() => navigate("/")}
+            />
+          )}
+
+          {currentStep === 2 && (
+            <PaymentStep
+              planId={formData.selectedPlan}
+              user={user}
+              onBack={handleBack}
+            />
+          )}
+
+          {currentStep === 3 && (
             <CreatorInfo
               data={formData}
               onUpdate={updateFormData}
@@ -129,7 +178,7 @@ function FormCommerce() {
             />
           )}
 
-          {currentStep === 2 && (
+          {currentStep === 4 && (
             <BusinessInfo
               data={formData}
               onUpdate={updateFormData}
@@ -138,16 +187,7 @@ function FormCommerce() {
             />
           )}
 
-          {currentStep === 3 && (
-            <SubscriptionPlan
-              data={formData}
-              onUpdate={updateFormData}
-              onNext={handleNext}
-              onBack={handleBack}
-            />
-          )}
-
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <Confirmation
               data={formData}
               onSuccess={handleSuccess}
@@ -155,6 +195,7 @@ function FormCommerce() {
               onBack={handleBack}
             />
           )}
+
         </div>
       </div>
     </div>
