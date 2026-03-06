@@ -20,12 +20,11 @@ import "./FormCommerce.css";
 const STEPS = ["Plan", "Pago", "Propietario", "Negocio", "Confirmación"];
 
 function FormCommerce() {
-  const navigate      = useNavigate();
+  const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user }      = useContext(UserContext);
+  const { user, loadBusinesses } = useContext(UserContext);
 
   // ── Leer params de retorno de MP ─────────────────────────────────────────
-  // MP redirige a: /registro-negocio?step=3&plan=basic&paid=true
   const paramStep = parseInt(searchParams.get("step"));
   const paramPlan = searchParams.get("plan");
   const paramPaid = searchParams.get("paid") === "true";
@@ -35,15 +34,12 @@ function FormCommerce() {
   const [checkingBusiness, setCheckingBusiness]  = useState(true);
 
   const [formData, setFormData] = useState({
-    // Paso 1 — Plan
     selectedPlan: paramPlan || "",
     planPaid:     paramPaid,
-    // Paso 3 — Propietario
     firstName: "",
     lastName:  "",
     idNumber:  "",
     phone:     "",
-    // Paso 4 — Negocio
     businessName:        "",
     businessDescription: "",
     category:            "",
@@ -57,10 +53,11 @@ function FormCommerce() {
   });
 
   // ── Verificar sesión y negocio existente ─────────────────────────────────
+  // ✅ Fix: redirigir en useEffect, nunca durante el render
   useEffect(() => {
     const check = async () => {
       if (!user?.id_user) {
-        navigate("/");
+        navigate("/login");
         return;
       }
       try {
@@ -75,57 +72,58 @@ function FormCommerce() {
     check();
   }, [user, navigate]);
 
-  // Limpiar params de URL una vez leídos (evita confusión si el usuario recarga)
+  // Limpiar params de URL una vez leídos
   useEffect(() => {
     if (paramPaid) {
       navigate("/registro-negocio", { replace: true });
     }
   }, []); // eslint-disable-line
 
+  if (!user) return null;
+
   // ── Handlers ─────────────────────────────────────────────────────────────
   const updateFormData = (data) => setFormData(prev => ({ ...prev, ...data }));
-
   const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
-  // Paso 1 → 2: guardar plan y avanzar al paso de pago
   const handlePlanSelected = (planId) => {
     updateFormData({ selectedPlan: planId });
     setCurrentStep(2);
   };
 
-  // Paso 2: el PaymentStep redirige a MP con la URL de retorno correcta
-  // Cuando MP devuelve al usuario, el componente se remonta con ?paid=true&plan=X
-
-  // Paso 5: crear negocio
   const handleSuccess = async () => {
-    if (!user?.id_user) { navigate("/"); return; }
+    if (!user?.id_user) { navigate("/login"); return; }
+
     if (!formData.businessName || !formData.businessDescription) {
       alert("Por favor completá todos los campos requeridos");
       return;
     }
 
     setIsSubmitting(true);
+
     try {
       const businessData = {
         name:        formData.businessName.trim(),
         description: formData.businessDescription.trim(),
         phone:       formData.businessPhone?.replace(/\D/g, "") || formData.phone?.replace(/\D/g, "") || "",
-        website:     formData.website?.trim()    || "",
-        instagram:   formData.instagram?.trim()  || null,
-        facebook:    formData.facebook?.trim()   || null,
+        website:     formData.website?.trim()   || "",
+        instagram:   formData.instagram?.trim() || null,
+        facebook:    formData.facebook?.trim()  || null,
         whatsapp:    null,
-        email:       formData.email?.trim()      || "",
+        email:       formData.email?.trim()     || "",
         branchOf:    null,
         idOwner:     Number(user.id_user),
       };
 
       const created = await createBusiness(businessData);
 
+      // ✅ Fix: refrescar lista de negocios en el Navbar
+      await loadBusinesses(user.id_user);
+
       if (created?.id_business) {
         navigate(`/negocios/${created.id_business}`);
       } else {
-        navigate("/mis-negocios");
+        navigate("/");
       }
     } catch (err) {
       alert(`Error al crear el negocio: ${err.message}`);

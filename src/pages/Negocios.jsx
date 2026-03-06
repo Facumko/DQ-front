@@ -13,7 +13,6 @@ const Negocios = () => {
   const navigate = useNavigate();
   
   const isPublic = !!id;
-  const isOwner = !isPublic && !!user;
 
   const [businessData, setBusinessData] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -21,6 +20,9 @@ const Negocios = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [shouldRedirect, setShouldRedirect] = useState(false);
+
+  // ✅ isOwner se calcula DESPUÉS de cargar el negocio, comparando IDs
+  const isOwner = !!user && !!businessData && Number(businessData.id_user) === Number(user.id_user);
 
   useEffect(() => {
     const loadBusinessData = async () => {
@@ -31,7 +33,6 @@ const Negocios = () => {
           isPublic, 
           id, 
           userId: user?.id_user,
-          isOwner 
         });
 
         let business;
@@ -50,7 +51,6 @@ const Negocios = () => {
           console.log("🟢 Cargando 'Mi negocio' para usuario:", user.id_user);
           business = await getBusinessByUserId(user.id_user);
           
-          // ⭐ SI NO TIENE NEGOCIO, REDIRIGIR AL FORMULARIO
           if (!business) {
             console.log("⚠️ Usuario sin negocio, redirigiendo a formulario...");
             setShouldRedirect("/register-commerce");
@@ -59,25 +59,21 @@ const Negocios = () => {
         }
         
         if (business) {
-          // ⭐⭐ CORREGIR: NORMALIZAR LA ESTRUCTURA DEL NEGOCIO
           const normalizedBusiness = {
             ...business,
-            // Asegurar que los campos críticos estén presentes
             id: business.idCommerce || business.id,
             idowner: business.idUser || business.idowner || user?.id_user,
-            // Mantener todos los demás campos
             name: business.name,
             description: business.description,
             phone: business.phone,
             website: business.website,
-            // ... otros campos que necesites
           };
           
           console.log("✅ Negocio cargado:", normalizedBusiness.name);
-          console.log("📊 Datos del negocio normalizado:", {
-            id: normalizedBusiness.id,
-            idowner: normalizedBusiness.idowner,
-            name: normalizedBusiness.name
+          console.log("📊 isOwner check:", {
+            businessIdUser: normalizedBusiness.id_user,
+            currentUserId: user?.id_user,
+            isOwner: Number(normalizedBusiness.id_user) === Number(user?.id_user)
           });
           
           setBusinessData(normalizedBusiness);
@@ -96,9 +92,8 @@ const Negocios = () => {
     };
 
     loadBusinessData();
-  }, [user, id, isOwner, navigate]);
+  }, [user, id, navigate]);
 
-  // Ejecutar redirección fuera del useEffect para evitar problemas de ciclo de vida
   if (shouldRedirect) {
     navigate(shouldRedirect);
     return null;
