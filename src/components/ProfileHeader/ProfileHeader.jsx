@@ -20,6 +20,7 @@ import BusinessInfo from "./components/BusinessInfo";
 import BusinessActions from "./components/BusinessActions";
 import PostsTabs from "./components/PostsTabs";
 import PostsList from "./components/PostsList";
+import LocationPicker from "../../components/LocationPicker/LocationPicker";
 
 // ============================================
 // UTILIDADES
@@ -582,6 +583,12 @@ const ProfileHeader = ({ isOwner = false, businessData: externalBusinessData = n
         onSubmit={handleSubmitPost}
         type={modalType}
         initialData={editingPost}
+      />
+
+      <LocationPicker
+        label="Ubicación del negocio"
+        value={negocio.location}         // { lat, lng, address } o null
+        onChange={(loc) => setLocation(loc)}
       />
     </>
   );

@@ -1,262 +1,356 @@
-import React from "react";
-import { Edit2, Loader, User, Camera, Phone, Mail, Link2 } from "lucide-react";
-import ScheduleDisplay from "./ScheduleDisplay";
-import ScheduleEditor from "./ScheduleEditor";
-import CoverImage from "./CoverImage";
-import styles from "../ProfileHeader.module.css";
+"use client"
+import { useState, useEffect } from "react"
+import { getCategories } from "../../../Api/Api"
+import LocationPicker from "../../LocationPicker/LocationPicker"
+import "../../FormCommerce/FormStep.css"
 
-const BusinessInfo = ({ 
-  isOwner, isEditing, businessData, draft, schedule, draftSchedule, status, errors, 
-  loadingStates, profileImageFile, coverImageFile, onEdit, onSave, onCancel, 
-  onInputChange, onPhoneChange, onValidate, setDraft, setDraftSchedule, 
-  setProfileImageFile, setCoverImageFile 
-}) => {
-  
-  const handleScheduleChange = (day, field, value) => {
-    setDraftSchedule(prev => {
-      const newSchedule = { ...prev };
-      if (field === 'cerrado' || field === 'deCorrido') {
-        newSchedule[day] = { ...newSchedule[day], [field]: value };
-      } else if (field.includes('.')) {
-        const [section, subfield] = field.split('.');
-        newSchedule[day] = {
-          ...newSchedule[day],
-          [section]: { ...newSchedule[day][section], [subfield]: value }
-        };
-      } else {
-        newSchedule[day] = { ...newSchedule[day], [field]: value };
+function BusinessInfo({ data, onUpdate, onNext, onBack }) {
+  const [formData, setFormData] = useState({
+    businessName: data?.businessName || "",
+    businessDescription: data?.businessDescription || "",
+    category: data?.category || "",
+    categoryId: data?.categoryId || null,
+    businessAddress: data?.businessAddress || "",
+    businessPhone: data?.businessPhone || "",
+    instagram: data?.instagram || "",
+    facebook: data?.facebook || "",
+    website: data?.website || "", // ✅ Cambiado de 'link' a 'website'
+    email: data?.email || "",
+    location: data?.location || null, // { lat, lng, address }
+  })
+
+  const [categories, setCategories] = useState([])
+  const [errors, setErrors] = useState({})
+  const [isValid, setIsValid] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  /* ---------- CARGA DE CATEGORÍAS ---------- */
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        console.log("🔍 Cargando categorías...")
+        const cats = await getCategories()
+        setCategories(cats)
+      } catch (error) {
+        console.error("❌ Error cargando categorías:", error)
+        // Categorías por defecto
+        setCategories([
+          { idCategory: 1, name: "Restaurante" },
+          { idCategory: 2, name: "Comercio Minorista" },
+          { idCategory: 3, name: "Tecnología" },
+          { idCategory: 4, name: "Salud" },
+          { idCategory: 5, name: "Educación" },
+          { idCategory: 6, name: "Entretenimiento" },
+          { idCategory: 7, name: "Servicios Profesionales" },
+          { idCategory: 8, name: "Otro" },
+        ])
+      } finally {
+        setIsLoading(false)
       }
-      return newSchedule;
-    });
+    }
+
+    loadCategories()
+  }, [])
+
+  /* ---------- HELPERS ---------- */
+  const formatPhone = (raw) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 10)
+    if (digits.length === 10)
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+    return digits
+  }
+
+  const isValidEmail = (email) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+  const isValidUrl = (str) => {
+    if (!str) return true
+    try {
+      new URL(str)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const cleanBusinessName = (str) =>
+    str.replace(/[^A-Za-z0-9\s&()/'.-]/g, "").slice(0, 50)
+
+  /* ---------- VALIDACIÓN GENERAL ---------- */
+  useEffect(() => {
+    const { businessName, businessDescription, category, email, instagram, facebook, website } = formData
+
+    const newErrors = {}
+
+    if (email && !isValidEmail(email)) {
+      newErrors.email = "Formato de correo inválido"
+    }
+    if (instagram && !isValidUrl(instagram)) {
+      newErrors.instagram = "URL no válida"
+    }
+    if (facebook && !isValidUrl(facebook)) {
+      newErrors.facebook = "URL no válida"
+    }
+    if (website && !isValidUrl(website)) {
+      newErrors.website = "URL no válida"
+    }
+
+    setErrors(newErrors)
+
+    const hasError = Object.values(newErrors).some(error => error)
+    const ok =
+      businessName.trim().length >= 3 &&
+      businessDescription.trim().length >= 10 &&
+      businessDescription.trim().length <= 300 &&
+      category !== "" &&
+      !hasError
+
+    setIsValid(ok)
+  }, [formData])
+
+  /* ---------- HANDLERS ---------- */
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    let cleaned = value
+
+    if (name === "businessName") cleaned = cleanBusinessName(value)
+    if (name === "businessDescription") cleaned = value.slice(0, 300)
+    if (name === "businessAddress") cleaned = value.slice(0, 80)
+    if (name === "businessPhone") cleaned = formatPhone(value)
+    if (name === "email") cleaned = value.slice(0, 60)
+    if (["instagram", "facebook", "website"].includes(name))
+      cleaned = value.slice(0, 120)
+
+    // Manejar selección de categoría
+    if (name === "category") {
+      const selectedCat = categories.find(cat => cat.name === value)
+      setFormData(prev => ({ 
+        ...prev, 
+        category: value,
+        categoryId: selectedCat ? Number(selectedCat.idCategory) : null // ✅ Convertir a número
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: cleaned }))
+    }
+  }
+
+  // Actualizar el padre cuando cambien los datos
+  useEffect(() => {
+    onUpdate(formData)
+  }, [formData, onUpdate])
+
+  const handleNext = () => {
+    if (!isValid) {
+      alert("Por favor completá todos los campos requeridos correctamente");
+      return;
+    }
+    onNext();
   };
 
-  const getCurrentStatusColor = () => {
-    const now = new Date();
-    const day = now.toLocaleDateString("es-ES", { weekday: "short" });
-    const dayMap = { lun: "Lun", mar: "Mar", mié: "Mie", jue: "Jue", vie: "Vie", sáb: "Sab", dom: "Dom" };
-    const today = dayMap[day.toLowerCase()];
-    
-    if (!today || !schedule[today]) return "statusClosed";
-    const hoy = schedule[today];
-    if (hoy.cerrado) return "statusClosed";
-    
-    const ahora = now.toTimeString().slice(0, 5);
-    let isOpen = false;
-    
-    if (hoy.deCorrido) {
-      isOpen = ahora >= hoy.open && ahora <= hoy.close;
-    } else {
-      const openM = ahora >= hoy.manana.open && ahora <= hoy.manana.close;
-      const openT = ahora >= hoy.tarde.open && ahora <= hoy.tarde.close;
-      isOpen = openM || openT;
-    }
-    
-    return isOpen ? "statusOpen" : "statusNeutral";
-  };
+  /* ---------- RENDER ---------- */
+  if (isLoading) {
+    return (
+      <div className="form-step fade-in">
+        <div className="loading-spinner"></div>
+        <p>Cargando categorías...</p>
+      </div>
+    )
+  }
 
   return (
-    <>
-      {isOwner && (
-        <div className={styles.editButtonContainer}>
-          {!isEditing ? (
-            <button className={styles.editButtonModern} onClick={onEdit}>
-              <Edit2 size={16} /> Editar
-            </button>
-          ) : (
-            <div className={styles.editActionsModern}>
-              <button 
-                className={styles.saveButtonModern} 
-                onClick={onSave}
-                disabled={loadingStates.savingBusiness || loadingStates.profileImage || loadingStates.coverImage}
-              >
-                {loadingStates.savingBusiness ? (
-                  <><Loader size={16} className={styles.spinnerIcon} />Guardando...</>
-                ) : "Guardar"}
-              </button>
-              <button 
-                className={styles.cancelButtonModern} 
-                onClick={onCancel}
-                disabled={loadingStates.savingBusiness || loadingStates.profileImage || loadingStates.coverImage}
-              >
-                Cancelar
-              </button>
-            </div>
+    <div className="form-step fade-in">
+      <h2 className="step-title">Información del Negocio</h2>
+      <p className="step-description">Cuéntanos sobre tu negocio</p>
+
+      <div className="form-grid">
+        {/* ----- Nombre ----- */}
+        <div className="form-group full-width">
+          <label htmlFor="businessName">Nombre del Negocio *</label>
+          <input
+            type="text"
+            id="businessName"
+            name="businessName"
+            value={formData.businessName}
+            onChange={handleChange}
+            placeholder="Ingresa el nombre de tu negocio"
+            required
+            maxLength={50}
+          />
+          <small className="field-note">Mínimo 3 caracteres</small>
+        </div>
+
+        {/* ----- Descripción ----- */}
+        <div className="form-group full-width">
+          <label htmlFor="businessDescription">
+            Descripción del Negocio * (10-300 caracteres)
+          </label>
+          <textarea
+            id="businessDescription"
+            name="businessDescription"
+            value={formData.businessDescription}
+            onChange={handleChange}
+            placeholder="Describe tu negocio, productos o servicios"
+            rows="4"
+            required
+            maxLength={300}
+          />
+          <div className="char-counter">
+            {formData.businessDescription.length}/300
+          </div>
+        </div>
+
+        {/* ----- Categoría ----- */}
+        <div className="form-group full-width">
+          <label htmlFor="category">Categoría *</label>
+          <select
+            id="category"
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Selecciona una categoría</option>
+            {categories.map((cat) => (
+              <option key={cat.idCategory} value={cat.name}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* ----- Nota campos opcionales ----- */}
+        <div className="optional-section full-width">
+          <p className="optional-note">
+            💡 Los campos opcionales pueden completarse más tarde desde tu perfil de negocio
+          </p>
+        </div>
+
+        {/* ----- Dirección ----- */}
+        <div className="form-group">
+          <label htmlFor="businessAddress">Dirección del Negocio</label>
+          <input
+            type="text"
+            id="businessAddress"
+            name="businessAddress"
+            value={formData.businessAddress}
+            onChange={handleChange}
+            placeholder="Dirección del negocio"
+            maxLength={80}
+          />
+        </div>
+
+        {/* ----- Teléfono ----- */}
+        <div className="form-group">
+          <label htmlFor="businessPhone">Teléfono del Negocio</label>
+          <input
+            type="tel"
+            id="businessPhone"
+            name="businessPhone"
+            value={formData.businessPhone}
+            onChange={handleChange}
+            placeholder="(011) 2345-6789"
+            maxLength={15}
+            inputMode="numeric"
+          />
+        </div>
+
+        {/* ----- Email ----- */}
+        <div className="form-group">
+          <label htmlFor="email">Correo Electrónico del Negocio</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="ejemplo@dominio.com"
+            maxLength={60}
+          />
+          {errors.email && (
+            <small className="error-message">{errors.email}</small>
           )}
         </div>
-      )}
 
-      <div className={styles.layoutModern}>
-        <div className={styles.leftColumnModern}>
-          <div className={styles.profileHeaderModern}>
-            {isEditing ? (
-              <label className={styles.profilePicEditModern}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      if (draft.profileImage?.startsWith('blob:')) {
-                        URL.revokeObjectURL(draft.profileImage);
-                      }
-                      setProfileImageFile(file);
-                      setDraft({ ...draft, profileImage: URL.createObjectURL(file) });
-                    }
-                  }}
-                  className={styles.fileInputModern}
-                />
-                {draft.profileImage ? (
-                  <img src={draft.profileImage} alt="Perfil" className={styles.profilePicModern} />
-                ) : (
-                  <Camera size={28} color="#999" />
-                )}
-              </label>
-            ) : (
-              <div className={styles.profilePicDisplayModern}>
-                {businessData.profileImage ? (
-                  <img src={businessData.profileImage} alt="Perfil" className={styles.profilePicModern} />
-                ) : (
-                  <User size={40} color="#999" />
-                )}
-              </div>
-            )}
-
-            <div className={styles.nameStatusModern}>
-              {isEditing ? (
-                <>
-                  <input
-                    type="text"
-                    value={draft.name}
-                    onChange={(e) => {
-                      onInputChange("name")(e);
-                      onValidate("name", e.target.value, { required: true, maxLength: 100 });
-                    }}
-                    className={`${styles.editInputModern} ${errors.name ? styles.invalidModern : ""}`}
-                    placeholder="Nombre del negocio *"
-                    maxLength={100}
-                  />
-                  {errors.name && <span className={styles.errorMsgModern}>{errors.name}</span>}
-                  <span style={{ fontSize: "0.75rem", color: "#666" }}>
-                    {draft.name.length}/100 caracteres
-                  </span>
-                </>
-              ) : (
-                <>
-                  <h1 className={styles.businessNameModern}>{businessData.name || "Sin nombre"}</h1>
-                  <span className={styles[getCurrentStatusColor()]}>{status}</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className={styles.descriptionSectionModern}>
-            {isEditing ? (
-              <>
-                <textarea
-                  value={draft.description}
-                  onChange={(e) => {
-                    onInputChange("description")(e);
-                    onValidate("description", e.target.value, { required: true, maxLength: 500 });
-                  }}
-                  className={`${styles.textareaModern} ${errors.description ? styles.invalidModern : ""}`}
-                  placeholder="Descripción del negocio *"
-                  maxLength={500}
-                />
-                {errors.description && <span className={styles.errorMsgModern}>{errors.description}</span>}
-                <span style={{ fontSize: "0.75rem", color: "#666", textAlign: "right", display: "block" }}>
-                  {draft.description.length}/500 caracteres
-                </span>
-              </>
-            ) : (
-              <p className={styles.descriptionTextModern}>{businessData.description || "Sin descripción"}</p>
-            )}
-          </div>
-
-          {!isEditing && <ScheduleDisplay schedule={schedule} />}
-
-          <div className={styles.contactInfoModern}>
-            <div className={styles.rowModern}>
-              <Phone color="#333" size={18} />
-              {isEditing ? (
-                <div style={{ flex: 1 }}>
-                  <input
-                    type="tel"
-                    value={draft.phone}
-                    onChange={(e) => {
-                      onPhoneChange(e);
-                      onValidate("phone", e.target.value, { phone: true });
-                    }}
-                    className={`${styles.editInputModern} ${errors.phone ? styles.invalidModern : ""}`}
-                    placeholder="(123) 456-7890"
-                  />
-                  {errors.phone && <span className={styles.errorMsgModern}>{errors.phone}</span>}
-                </div>
-              ) : (
-                <span>{businessData.phone || "Sin teléfono"}</span>
-              )}
-            </div>
-
-            <div className={styles.rowModern}>
-              <Mail color="#333" size={18} />
-              {isEditing ? (
-                <div style={{ flex: 1 }}>
-                  <input
-                    type="email"
-                    value={draft.email}
-                    onChange={(e) => {
-                      onInputChange("email")(e);
-                      onValidate("email", e.target.value, { email: true });
-                    }}
-                    className={`${styles.editInputModern} ${errors.email ? styles.invalidModern : ""}`}
-                    placeholder="ejemplo@dominio.com"
-                    maxLength={60}
-                  />
-                  {errors.email && <span className={styles.errorMsgModern}>{errors.email}</span>}
-                </div>
-              ) : (
-                <span>{businessData.email || "Sin email"}</span>
-              )}
-            </div>
-
-            <div className={styles.rowModern}>
-              <Link2 color="#333" size={18} />
-              {isEditing ? (
-                <input
-                  type="url"
-                  value={String(draft.link || "")}
-                  onChange={onInputChange("link")}
-                  className={styles.editInputModern}
-                  placeholder="https://tusitio.com o @tured"
-                  maxLength={200}
-                />
-              ) : (
-                <span>{String(businessData.link || "") || "Sin link"}</span>
-              )}
-            </div>
-          </div>
-
-          {isEditing && <ScheduleEditor schedule={draftSchedule} onChange={handleScheduleChange} />}
+        {/* ----- Instagram ----- */}
+        <div className="form-group">
+          <label htmlFor="instagram">Instagram (opcional)</label>
+          <input
+            type="url"
+            id="instagram"
+            name="instagram"
+            value={formData.instagram}
+            onChange={handleChange}
+            placeholder="https://instagram.com/tu_usuario"
+            maxLength={120}
+          />
+          {errors.instagram && (
+            <small className="error-message">{errors.instagram}</small>
+          )}
         </div>
 
-        <div className={styles.rightColumnModern}>
-          <CoverImage 
-            isEditing={isEditing}
-            coverImage={isEditing ? draft.coverImage : businessData.coverImage}
-            onFileChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                if (typeof draft.coverImage === 'string' && draft.coverImage.startsWith('blob:')) {
-                  URL.revokeObjectURL(draft.coverImage);
-                }
-                setCoverImageFile(file);
-                setDraft({ ...draft, coverImage: URL.createObjectURL(file) });
-              }
-            }}
+        {/* ----- Facebook ----- */}
+        <div className="form-group">
+          <label htmlFor="facebook">Facebook (opcional)</label>
+          <input
+            type="url"
+            id="facebook"
+            name="facebook"
+            value={formData.facebook}
+            onChange={handleChange}
+            placeholder="https://facebook.com/tu_pagina"
+            maxLength={120}
+          />
+          {errors.facebook && (
+            <small className="error-message">{errors.facebook}</small>
+          )}
+        </div>
+
+        {/* ----- Sitio web ----- */}
+        <div className="form-group">
+          <label htmlFor="website">Sitio Web (opcional)</label>
+          <input
+            type="url"
+            id="website"
+            name="website"
+            value={formData.website}
+            onChange={handleChange}
+            placeholder="https://www.tusitio.com"
+            maxLength={120}
+          />
+          {errors.website && (
+            <small className="error-message">{errors.website}</small>
+          )}
+        </div>
+
+        {/* ----- Ubicación en el mapa ----- */}
+        <div className="form-group full-width">
+          <LocationPicker
+            label="Ubicación en el mapa (opcional)"
+            value={formData.location}
+            onChange={(loc) =>
+              setFormData(prev => ({ ...prev, location: loc }))
+            }
           />
         </div>
       </div>
-    </>
-  );
-};
 
-export default BusinessInfo;
+      {/* ----- Botones ----- */}
+      <div className="form-actions">
+        <button className="btn btn-secondary" onClick={onBack}>
+          Atrás
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={handleNext}
+          disabled={!isValid}
+        >
+          Siguiente
+        </button>
+      </div>
+
+
+    </div>
+  )
+}
+
+export default BusinessInfo
