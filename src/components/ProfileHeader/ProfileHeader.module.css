@@ -83,6 +83,7 @@
 
 /* ══════════════════════════════════════════
    HERO / PORTADA
+   (solo se usa cuando NO está InlineImageEditor)
 ══════════════════════════════════════════ */
 .heroSection {
   position: relative;
@@ -128,7 +129,6 @@
   cursor: pointer;
   transition: background var(--transition);
 }
-
 .coverEditBtn:hover { background: rgba(0,0,0,0.75); }
 
 .fileInputHidden { display: none; }
@@ -143,17 +143,19 @@
   margin-bottom: 24px;
 }
 
+/* ── Avatar 180px → mitad = 90px + 5px borde = 95px
+   Usamos -92px para que quede levemente dentro del card ── */
 .profileTop {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   padding: 0 28px;
-  margin-top: -44px;
+  margin-top: -92px;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-/* Avatar */
+/* ── Avatar (fallback — cuando no usa InlineImageEditor) ── */
 .avatarWrapper {
   position: relative;
   flex-shrink: 0;
@@ -196,10 +198,9 @@
   cursor: pointer;
   color: white;
 }
-
 .avatarWrapper:hover .avatarEditOverlay { opacity: 1; }
 
-/* Botones de acción superior derecha */
+/* ── Botones de acción superior derecha ── */
 .topActions {
   display: flex;
   align-items: center;
@@ -257,9 +258,10 @@
 .btnCancel:hover:not(:disabled) { border-color: #9ca3af; color: var(--text); }
 .btnCancel:disabled { opacity: 0.55; cursor: not-allowed; }
 
-/* Nombre + estado */
+/* ── Nombre + estado ── */
 .profileMeta {
   padding: 14px 28px 20px;
+  padding-top: 18px;
 }
 
 .businessName {
@@ -268,6 +270,12 @@
   color: var(--text);
   margin: 0 0 4px;
   letter-spacing: -0.02em;
+  animation: nameFadeIn 0.2s ease;
+}
+
+@keyframes nameFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .editNameInput {
@@ -282,6 +290,12 @@
   background: transparent;
   outline: none;
   margin-bottom: 4px;
+  animation: inputFadeIn 0.22s ease;
+}
+
+@keyframes inputFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .statusRow {
@@ -297,14 +311,11 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.statusDotOpen   { background: #16a34a; }
-.statusDotClosed { background: #dc2626; }
-.statusDotNeutral{ background: #f59e0b; }
+.statusDotOpen    { background: #16a34a; }
+.statusDotClosed  { background: #dc2626; }
+.statusDotNeutral { background: #f59e0b; }
 
-.statusText {
-  font-size: 0.88rem;
-  font-weight: 500;
-}
+.statusText       { font-size: 0.88rem; font-weight: 500; }
 .statusTextOpen   { color: #15803d; }
 .statusTextClosed { color: #b91c1c; }
 .statusTextNeutral{ color: #92400e; }
@@ -324,13 +335,8 @@
   border-top: 1px solid var(--border);
 }
 
-.infoCol {
-  padding: 20px 28px;
-}
-
-.infoCol + .infoCol {
-  border-left: 1px solid var(--border);
-}
+.infoCol { padding: 20px 28px; }
+.infoCol + .infoCol { border-left: 1px solid var(--border); }
 
 .infoSectionTitle {
   font-size: 0.72rem;
@@ -341,7 +347,6 @@
   margin: 0 0 12px;
 }
 
-/* Descripción */
 .descriptionText {
   font-size: 0.93rem;
   color: #374151;
@@ -363,10 +368,10 @@
   background: var(--bg);
   transition: border-color var(--transition);
   box-sizing: border-box;
+  animation: inputFadeIn 0.22s ease;
 }
 .editTextarea:focus { border-color: var(--brand); outline: none; }
 
-/* Filas de contacto */
 .contactRow {
   display: flex;
   align-items: center;
@@ -375,18 +380,10 @@
   color: #374151;
   font-size: 0.88rem;
 }
+.contactRow + .contactRow { border-top: 1px solid var(--border); }
 
-.contactRow + .contactRow {
-  border-top: 1px solid var(--border);
-}
-
-.contactIcon { color: var(--muted); flex-shrink: 0; }
-
-.contactText {
-  color: #374151;
-  word-break: break-all;
-}
-
+.contactIcon  { color: var(--muted); flex-shrink: 0; }
+.contactText  { color: #374151; word-break: break-all; }
 .contactEmpty { color: var(--muted); font-style: italic; }
 
 .editInput {
@@ -400,6 +397,7 @@
   background: var(--bg);
   transition: border-color var(--transition);
   min-width: 0;
+  animation: inputFadeIn 0.22s ease;
 }
 .editInput:focus { border-color: var(--brand); outline: none; }
 .editInput.inputError { border-color: #dc2626; background: #fef2f2; }
@@ -444,19 +442,12 @@
   border-bottom: 1px solid var(--border);
   font-size: 0.85rem;
 }
-
 .scheduleRow:last-child { border-bottom: none; }
 
-.scheduleDay {
-  font-weight: 600;
-  color: var(--text);
-  min-width: 36px;
-}
-
-.scheduleHours { color: var(--muted); text-align: right; }
+.scheduleDay    { font-weight: 600; color: var(--text); min-width: 36px; }
+.scheduleHours  { color: var(--muted); text-align: right; }
 .scheduleClosed { color: #b91c1c; }
 
-/* Editor de horarios */
 .scheduleEditorSection {
   border-top: 1px solid var(--border);
   padding-top: 14px;
@@ -480,7 +471,6 @@
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
-
 .scheduleDayRow:last-child { border-bottom: none; }
 
 .scheduleDayName {
@@ -534,7 +524,7 @@
 .timeInput:focus { border-color: var(--brand); outline: none; }
 
 /* ══════════════════════════════════════════
-   BARRA DE ACCIONES (fav + publicar + link)
+   BARRA DE ACCIONES
 ══════════════════════════════════════════ */
 .actionsBar {
   background: var(--white);
@@ -642,7 +632,7 @@
 }
 
 /* ══════════════════════════════════════════
-   TABS DE PUBLICACIONES
+   TABS
 ══════════════════════════════════════════ */
 .tabsBar {
   display: flex;
@@ -664,16 +654,11 @@
   margin-bottom: -2px;
   transition: all var(--transition);
 }
-
 .tabBtn:hover { color: var(--text); }
-
-.tabBtnActive {
-  color: var(--brand);
-  border-bottom-color: var(--brand);
-}
+.tabBtnActive { color: var(--brand); border-bottom-color: var(--brand); }
 
 /* ══════════════════════════════════════════
-   PUBLICACIONES Y EVENTOS
+   FEED — PUBLICACIONES Y EVENTOS
 ══════════════════════════════════════════ */
 .feedWrapper {
   max-width: 640px;
@@ -691,15 +676,9 @@
   overflow: hidden;
   transition: box-shadow var(--transition), transform var(--transition);
 }
+.postCard:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
-.postCard:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.postBody {
-  padding: 16px 18px;
-}
+.postBody   { padding: 16px 18px; }
 
 .postText {
   font-size: 0.95rem;
@@ -719,15 +698,8 @@
   border-top: 1px solid var(--border);
 }
 
-.postDate {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.postActions {
-  display: flex;
-  gap: 6px;
-}
+.postDate    { font-size: 0.8rem; color: var(--muted); }
+.postActions { display: flex; gap: 6px; }
 
 .btnPostEdit {
   display: flex;
@@ -743,7 +715,7 @@
   cursor: pointer;
   transition: all var(--transition);
 }
-.btnPostEdit:hover { border-color: var(--brand); color: var(--brand); }
+.btnPostEdit:hover    { border-color: var(--brand); color: var(--brand); }
 .btnPostEdit:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btnPostDelete {
@@ -760,7 +732,7 @@
   cursor: pointer;
   transition: all var(--transition);
 }
-.btnPostDelete:hover { background: #fee2e2; border-color: #dc2626; }
+.btnPostDelete:hover    { background: #fee2e2; border-color: #dc2626; }
 .btnPostDelete:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Eventos */
@@ -801,9 +773,7 @@
   font-weight: 500;
 }
 
-.eventBody {
-  padding: 12px 18px;
-}
+.eventBody { padding: 12px 18px; }
 
 /* Estado vacío */
 .emptyState {
@@ -812,23 +782,9 @@
   color: var(--muted);
 }
 
-.emptyIcon {
-  font-size: 2.5rem;
-  margin-bottom: 12px;
-  opacity: 0.4;
-}
-
-.emptyTitle {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0 0 4px;
-}
-
-.emptyDesc {
-  font-size: 0.88rem;
-  margin: 0;
-}
+.emptyIcon  { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
+.emptyTitle { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0 0 4px; }
+.emptyDesc  { font-size: 0.88rem; margin: 0; }
 
 /* ══════════════════════════════════════════
    RESPONSIVE
@@ -836,7 +792,12 @@
 @media (max-width: 768px) {
   .heroSection { height: 200px; }
 
-  .profileTop { padding: 0 16px; margin-top: -36px; }
+  /* Avatar 130px en tablet → mitad = 65px + borde = -68px */
+  .profileTop {
+    padding: 0 16px;
+    margin-top: -68px;
+  }
+
   .profileMeta { padding: 12px 16px 16px; }
 
   .infoGrid { grid-template-columns: 1fr; }
@@ -849,14 +810,17 @@
 
   .businessName { font-size: 1.35rem; }
 
+  /* fallback avatar (no InlineImageEditor) */
   .avatar, .avatarPlaceholder { width: 72px; height: 72px; }
 }
 
 @media (max-width: 480px) {
   .heroSection { height: 160px; }
 
+  /* Avatar 110px en mobile → -57px */
+  .profileTop { margin-top: -57px; }
+
   .topActions { flex-wrap: wrap; }
   .btnEdit, .btnSave, .btnCancel { font-size: 0.82rem; padding: 7px 12px; }
-
   .tabBtn { padding: 8px 14px; font-size: 0.82rem; }
 }

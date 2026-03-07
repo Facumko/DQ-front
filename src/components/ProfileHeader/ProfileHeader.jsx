@@ -8,12 +8,12 @@ import {
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, User,
-         Camera, Phone, Mail, Link2, Image, Clock, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
+         Phone, Mail, Link2, Image, Clock, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
-import ImageCropModal from "./ImageCropModal";
 import LocationPicker from "../LocationPicker/LocationPicker";
+import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 
 // ─────────────────────────────────────────
 // MOCK DATA
@@ -177,20 +177,23 @@ const ProfileHeader = ({
   const [schedule,     setSchedule]     = useState(DEFAULT_SCHEDULE);
   const [draft,        setDraft]        = useState(businessData);
   const [draftSchedule,setDraftSchedule]= useState(schedule);
-  const [profileImageFile, setProfileImageFile] = useState(null);
-  const [coverImageFile,   setCoverImageFile]   = useState(null);
 
-  // ── Estado del modal de recorte ──
-  const [cropModal, setCropModal] = useState({ open: false, src: null, type: null });
+  // ── Estado inline de imágenes (reemplaza ImageCropModal) ──
+  // pendingCover / pendingAvatar: { file: File, previewUrl: string } | null
+  const [pendingCover,  setPendingCover]  = useState(null);
+  const [pendingAvatar, setPendingAvatar] = useState(null);
+  // posición y zoom guardados para el submit
+  const [coverPos,  setCoverPos]  = useState({ posY: 50, zoom: 1 });
+  const [avatarPos, setAvatarPos] = useState({ x: 50, y: 50, zoom: 1 });
 
   const { errors, validate, clearErrors } = useFormValidation();
   const statusInfo = useBusinessStatus(schedule);
 
   // ── Limpiar blob URLs ──
   useEffect(() => () => {
-    if (draft.profileImage?.startsWith("blob:")) URL.revokeObjectURL(draft.profileImage);
-    if (draft.coverImage?.startsWith("blob:"))   URL.revokeObjectURL(draft.coverImage);
-  }, [draft.profileImage, draft.coverImage]);
+    if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+  }, []);
 
   // ── Cargar datos ──
   useEffect(() => {
@@ -260,8 +263,6 @@ const ProfileHeader = ({
       if (!url) throw new Error("No se recibió la URL");
       setBusinessData((p) => ({ ...p, [type]: url }));
       setDraft((p) => ({ ...p, [type]: url }));
-      if (type === "profileImage") setProfileImageFile(null);
-      else setCoverImageFile(null);
       flashSuccess("✅ Imagen actualizada");
     } catch (err) { flashError(err.message); }
     finally { setLoad(type, false); }
@@ -273,7 +274,8 @@ const ProfileHeader = ({
     setDraftSchedule(schedule);
     setIsEditing(true);
     setErrorMsg(""); setSuccessMsg("");
-    setProfileImageFile(null); setCoverImageFile(null);
+    setPendingCover(null);
+    setPendingAvatar(null);
     clearErrors();
   };
 
@@ -282,7 +284,11 @@ const ProfileHeader = ({
     setDraftSchedule(schedule);
     setIsEditing(false);
     setErrorMsg(""); setSuccessMsg("");
-    setProfileImageFile(null); setCoverImageFile(null);
+    // Limpiar pendientes y revocar URLs
+    if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    setPendingCover(null);
+    setPendingAvatar(null);
     clearErrors();
   };
 
@@ -311,30 +317,68 @@ const ProfileHeader = ({
     setLoad("savingBusiness", true);
     try {
       const payload = { name, description: desc, email, phone, link: t(draft.link), location: draft.location || null };
-      if (businessId) await updateBusiness(businessId, payload);
-      else {
+      let currentBusinessId = businessId;
+      if (businessId) {
+        await updateBusiness(businessId, payload);
+      } else {
         const res = await createBusiness({ ...payload, id_user: user.id_user });
-        setBusinessId(res.id_business);
+        currentBusinessId = res.id_business;
+        setBusinessId(currentBusinessId);
       }
-      if (profileImageFile) await uploadImage("profileImage", profileImageFile);
-      if (coverImageFile)   await uploadImage("coverImage",   coverImageFile);
-      // ✅ Si hay externalData recargamos por businessId específico para no cargar el primer negocio del usuario
+      // Subir imágenes pendientes (con posición confirmada)
+      if (pendingCover?.file)  await uploadImage("coverImage",   pendingCover.file);
+      if (pendingAvatar?.file) await uploadImage("profileImage", pendingAvatar.file);
+
       if (externalData) {
-        const biz = await getBusinessById(businessId);
-        if (biz) {
-          const d = normalizeBusiness(biz);
-          setBusinessData(d);
-          setDraft(d);
-        }
+        const biz = await getBusinessById(currentBusinessId);
+        if (biz) { const d = normalizeBusiness(biz); setBusinessData(d); setDraft(d); }
       } else {
         await loadBusinessData();
       }
       setSchedule(draftSchedule);
+      setPendingCover(null);
+      setPendingAvatar(null);
       setIsEditing(false);
       flashSuccess("✅ Datos guardados correctamente");
     } catch (err) { flashError(err.message || "Error al guardar"); }
     finally { setLoad("savingBusiness", false); }
   };
+
+  // ── Handlers inline de imágenes ──
+
+  const handleCoverFileSelect = useCallback((file, previewUrl) => {
+    if (pendingCover?.previewUrl) URL.revokeObjectURL(pendingCover.previewUrl);
+    const url = previewUrl || URL.createObjectURL(file);
+    setPendingCover({ file, previewUrl: url });
+  }, [pendingCover]);
+
+  const handleCoverConfirm = useCallback((posY, zoom) => {
+    setCoverPos({ posY, zoom });
+    // Actualizar el draft con la previewUrl para que se vea en modo edición
+    setDraft(p => ({ ...p, coverImage: pendingCover?.previewUrl || p.coverImage }));
+    // pendingCover sigue en estado para que se suba al guardar
+  }, [pendingCover]);
+
+  const handleCoverDiscard = useCallback(() => {
+    if (pendingCover?.previewUrl) URL.revokeObjectURL(pendingCover.previewUrl);
+    setPendingCover(null);
+  }, [pendingCover]);
+
+  const handleAvatarFileSelect = useCallback((file, previewUrl) => {
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    const url = previewUrl || URL.createObjectURL(file);
+    setPendingAvatar({ file, previewUrl: url });
+  }, [pendingAvatar]);
+
+  const handleAvatarConfirm = useCallback((x, y, zoom) => {
+    setAvatarPos({ x, y, zoom });
+    setDraft(p => ({ ...p, profileImage: pendingAvatar?.previewUrl || p.profileImage }));
+  }, [pendingAvatar]);
+
+  const handleAvatarDiscard = useCallback(() => {
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    setPendingAvatar(null);
+  }, [pendingAvatar]);
 
   // ── Posts ──
   const sortedPosts  = useMemo(() => posts.filter((p) => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), [posts]);
@@ -377,40 +421,6 @@ const ProfileHeader = ({
     setModalType(type); setEditingPost(post); setShowModal(true);
   };
 
-  // ── Handlers para abrir el crop modal ──
-  const handleCoverFileSelect = (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    const src = URL.createObjectURL(f);
-    setCropModal({ open: true, src, type: "coverImage" });
-    // limpiar el input para permitir re-selección del mismo archivo
-    e.target.value = "";
-  };
-
-  const handleAvatarFileSelect = (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    const src = URL.createObjectURL(f);
-    setCropModal({ open: true, src, type: "profileImage" });
-    e.target.value = "";
-  };
-
-  const handleCropConfirm = ({ file, previewUrl }) => {
-    if (cropModal.type === "coverImage") {
-      if (draft.coverImage?.startsWith("blob:")) URL.revokeObjectURL(draft.coverImage);
-      setCoverImageFile(file);
-      setDraft((p) => ({ ...p, coverImage: previewUrl }));
-    } else {
-      if (draft.profileImage?.startsWith("blob:")) URL.revokeObjectURL(draft.profileImage);
-      setProfileImageFile(file);
-      setDraft((p) => ({ ...p, profileImage: previewUrl }));
-    }
-    setCropModal({ open: false, src: null, type: null });
-  };
-
-  const handleCropCancel = () => {
-    if (cropModal.src) URL.revokeObjectURL(cropModal.src);
-    setCropModal({ open: false, src: null, type: null });
-  };
-
   // ── Helpers de status ──
   const statusDotClass  = { open: styles.statusDotOpen, closed: styles.statusDotClosed, neutral: styles.statusDotNeutral };
   const statusTextClass = { open: styles.statusTextOpen, closed: styles.statusTextClosed, neutral: styles.statusTextNeutral };
@@ -425,6 +435,7 @@ const ProfileHeader = ({
   );
 
   const isBusy = loading.savingBusiness || loading.profileImage || loading.coverImage;
+  const hasUnsavedImages = !!(pendingCover || pendingAvatar);
 
   return (
     <div className={styles.profilePage}>
@@ -441,37 +452,27 @@ const ProfileHeader = ({
       {/* ── Bloque de perfil ── */}
       <div className={styles.profileBlock}>
 
-        {/* Portada */}
-        <div className={styles.heroSection}>
-          {(isEditing ? draft.coverImage : businessData.coverImage)
-            ? <img src={isEditing ? draft.coverImage : businessData.coverImage} alt="Portada" className={styles.heroImage} />
-            : <div className={styles.heroPlaceholder}><Image size={40}/><span>Sin portada</span></div>
-          }
-          {isEditing && (
-            <label className={styles.coverEditBtn}>
-              <Camera size={15}/> {businessData.coverImage ? "Cambiar portada" : "Subir portada"}
-              <input type="file" accept="image/*" className={styles.fileInputHidden} onChange={handleCoverFileSelect} />
-            </label>
-          )}
-        </div>
+        {/* ── PORTADA INLINE ── */}
+        <CoverEditor
+          currentImage={isEditing ? draft.coverImage : businessData.coverImage}
+          isEditing={isEditing}
+          onFileSelect={handleCoverFileSelect}
+          pendingFile={pendingCover}
+          onConfirm={handleCoverConfirm}
+          onDiscard={handleCoverDiscard}
+        />
 
         {/* Avatar + botones */}
         <div className={styles.profileTop}>
-          <div className={styles.avatarWrapper}>
-            {isEditing ? (
-              <label style={{ cursor: "pointer" }}>
-                {draft.profileImage
-                  ? <img src={draft.profileImage} alt="Perfil" className={styles.avatar}/>
-                  : <div className={styles.avatarPlaceholder}><User size={32}/></div>}
-                <div className={styles.avatarEditOverlay}><Camera size={18}/></div>
-                <input type="file" accept="image/*" className={styles.fileInputHidden} onChange={handleAvatarFileSelect} />
-              </label>
-            ) : (
-              businessData.profileImage
-                ? <img src={businessData.profileImage} alt="Perfil" className={styles.avatar}/>
-                : <div className={styles.avatarPlaceholder}><User size={32}/></div>
-            )}
-          </div>
+          {/* ── AVATAR INLINE ── */}
+          <AvatarEditor
+            currentImage={isEditing ? draft.profileImage : businessData.profileImage}
+            isEditing={isEditing}
+            onFileSelect={handleAvatarFileSelect}
+            pendingFile={pendingAvatar}
+            onConfirm={handleAvatarConfirm}
+            onDiscard={handleAvatarDiscard}
+          />
 
           {isOwner && (
             <div className={styles.topActions}>
@@ -616,7 +617,6 @@ const ProfileHeader = ({
               )}
             </div>
 
-            {/* Ubicación */}
             {isEditing ? (
               <div style={{ marginTop: 14 }}>
                 <LocationPicker
@@ -628,11 +628,7 @@ const ProfileHeader = ({
             ) : businessData.location?.lat ? (
               <div style={{ marginTop: 14 }}>
                 <p className={styles.infoSectionTitle} style={{ marginBottom: 8 }}>Ubicación</p>
-                <LocationPicker
-                  label=""
-                  value={businessData.location}
-                  onChange={() => {}}
-                />
+                <LocationPicker label="" value={businessData.location} onChange={() => {}} />
               </div>
             ) : null}
           </div>
@@ -749,17 +745,6 @@ const ProfileHeader = ({
         type={modalType}
         initialData={editingPost}
       />
-
-      {/* ── Modal de recorte de imagen ── */}
-      {cropModal.open && (
-        <ImageCropModal
-          imageSrc={cropModal.src}
-          aspect={cropModal.type === "coverImage" ? 16 / 9 : 1}
-          title={cropModal.type === "coverImage" ? "Ajustar portada" : "Ajustar foto de perfil"}
-          onConfirm={handleCropConfirm}
-          onCancel={handleCropCancel}
-        />
-      )}
 
     </div>
   );
