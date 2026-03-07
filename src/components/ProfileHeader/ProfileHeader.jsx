@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import { UserContext } from "../../pages/UserContext";
 import {
-  getBusinessByUserId, updateBusiness, createBusiness,
+  getBusinessByUserId, getBusinessById, updateBusiness, createBusiness,
   uploadProfileImage, uploadCoverImage,
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
@@ -12,9 +12,10 @@ import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, User,
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
+import ImageCropModal from "./ImageCropModal";
 
 // ─────────────────────────────────────────
-// MOCK DATA  (preview sin backend)
+// MOCK DATA
 // ─────────────────────────────────────────
 const MOCK_BUSINESS = {
   idCommerce: 0,
@@ -101,11 +102,10 @@ const DEFAULT_SCHEDULE = {
 };
 
 // ─────────────────────────────────────────
-// HOOK: validación de formulario
+// HOOK: validación
 // ─────────────────────────────────────────
 const useFormValidation = () => {
   const [errors, setErrors] = useState({});
-
   const validate = useCallback((field, value, rules) => {
     let error = "";
     if (rules.required && !value?.trim()) error = `${field} es obligatorio`;
@@ -115,7 +115,6 @@ const useFormValidation = () => {
     setErrors((p) => ({ ...p, [field]: error }));
     return !error;
   }, []);
-
   const clearErrors = useCallback(() => setErrors({}), []);
   return { errors, validate, clearErrors };
 };
@@ -125,32 +124,24 @@ const useFormValidation = () => {
 // ─────────────────────────────────────────
 const useBusinessStatus = (schedule) => {
   const [status, setStatus] = useState({ label: "", type: "neutral" });
-
   useEffect(() => {
     const dayMap = { lun:"Lun", mar:"Mar", "mié":"Mie", jue:"Jue", vie:"Vie", "sáb":"Sab", dom:"Dom" };
-    const now   = new Date();
+    const now    = new Date();
     const dayKey = now.toLocaleDateString("es-ES", { weekday: "short" }).toLowerCase();
     const today  = dayMap[dayKey];
     const hoy    = today && schedule[today];
-
     if (!hoy || hoy.cerrado) { setStatus({ label: "Cerrado", type: "closed" }); return; }
-
-    const ahora = now.toTimeString().slice(0, 5);
-
+    const ahora  = now.toTimeString().slice(0, 5);
     const inRange = (a, b) => ahora >= a && ahora <= b;
     const isOpen  = hoy.deCorrido
       ? inRange(hoy.open, hoy.close)
       : inRange(hoy.manana.open, hoy.manana.close) || inRange(hoy.tarde.open, hoy.tarde.close);
-
     if (isOpen) { setStatus({ label: "Abierto ahora", type: "open" }); return; }
-
-    // próxima apertura
     if (!hoy.deCorrido && ahora < hoy.manana.open) setStatus({ label: `Abre a las ${hoy.manana.open}`, type: "neutral" });
     else if (!hoy.deCorrido && ahora < hoy.tarde.open) setStatus({ label: `Abre a las ${hoy.tarde.open}`, type: "neutral" });
     else if (hoy.deCorrido) setStatus({ label: `Abre a las ${hoy.open}`, type: "neutral" });
     else setStatus({ label: "Cerrado", type: "closed" });
   }, [schedule]);
-
   return status;
 };
 
@@ -158,26 +149,26 @@ const useBusinessStatus = (schedule) => {
 // COMPONENTE PRINCIPAL
 // ═════════════════════════════════════════
 const ProfileHeader = ({
-  isOwner          = false,
+  isOwner        = false,
   businessData: externalData = null,
-  useMock          = false,        // ← activar para preview
+  useMock        = false,
 }) => {
   const { user } = useContext(UserContext);
 
-  const [loading,    setLoading]    = useState({ business: true, posts: false, profileImage: false, coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false });
-  const [errorMsg,   setErrorMsg]   = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-  const [infoMsg,    setInfoMsg]    = useState("");
+  const [loading,     setLoading]    = useState({ business: true, posts: false, profileImage: false, coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false });
+  const [errorMsg,    setErrorMsg]   = useState("");
+  const [successMsg,  setSuccessMsg] = useState("");
+  const [infoMsg,     setInfoMsg]    = useState("");
 
-  const [isEditing,  setIsEditing]  = useState(false);
-  const [showModal,  setShowModal]  = useState(false);
-  const [modalType,  setModalType]  = useState("post");
-  const [editingPost,setEditingPost]= useState(null);
+  const [isEditing,   setIsEditing]  = useState(false);
+  const [showModal,   setShowModal]  = useState(false);
+  const [modalType,   setModalType]  = useState("post");
+  const [editingPost, setEditingPost]= useState(null);
 
-  const [posts,      setPosts]      = useState([]);
-  const [activeTab,  setActiveTab]  = useState("posts");
-  const [businessId, setBusinessId] = useState(null);
-  const [showSchedule, setShowSchedule] = useState(false);
+  const [posts,       setPosts]      = useState([]);
+  const [activeTab,   setActiveTab]  = useState("posts");
+  const [businessId,  setBusinessId] = useState(null);
+  const [showSchedule,setShowSchedule] = useState(false);
 
   const [businessData, setBusinessData] = useState({ name:"", email:"", phone:"", link:"", description:"", profileImage:null, coverImage:null });
   const [schedule,     setSchedule]     = useState(DEFAULT_SCHEDULE);
@@ -186,10 +177,13 @@ const ProfileHeader = ({
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [coverImageFile,   setCoverImageFile]   = useState(null);
 
+  // ── Estado del modal de recorte ──
+  const [cropModal, setCropModal] = useState({ open: false, src: null, type: null });
+
   const { errors, validate, clearErrors } = useFormValidation();
   const statusInfo = useBusinessStatus(schedule);
 
-  // ── Limpiar blob URLs al desmontar ──
+  // ── Limpiar blob URLs ──
   useEffect(() => () => {
     if (draft.profileImage?.startsWith("blob:")) URL.revokeObjectURL(draft.profileImage);
     if (draft.coverImage?.startsWith("blob:"))   URL.revokeObjectURL(draft.coverImage);
@@ -199,8 +193,7 @@ const ProfileHeader = ({
   useEffect(() => {
     if (useMock) {
       const d = normalizeBusiness(MOCK_BUSINESS);
-      setBusinessData(d);
-      setDraft(d);
+      setBusinessData(d); setDraft(d);
       setBusinessId(MOCK_BUSINESS.idCommerce);
       setPosts(MOCK_POSTS.map(normalizePost));
       setLoading((p) => ({ ...p, business: false }));
@@ -208,8 +201,7 @@ const ProfileHeader = ({
     }
     if (externalData) {
       const d = normalizeBusiness(externalData);
-      setBusinessData(d);
-      setDraft(d);
+      setBusinessData(d); setDraft(d);
       const id = externalData.idCommerce || externalData.id_business;
       setBusinessId(id);
       setLoading((p) => ({ ...p, business: false }));
@@ -220,15 +212,14 @@ const ProfileHeader = ({
     else setLoading((p) => ({ ...p, business: false }));
   }, [user?.id_user, externalData, useMock]);
 
-  // ── Helpers de mensajes ──
+  // ── Mensajes ──
   const flash = (setter, msg, ms = 3500) => { setter(msg); setTimeout(() => setter(""), ms); };
   const flashError   = (m) => flash(setErrorMsg,   m, 5000);
   const flashSuccess = (m) => flash(setSuccessMsg, m);
   const flashInfo    = (m) => flash(setInfoMsg,    m);
-
   const setLoad = (key, val) => setLoading((p) => ({ ...p, [key]: val }));
 
-  // ── Cargar negocio desde API ──
+  // ── API ──
   const loadBusinessData = async () => {
     setLoad("business", true);
     try {
@@ -236,13 +227,11 @@ const ProfileHeader = ({
       if (biz) {
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
-        setBusinessData(d);
-        setDraft(d);
+        setBusinessData(d); setDraft(d);
         await loadPosts(biz.id_business);
       } else {
         const d = normalizeBusiness({ name: user.name ? `${user.name} ${user.lastname || ""}`.trim() : "" });
-        setBusinessData(d);
-        setDraft(d);
+        setBusinessData(d); setDraft(d);
       }
     } catch (err) { flashError(err.message || "Error al cargar el negocio"); }
     finally { setLoad("business", false); }
@@ -258,7 +247,6 @@ const ProfileHeader = ({
     finally { setLoad("posts", false); }
   };
 
-  // ── Subida de imágenes ──
   const uploadImage = async (type, file) => {
     if (!businessId) return;
     setLoad(type, true);
@@ -281,7 +269,8 @@ const ProfileHeader = ({
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
     setIsEditing(true);
-    setErrorMsg(""); setSuccessMsg(""); setProfileImageFile(null); setCoverImageFile(null);
+    setErrorMsg(""); setSuccessMsg("");
+    setProfileImageFile(null); setCoverImageFile(null);
     clearErrors();
   };
 
@@ -309,7 +298,6 @@ const ProfileHeader = ({
     const desc  = t(draft.description);
     const email = t(draft.email);
     const phone = t(draft.phone);
-
     let valid = true;
     if (!validate("name", name, { required: true, maxLength: 100 })) valid = false;
     if (!validate("description", desc, { required: true, maxLength: 500 })) valid = false;
@@ -327,7 +315,17 @@ const ProfileHeader = ({
       }
       if (profileImageFile) await uploadImage("profileImage", profileImageFile);
       if (coverImageFile)   await uploadImage("coverImage",   coverImageFile);
-      await loadBusinessData();
+      // ✅ Si hay externalData recargamos por businessId específico para no cargar el primer negocio del usuario
+      if (externalData) {
+        const biz = await getBusinessById(businessId);
+        if (biz) {
+          const d = normalizeBusiness(biz);
+          setBusinessData(d);
+          setDraft(d);
+        }
+      } else {
+        await loadBusinessData();
+      }
       setSchedule(draftSchedule);
       setIsEditing(false);
       flashSuccess("✅ Datos guardados correctamente");
@@ -343,7 +341,6 @@ const ProfileHeader = ({
     if (!businessId) { flashError("Creá el negocio primero"); return; }
     const id = typeof businessId === "string" ? parseInt(businessId, 10) : businessId;
     if (isNaN(id)) { flashError("ID de comercio inválido"); return; }
-
     setLoad("creatingPost", true);
     try {
       if (editingPost) {
@@ -374,16 +371,47 @@ const ProfileHeader = ({
   };
 
   const openModal = (type, post = null) => {
-    setModalType(type);
-    setEditingPost(post);
-    setShowModal(true);
+    setModalType(type); setEditingPost(post); setShowModal(true);
+  };
+
+  // ── Handlers para abrir el crop modal ──
+  const handleCoverFileSelect = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const src = URL.createObjectURL(f);
+    setCropModal({ open: true, src, type: "coverImage" });
+    // limpiar el input para permitir re-selección del mismo archivo
+    e.target.value = "";
+  };
+
+  const handleAvatarFileSelect = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const src = URL.createObjectURL(f);
+    setCropModal({ open: true, src, type: "profileImage" });
+    e.target.value = "";
+  };
+
+  const handleCropConfirm = ({ file, previewUrl }) => {
+    if (cropModal.type === "coverImage") {
+      if (draft.coverImage?.startsWith("blob:")) URL.revokeObjectURL(draft.coverImage);
+      setCoverImageFile(file);
+      setDraft((p) => ({ ...p, coverImage: previewUrl }));
+    } else {
+      if (draft.profileImage?.startsWith("blob:")) URL.revokeObjectURL(draft.profileImage);
+      setProfileImageFile(file);
+      setDraft((p) => ({ ...p, profileImage: previewUrl }));
+    }
+    setCropModal({ open: false, src: null, type: null });
+  };
+
+  const handleCropCancel = () => {
+    if (cropModal.src) URL.revokeObjectURL(cropModal.src);
+    setCropModal({ open: false, src: null, type: null });
   };
 
   // ── Helpers de status ──
   const statusDotClass  = { open: styles.statusDotOpen, closed: styles.statusDotClosed, neutral: styles.statusDotNeutral };
   const statusTextClass = { open: styles.statusTextOpen, closed: styles.statusTextClosed, neutral: styles.statusTextNeutral };
 
-  // ── Loading screen ──
   if (loading.business) return (
     <div className={styles.profilePage}>
       <div className={styles.loadingScreen}>
@@ -412,26 +440,19 @@ const ProfileHeader = ({
 
         {/* Portada */}
         <div className={styles.heroSection}>
-          {businessData.coverImage
-            ? <img src={isEditing ? draft.coverImage || businessData.coverImage : businessData.coverImage}
-                   alt="Portada" className={styles.heroImage} />
+          {(isEditing ? draft.coverImage : businessData.coverImage)
+            ? <img src={isEditing ? draft.coverImage : businessData.coverImage} alt="Portada" className={styles.heroImage} />
             : <div className={styles.heroPlaceholder}><Image size={40}/><span>Sin portada</span></div>
           }
           {isEditing && (
             <label className={styles.coverEditBtn}>
               <Camera size={15}/> {businessData.coverImage ? "Cambiar portada" : "Subir portada"}
-              <input type="file" accept="image/*" className={styles.fileInputHidden}
-                onChange={(e) => {
-                  const f = e.target.files[0]; if (!f) return;
-                  if (draft.coverImage?.startsWith("blob:")) URL.revokeObjectURL(draft.coverImage);
-                  setCoverImageFile(f);
-                  setDraft((p) => ({ ...p, coverImage: URL.createObjectURL(f) }));
-                }} />
+              <input type="file" accept="image/*" className={styles.fileInputHidden} onChange={handleCoverFileSelect} />
             </label>
           )}
         </div>
 
-        {/* Avatar + botones de acción */}
+        {/* Avatar + botones */}
         <div className={styles.profileTop}>
           <div className={styles.avatarWrapper}>
             {isEditing ? (
@@ -440,13 +461,7 @@ const ProfileHeader = ({
                   ? <img src={draft.profileImage} alt="Perfil" className={styles.avatar}/>
                   : <div className={styles.avatarPlaceholder}><User size={32}/></div>}
                 <div className={styles.avatarEditOverlay}><Camera size={18}/></div>
-                <input type="file" accept="image/*" className={styles.fileInputHidden}
-                  onChange={(e) => {
-                    const f = e.target.files[0]; if (!f) return;
-                    if (draft.profileImage?.startsWith("blob:")) URL.revokeObjectURL(draft.profileImage);
-                    setProfileImageFile(f);
-                    setDraft((p) => ({ ...p, profileImage: URL.createObjectURL(f) }));
-                  }} />
+                <input type="file" accept="image/*" className={styles.fileInputHidden} onChange={handleAvatarFileSelect} />
               </label>
             ) : (
               businessData.profileImage
@@ -475,13 +490,9 @@ const ProfileHeader = ({
         <div className={styles.profileMeta}>
           {isEditing ? (
             <>
-              <input
-                className={styles.editNameInput}
-                value={draft.name}
+              <input className={styles.editNameInput} value={draft.name}
                 onChange={(e) => { handleInputChange("name")(e); validate("name", e.target.value, { required: true, maxLength: 100 }); }}
-                placeholder="Nombre del negocio *"
-                maxLength={100}
-              />
+                placeholder="Nombre del negocio *" maxLength={100} />
               {errors.name && <span className={styles.fieldError}>{errors.name}</span>}
               <span className={styles.charCount}>{draft.name.length}/100</span>
             </>
@@ -496,22 +507,15 @@ const ProfileHeader = ({
           )}
         </div>
 
-        {/* Grid: descripción + contacto */}
+        {/* Grid info */}
         <div className={styles.infoGrid}>
-
-          {/* Columna izquierda: descripción + horarios */}
           <div className={styles.infoCol}>
             <p className={styles.infoSectionTitle}>Sobre el negocio</p>
-
             {isEditing ? (
               <>
-                <textarea
-                  className={styles.editTextarea}
-                  value={draft.description}
+                <textarea className={styles.editTextarea} value={draft.description}
                   onChange={(e) => { handleInputChange("description")(e); validate("description", e.target.value, { required: true, maxLength: 500 }); }}
-                  placeholder="Descripción del negocio *"
-                  maxLength={500}
-                />
+                  placeholder="Descripción del negocio *" maxLength={500} />
                 {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
                 <span className={styles.charCount}>{draft.description.length}/500</span>
               </>
@@ -519,12 +523,10 @@ const ProfileHeader = ({
               <p className={styles.descriptionText}>{businessData.description || "Sin descripción"}</p>
             )}
 
-            {/* Horarios */}
             {!isEditing && (
               <div style={{ marginTop: 16 }}>
                 <button className={styles.scheduleToggleBtn} onClick={() => setShowSchedule((p) => !p)}>
-                  <Clock size={15}/>
-                  Horarios
+                  <Clock size={15}/> Horarios
                   {showSchedule ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
                 </button>
                 {showSchedule && (
@@ -562,17 +564,16 @@ const ProfileHeader = ({
             )}
           </div>
 
-          {/* Columna derecha: contacto */}
           <div className={styles.infoCol}>
             <p className={styles.infoSectionTitle}>Contacto</p>
 
-            {/* Teléfono */}
             <div className={styles.contactRow}>
               <Phone size={16} className={styles.contactIcon}/>
               {isEditing ? (
                 <div style={{ flex: 1 }}>
                   <input className={`${styles.editInput} ${errors.phone ? styles.inputError : ""}`}
-                    type="tel" value={draft.phone} onChange={(e) => { handlePhoneChange(e); validate("phone", e.target.value, { phone: true }); }}
+                    type="tel" value={draft.phone}
+                    onChange={(e) => { handlePhoneChange(e); validate("phone", e.target.value, { phone: true }); }}
                     placeholder="Teléfono" />
                   {errors.phone && <span className={styles.fieldError}>{errors.phone}</span>}
                 </div>
@@ -583,13 +584,13 @@ const ProfileHeader = ({
               )}
             </div>
 
-            {/* Email */}
             <div className={styles.contactRow}>
               <Mail size={16} className={styles.contactIcon}/>
               {isEditing ? (
                 <div style={{ flex: 1 }}>
                   <input className={`${styles.editInput} ${errors.email ? styles.inputError : ""}`}
-                    type="email" value={draft.email} onChange={(e) => { handleInputChange("email")(e); validate("email", e.target.value, { email: true }); }}
+                    type="email" value={draft.email}
+                    onChange={(e) => { handleInputChange("email")(e); validate("email", e.target.value, { email: true }); }}
                     placeholder="Email" maxLength={60}/>
                   {errors.email && <span className={styles.fieldError}>{errors.email}</span>}
                 </div>
@@ -600,13 +601,11 @@ const ProfileHeader = ({
               )}
             </div>
 
-            {/* Link */}
             <div className={styles.contactRow}>
               <Link2 size={16} className={styles.contactIcon}/>
               {isEditing ? (
-                <input className={styles.editInput}
-                  type="url" value={String(draft.link || "")} onChange={handleInputChange("link")}
-                  placeholder="https://tusitio.com" maxLength={200}/>
+                <input className={styles.editInput} type="url" value={String(draft.link || "")}
+                  onChange={handleInputChange("link")} placeholder="https://tusitio.com" maxLength={200}/>
               ) : (
                 <span className={businessData.link ? styles.contactText : styles.contactEmpty}>
                   {businessData.link || "Sin link"}
@@ -614,18 +613,13 @@ const ProfileHeader = ({
               )}
             </div>
           </div>
-
         </div>
       </div>
 
       {/* ── Barra de acciones ── */}
       <div className={styles.actionsBar}>
         <div className={styles.actionsLeft}>
-          {!isEditing && (
-            <button className={styles.btnFav}>
-              <Star size={16} strokeWidth={2}/> Favorito
-            </button>
-          )}
+          {!isEditing && <button className={styles.btnFav}><Star size={16} strokeWidth={2}/> Favorito</button>}
           {!isEditing && businessData.link && (
             <a href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
                target="_blank" rel="noopener noreferrer" className={styles.btnSocialLink}>
@@ -633,7 +627,6 @@ const ProfileHeader = ({
             </a>
           )}
         </div>
-
         {isOwner && !isEditing && (
           <div className={styles.actionsRight}>
             {!businessId ? (
@@ -707,8 +700,8 @@ const ProfileHeader = ({
               <div className={styles.eventHeader}>
                 <h3 className={styles.eventTitle}>{ev.text}</h3>
                 <div className={styles.eventMeta}>
-                  {ev.date     && <span className={styles.eventMetaItem}><Clock   size={13}/>{ev.date}</span>}
-                  {ev.time     && <span className={styles.eventMetaItem}><Clock   size={13}/>{ev.time}</span>}
+                  {ev.date     && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.date}</span>}
+                  {ev.time     && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.time}</span>}
                   {ev.location && <span className={styles.eventMetaItem}><ArrowRight size={13}/>{ev.location}</span>}
                 </div>
               </div>
@@ -725,7 +718,7 @@ const ProfileHeader = ({
         )}
       </div>
 
-      {/* ── Modal crear/editar publicación ── */}
+      {/* ── Modal publicación ── */}
       <CreatePostModal
         isOpen={showModal}
         onClose={() => { setShowModal(false); setEditingPost(null); }}
@@ -733,6 +726,18 @@ const ProfileHeader = ({
         type={modalType}
         initialData={editingPost}
       />
+
+      {/* ── Modal de recorte de imagen ── */}
+      {cropModal.open && (
+        <ImageCropModal
+          imageSrc={cropModal.src}
+          aspect={cropModal.type === "coverImage" ? 16 / 9 : 1}
+          title={cropModal.type === "coverImage" ? "Ajustar portada" : "Ajustar foto de perfil"}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
+
     </div>
   );
 };
