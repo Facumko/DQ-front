@@ -13,13 +13,15 @@ const Negocios = () => {
   const navigate = useNavigate();
 
   const isPublic = !!id;
-  const isOwner = !isPublic && !!user;
 
   const [businessData, setBusinessData] = useState(null);
   const [posts,        setPosts]        = useState([]);
   const [gallery,      setGallery]      = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
+
+  // ✅ isOwner se calcula DESPUÉS de cargar el negocio, comparando IDs
+  const isOwner = !!user && !!businessData && Number(businessData.id_user) === Number(user.id_user);
 
   useEffect(() => {
     const load = async () => {

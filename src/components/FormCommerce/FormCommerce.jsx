@@ -48,10 +48,11 @@ function FormCommerce() {
   });
 
   // ── Verificar sesión y negocio existente ─────────────────────────────────
+  // ✅ Fix: redirigir en useEffect, nunca durante el render
   useEffect(() => {
     const check = async () => {
       if (!user?.id_user) {
-        navigate("/");
+        navigate("/login");
         return;
       }
       try {
@@ -68,7 +69,6 @@ function FormCommerce() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const updateFormData = (data) => setFormData(prev => ({ ...prev, ...data }));
-
   const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
@@ -79,13 +79,15 @@ function FormCommerce() {
 
   // Paso 4: crear negocio
   const handleSuccess = async () => {
-    if (!user?.id_user) { navigate("/"); return; }
+    if (!user?.id_user) { navigate("/login"); return; }
+
     if (!formData.businessName || !formData.businessDescription) {
       alert("Por favor completá todos los campos requeridos");
       return;
     }
 
     setIsSubmitting(true);
+
     try {
       const businessData = {
         name:        formData.businessName.trim(),
@@ -101,6 +103,9 @@ function FormCommerce() {
       };
 
       const created = await createBusiness(businessData);
+
+      // ✅ Fix: refrescar lista de negocios en el Navbar
+      await loadBusinesses(user.id_user);
 
       if (created?.id_business) {
         navigate("/mi-negocio");
