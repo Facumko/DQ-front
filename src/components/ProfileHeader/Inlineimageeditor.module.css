@@ -1,50 +1,39 @@
 /* ============================================================
-   InlineImageEditor.module.css  — v3 final
-   Avatar 180px permanente · Skeleton · Blur-up · Compresión
+   InlineImageEditor.module.css  — v4 bugfix
+   Fixes: avatar z-index, blur-up opacity, skeleton timing
    ============================================================ */
 
-/* ══════════════════════════════════════════
-   SHIMMER (compartido)
-══════════════════════════════════════════ */
 @keyframes shimmer {
   0%   { background-position: 200% center; }
   100% { background-position: -200% center; }
 }
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(-5px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes dotPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.4; transform: scale(0.65); }
 }
-
 @keyframes ringPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.45; transform: scale(1.05); }
 }
-
 @keyframes popIn {
   from { transform: scale(0); }
   to   { transform: scale(1); }
 }
-
 @keyframes toolbarUp {
   from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.96); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 }
-
 @keyframes panelDown {
   from { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.95); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 }
-
 @keyframes gridIn {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -52,6 +41,9 @@
 
 /* ══════════════════════════════════════════
    PORTADA
+   FIX: overflow debe ser hidden para la imagen
+        pero NO debe cortar el avatar que está
+        en un elemento hermano (.profileTop)
 ══════════════════════════════════════════ */
 
 .coverContainer {
@@ -59,7 +51,7 @@
   width: 100%;
   height: 340px;
   background: linear-gradient(135deg, #B00020 0%, #800018 100%);
-  overflow: hidden;
+  overflow: hidden;           /* ✅ Solo corta la imagen, NO al avatar */
   transition: box-shadow 0.3s ease;
 }
 
@@ -76,7 +68,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(90deg, #c0c0c0 0%, #d4d4d4 40%, #c0c0c0 80%);
+  background: linear-gradient(90deg, #c8c8c8 0%, #d8d8d8 40%, #c8c8c8 80%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease infinite;
 }
@@ -90,27 +82,32 @@
   user-select: none;
   -webkit-user-drag: none;
   will-change: transform, object-position;
-}
-
-.coverImgLoading {
-  filter: blur(14px) saturate(0.5);
-  opacity: 0;
-  transform: scale(1.06);
-  transition: none;
+  /* FIX: posición relativa para estar encima del skeleton */
   position: relative;
   z-index: 2;
 }
 
+/* FIX: coverImgLoading — transparente pero presente en el DOM
+   El skeleton de abajo (z-index 1) es visible mientras tanto */
+.coverImgLoading {
+  filter: blur(14px) saturate(0.5);
+  opacity: 0;                 /* invisible mientras carga */
+  transform: scale(1.06);
+  transition: none;
+}
+
+/* FIX: transición solo en loaded, no en loading */
 .coverImgLoaded {
   filter: blur(0) saturate(1);
   opacity: 1;
   transform: scale(1);
-  transition: filter 0.5s ease, opacity 0.4s ease, transform 0.5s ease;
-  position: relative;
-  z-index: 2;
+  transition:
+    filter   0.5s ease,
+    opacity  0.4s ease,
+    transform 0.5s ease;
 }
 
-/* Placeholder sin imagen */
+/* Placeholder sin imagen — muestra gradiente de fondo del container */
 .coverPlaceholder {
   width: 100%;
   height: 100%;
@@ -118,6 +115,8 @@
   align-items: center;
   justify-content: center;
   color: rgba(255,255,255,0.22);
+  position: relative;
+  z-index: 2;
 }
 
 /* Grid de tercios */
@@ -133,7 +132,7 @@
   animation: gridIn 0.12s ease;
 }
 
-/* Spinner compresión sobre portada */
+/* Spinner compresión */
 .compressingOverlay {
   position: absolute;
   inset: 0;
@@ -159,7 +158,7 @@
   animation: spin 0.7s linear infinite;
 }
 
-/* Capa de controles */
+/* Capa de controles — pointer-events: none para que no bloquee el drag */
 .coverOverlay {
   position: absolute;
   inset: 0;
@@ -186,7 +185,7 @@
   pointer-events: none;
 }
 
-/* Toolbar flotante de ajuste */
+/* Toolbar flotante */
 .coverToolbar {
   position: absolute;
   bottom: 18px;
@@ -240,7 +239,6 @@
   outline: none;
   cursor: pointer;
 }
-
 .zoomSlider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
@@ -354,23 +352,17 @@
   animation: fadeSlideIn 0.2s ease;
   transition: background 0.25s ease;
 }
-
-.badgeReady {
-  background: rgba(22,163,74,0.78);
-}
+.badgeReady { background: rgba(22,163,74,0.78); }
 
 .unsavedDot {
-  width: 7px;
-  height: 7px;
+  width: 7px; height: 7px;
   border-radius: 50%;
   background: #f59e0b;
   animation: dotPulse 1.4s ease infinite;
   flex-shrink: 0;
 }
-
 .readyDot {
-  width: 7px;
-  height: 7px;
+  width: 7px; height: 7px;
   border-radius: 50%;
   background: #4ade80;
   flex-shrink: 0;
@@ -378,16 +370,23 @@
 
 
 /* ══════════════════════════════════════════
-   AVATAR — 180px permanente
+   AVATAR
+   FIX PRINCIPAL: el avatar debe salir del
+   flujo del coverContainer usando z-index
+   alto en el wrapper .avatarWrapper del
+   ProfileHeader (via ProfileHeader.module.css)
+   Acá solo manejamos el contenido interno.
 ══════════════════════════════════════════ */
 
 .avatarWrapper {
   position: relative;
   flex-shrink: 0;
+  /* FIX: z-index alto para que aparezca SOBRE la portada */
+  z-index: 10;
 }
 
 .avatarExpanded {
-  z-index: 10;
+  z-index: 15;
 }
 
 /* Anillo pulsante */
@@ -419,7 +418,7 @@
   animation: popIn 0.22s cubic-bezier(0.34,1.56,0.64,1);
 }
 
-/* Círculo — 180px permanente */
+/* Círculo — 180px desktop */
 .avatarCircle {
   width: 180px;
   height: 180px;
@@ -435,7 +434,6 @@
     box-shadow 0.25s ease;
 }
 
-/* Expandido al editar */
 .avatarCircleEditing {
   width: 200px;
   height: 200px;
@@ -475,7 +473,7 @@
   z-index: 4;
 }
 
-/* Blur-up avatar */
+/* FIX blur-up avatar: mismo patrón que portada */
 .avatarImgLoading {
   filter: blur(10px) saturate(0.5);
   opacity: 0;
@@ -489,7 +487,10 @@
   filter: blur(0) saturate(1);
   opacity: 1;
   transform: scale(1);
-  transition: filter 0.45s ease, opacity 0.35s ease, transform 0.45s ease;
+  transition:
+    filter   0.45s ease,
+    opacity  0.35s ease,
+    transform 0.45s ease;
   position: relative;
   z-index: 2;
 }
@@ -503,7 +504,6 @@
   justify-content: center;
   background: #ebebec;
 }
-
 .avatarFallbackSvg {
   width: 100%;
   height: 100%;
@@ -525,18 +525,14 @@
   transition: opacity 0.18s ease;
   z-index: 3;
 }
-
-/* Desktop: hover */
 @media (hover: hover) {
   .avatarCircle:hover .avatarCameraOverlay { opacity: 1; }
 }
-
-/* Mobile: siempre visible */
 @media (hover: none) {
   .avatarCameraOverlay { opacity: 1 !important; background: rgba(0,0,0,0.32); }
 }
 
-/* Panel de edición expandido */
+/* Panel de ajuste expandido */
 .avatarEditPanel {
   position: absolute;
   top: calc(100% + 12px);
@@ -580,7 +576,6 @@
   outline: none;
   cursor: pointer;
 }
-
 .avatarZoomSlider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 15px;
@@ -662,23 +657,18 @@
 /* Dots de estado */
 .avatarUnsaved {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 12px;
-  height: 12px;
+  top: 4px; right: 4px;
+  width: 12px; height: 12px;
   border-radius: 50%;
   background: #f59e0b;
   border: 2.5px solid white;
   z-index: 3;
   animation: dotPulse 1.4s ease infinite;
 }
-
 .avatarReadyDot {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 12px;
-  height: 12px;
+  top: 4px; right: 4px;
+  width: 12px; height: 12px;
   border-radius: 50%;
   background: #16a34a;
   border: 2.5px solid white;
@@ -688,10 +678,14 @@
 /* ══════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════ */
-
 @media (max-width: 768px) {
   .coverContainer { height: 220px; }
-  .coverToolbar { bottom: 10px; padding: 7px 10px; gap: 5px; max-width: calc(100vw - 32px); }
+  .coverToolbar {
+    bottom: 10px;
+    padding: 7px 10px;
+    gap: 5px;
+    max-width: calc(100vw - 32px);
+  }
   .toolbarGroup { display: none; }
   .zoomSlider { width: 55px; }
   .uploadBtn { bottom: 10px; right: 10px; padding: 6px 12px; font-size: 0.75rem; }
