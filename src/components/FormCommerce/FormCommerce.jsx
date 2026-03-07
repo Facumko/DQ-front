@@ -20,7 +20,7 @@ const STEPS = ["Plan", "Propietario", "Negocio", "Confirmación"];
 
 function FormCommerce() {
   const navigate = useNavigate();
-  const { user } = useContext(UserContext);
+  const { user, loadBusinesses } = useContext(UserContext);
 
   const [currentStep,      setCurrentStep]     = useState(1);
   const [isSubmitting,     setIsSubmitting]     = useState(false);
