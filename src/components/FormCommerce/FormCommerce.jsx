@@ -1,7 +1,8 @@
 import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { createBusiness, getBusinessByUserId } from "../../Api/Api";
+import { createBusiness } from "../../Api/Api";
+// getBusinessByUserId eliminado — ya no se necesita acá
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
 import CreatorInfo from "./CreatorInfo";
@@ -47,24 +48,13 @@ function FormCommerce() {
     email:               "",
   });
 
-  // ── Verificar sesión y negocio existente ─────────────────────────────────
-  // ✅ Fix: redirigir en useEffect, nunca durante el render
+  // ── Verificar sesión ─────────────────────────────────────────────────────
   useEffect(() => {
-    const check = async () => {
-      if (!user?.id_user) {
-        navigate("/login");
-        return;
-      }
-      try {
-        const existing = await getBusinessByUserId(user.id_user);
-        if (existing) navigate("/mi-negocio");
-      } catch {
-        // no tiene negocio, puede continuar
-      } finally {
-        setCheckingBusiness(false);
-      }
-    };
-    check();
+    if (!user?.id_user) {
+      navigate("/login");
+      return;
+    }
+    setCheckingBusiness(false);
   }, [user, navigate]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -104,14 +94,10 @@ function FormCommerce() {
 
       const created = await createBusiness(businessData);
 
-      // ✅ Fix: refrescar lista de negocios en el Navbar
+      // Refrescar lista de negocios en el Navbar
       await loadBusinesses(user.id_user);
 
-      if (created?.id_business) {
-        navigate("/mi-negocio");
-      } else {
-        navigate("/mi-negocio");
-      }
+      navigate(`/negocios/${created.id_business}`);
     } catch (err) {
       alert(`Error al crear el negocio: ${err.message}`);
       setIsSubmitting(false);

@@ -1,0 +1,140 @@
+/* ImageCropModal.module.css */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 540px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Área de recorte */
+.cropArea {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  background: #111;
+}
+
+/* Zoom */
+.zoomSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.zoomLabel {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.zoomSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  outline: none;
+  cursor: pointer;
+}
+
+.zoomSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #B00020;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.zoomValue {
+  font-size: 0.82rem;
+  color: #6b7280;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Botones */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btnCancel {
+  padding: 9px 20px;
+  background: #f3f4f6;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 30px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btnCancel:hover:not(:disabled) {
+  border-color: #9ca3af;
+  color: #374151;
+}
+.btnCancel:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnConfirm {
+  padding: 9px 24px;
+  background: #B00020;
+  border: none;
+  border-radius: 30px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btnConfirm:hover:not(:disabled) { background: #800018; }
+.btnConfirm:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .cropArea { height: 260px; }
+  .modal { max-width: 100%; border-radius: 12px; }
+}
