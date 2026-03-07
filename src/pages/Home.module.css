@@ -666,3 +666,126 @@
   .categoryContent{ padding: 16px; }
   .categoryTitle  { font-size: 1rem; }
 }
+/* ── Feed estados ── */
+.feedLoading { display: flex; flex-direction: column; gap: 16px; }
+
+.postCardSkeleton {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeletonHeader, .skeletonBody, .skeletonImage {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+.skeletonHeader { height: 40px; }
+.skeletonBody   { height: 20px; width: 80%; }
+.skeletonImage  { height: 200px; border-radius: 10px; }
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.feedError {
+  text-align: center; padding: 32px; color: #B00020;
+  background: #fff8f8; border-radius: 12px; border: 1px solid #fecaca;
+}
+
+.retryBtn {
+  margin-top: 12px; padding: 8px 20px; background: #B00020;
+  color: #fff; border: none; border-radius: 8px; cursor: pointer;
+  font-weight: 600; font-family: inherit;
+}
+.retryBtn:hover { background: #8a0018; }
+
+.feedEmpty { text-align: center; padding: 48px; color: #9ca3af; font-size: 1rem; }
+
+.postAvatarFallback {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: #B00020; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 1.1rem; flex-shrink: 0;
+}
+
+.feedEnd { text-align: center; color: #9ca3af; font-size: 0.9rem; padding: 16px; }
+
+/* ── Post card rediseñado ── */
+.postHeaderTime {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  margin-left: auto;
+  padding-left: 8px;
+  flex-shrink: 0;
+}
+
+.postBusinessName {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #111;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+.postBusinessName:hover { color: #B00020; }
+
+.postActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.postActionsLeft {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.postActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #4b5563;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.postActionBtn:hover { background: #f3f4f6; color: #111; }
+.postActionBtnActive { color: #B00020 !important; }
+.postActionBtnActive:hover { background: #fff5f5 !important; }
+
+.postContent {
+  padding: 8px 16px 4px;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.postContentBusiness {
+  font-weight: 700;
+  color: #111;
+}
+
+.postFooterTime {
+  display: block;
+  padding: 2px 16px 14px;
+  font-size: 0.72rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
