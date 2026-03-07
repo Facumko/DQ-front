@@ -58,7 +58,7 @@ const ENDPOINTS = {
 };
 
 // ============================================
-// 🆕 GESTIÓN DE TOKENS JWT
+// GESTIÓN DE TOKENS JWT
 // ============================================
 
 let isRefreshing = false;
@@ -113,39 +113,20 @@ export const clearTokens = () => {
   }
 };
 
-// 🆕 Función para refrescar el token
 const refreshAccessToken = async () => {
   const { refreshToken } = getStoredTokens();
   
-  console.log('🔄 ========== INICIO REFRESH TOKEN ==========');
-  console.log('🔍 1. refreshToken obtenido de localStorage:', refreshToken ? '✅ Existe' : '❌ NULL');
-  console.log('🔍 2. Primeros 30 caracteres:', refreshToken ? refreshToken.substring(0, 30) : 'N/A');
-  console.log('🔍 3. Longitud total:', refreshToken?.length);
-  console.log('🔍 4. Tipo de dato:', typeof refreshToken);
-  
   if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null' || refreshToken.trim() === '') {
-    console.error('❌ refreshToken inválido');
     clearTokens();
     throw new Error('No hay refresh token disponible');
   }
 
-  // 🆕 CREAR PAYLOAD Y VERIFICAR
   const payload = { refreshToken: refreshToken };
-  
-  console.log('🔍 5. Payload creado:', payload);
-  console.log('🔍 6. Payload.refreshToken existe?:', !!payload.refreshToken);
-  console.log('🔍 7. JSON.stringify del payload:', JSON.stringify(payload));
 
   try {
-    console.log('📤 8. Enviando request a:', `${API_URL}${ENDPOINTS.REFRESH_TOKEN}`);
-    console.log('📤 9. Headers que se enviarán:', {
-      'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
-    });
-    
     const response = await axios.post(
       `${API_URL}${ENDPOINTS.REFRESH_TOKEN}`, 
-      payload, // { refreshToken: "eyJhbG..." }
+      payload,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -155,9 +136,6 @@ const refreshAccessToken = async () => {
       }
     );
 
-    console.log('✅ 10. Respuesta exitosa del backend:', response.data);
-    console.log('✅ 11. Status code:', response.status);
-
     const { accessToken, refreshToken: newRefreshToken } = response.data;
     
     if (!accessToken) {
@@ -165,38 +143,20 @@ const refreshAccessToken = async () => {
     }
     
     saveTokens(accessToken, newRefreshToken || refreshToken);
-    
-    console.log('✅ ========== FIN REFRESH TOKEN EXITOSO ==========');
     return accessToken;
     
   } catch (error) {
-    console.error('❌ ========== ERROR EN REFRESH TOKEN ==========');
-    console.error('❌ Error completo:', error);
-    console.error('❌ Error.message:', error.message);
-    console.error('❌ Error.response:', error.response);
-    console.error('❌ Error.response.data:', error.response?.data);
-    console.error('❌ Error.response.status:', error.response?.status);
-    console.error('❌ Error.config.data:', error.config?.data);
-    console.error('❌ ================================================');
     clearTokens();
     throw error;
   }
 };
+
 // ============================================
 // INTERCEPTORES DE AXIOS
 // ============================================
 
-// 🆕 Request Interceptor - Agregar token automáticamente
 axios.interceptors.request.use(
   (config) => {
-
-    if (config.url.includes('/auth/refresh')) {
-      console.log('🔍 INTERCEPTOR REQUEST - URL:', config.url);
-      console.log('🔍 INTERCEPTOR REQUEST - Body:', config.data);
-      console.log('🔍 INTERCEPTOR REQUEST - Body tipo:', typeof config.data);
-      console.log('🔍 INTERCEPTOR REQUEST - Body stringificado:', JSON.stringify(config.data));
-    }
-    // No agregar token a endpoints públicos
     const publicEndpoints = [
       ENDPOINTS.LOGIN,
       ENDPOINTS.REGISTER,
@@ -219,13 +179,11 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 🆕 Response Interceptor - Manejar 401 y refresh automático
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Si es 401 y no es refresh token endpoint
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (originalRequest.url.includes(ENDPOINTS.REFRESH_TOKEN)) {
         clearTokens();
@@ -250,10 +208,8 @@ axios.interceptors.response.use(
       try {
         const newToken = await refreshAccessToken();
         processQueue(null, newToken);
-        // Actualizar el header en el request original y en axios.defaults
         originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-        originalRequest.headers['Authorization'.toLowerCase()] = `Bearer ${newToken}`;
         setAuthToken(newToken);
         return axios(originalRequest);
       } catch (refreshError) {
@@ -283,7 +239,6 @@ axios.defaults.headers.common['Access-Control-Allow-Headers'] = '*';
 axios.defaults.headers.common['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,PATCH,OPTIONS';
 axios.defaults.withCredentials = false;
 
-// Cargar token al iniciar
 const { accessToken } = getStoredTokens();
 if (accessToken) {
   setAuthToken(accessToken);
@@ -328,8 +283,6 @@ export const validatePasswordStrength = (password) => {
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const shouldRetry = (error) => {
-  // 401 lo maneja exclusivamente el interceptor de respuesta (refresh token).
-  // Si apiRequest tambien reintenta, los dos sistemas se pisan.
   if (error.response?.status === 401) return false;
   if (!error.response) return true;
   if (error.code === 'ECONNABORTED') return true;
@@ -339,13 +292,11 @@ const shouldRetry = (error) => {
 
 const validateApiResponse = (response, endpoint) => {
   if (typeof response === 'string' && response.includes('<!DOCTYPE html>')) {
-    throw new Error(`El servidor respondió con una página HTML en lugar de datos JSON. Posible problema de CORS en el endpoint: ${endpoint}`);
+    throw new Error(`El servidor respondió con HTML en lugar de JSON. Endpoint: ${endpoint}`);
   }
-  
   if (typeof response === 'string' && response.includes('ngrok')) {
-    throw new Error(`Ngrok está bloqueando la petición. Verifica la configuración de CORS. Endpoint: ${endpoint}`);
+    throw new Error(`Ngrok está bloqueando la petición. Endpoint: ${endpoint}`);
   }
-  
   return true;
 };
 
@@ -355,14 +306,14 @@ const handleApiError = (error, endpoint) => {
   }
   
   if (error.response && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
-    return new Error(`🔒 Ngrok está bloqueando la petición por CORS. Endpoint: ${endpoint}. Configura los headers CORS en el backend.`);
+    return new Error(`🔒 Ngrok está bloqueando la petición. Endpoint: ${endpoint}`);
   }
   
   if (!error.response) {
     if (error.code === 'ECONNABORTED') {
-      return new Error('⏱️ La petición tardó demasiado tiempo. Verifica tu conexión a internet.');
+      return new Error('⏱️ La petición tardó demasiado tiempo.');
     }
-    return new Error(`🔌 No se pudo conectar al servidor. Verifica que el backend esté corriendo en ${API_URL}`);
+    return new Error(`🔌 No se pudo conectar al servidor en ${API_URL}`);
   }
   
   const { status, data } = error.response;
@@ -370,17 +321,17 @@ const handleApiError = (error, endpoint) => {
   
   const errorMessages = {
     400: 'Datos inválidos. Por favor revisa la información ingresada.',
-    401: 'Credenciales incorrectas. Verifica tu email y contraseña.',
-    403: 'No tienes permisos para realizar esta acción.',
-    404: 'Recurso no encontrado. Verifica que exista.',
-    409: 'Ya existe un registro con estos datos (email o username duplicado).',
-    422: 'Error de validación. Revisa que todos los campos sean correctos.',
-    500: 'Error interno del servidor. Por favor intenta nuevamente en unos minutos.',
-    502: 'Servidor no disponible. Intenta nuevamente más tarde.',
-    503: 'Servicio temporalmente no disponible. Intenta nuevamente en unos minutos.',
+    401: 'Credenciales incorrectas.',
+    403: 'No tenés permisos para realizar esta acción.',
+    404: 'Recurso no encontrado.',
+    409: 'Ya existe un registro con estos datos.',
+    422: 'Error de validación.',
+    500: 'Error interno del servidor.',
+    502: 'Servidor no disponible.',
+    503: 'Servicio temporalmente no disponible.',
   };
   
-  const message = serverMessage || errorMessages[status] || `Error ${status}: Error inesperado del servidor`;
+  const message = serverMessage || errorMessages[status] || `Error ${status}`;
   return new Error(message);
 };
 
@@ -407,8 +358,6 @@ const logResponse = (method, endpoint, data) => {
 const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) => {
   logRequest(method, endpoint, data);
 
-  // Incluimos el token explicitamente porque este config sobreescribia
-  // axios.defaults.headers, dejando fuera el Authorization del interceptor.
   const { accessToken } = getStoredTokens();
 
   const config = {
@@ -437,53 +386,45 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
   } catch (error) {
     if (retries > 0 && shouldRetry(error)) {
       const attemptNumber = MAX_RETRIES - retries + 1;
-      
       if (isDevelopment) {
         console.warn(`⚠️ Reintentando petición... (Intento ${attemptNumber}/${MAX_RETRIES})`);
       }
-      
       await sleep(1000 * attemptNumber);
       return apiRequest(method, endpoint, data, retries - 1);
     }
-    
     throw handleApiError(error, endpoint);
   }
 };
 
 // ============================================
-// FUNCIONES DE AUTENTICACIÓN - 🆕 ACTUALIZADAS
+// FUNCIONES DE AUTENTICACIÓN
 // ============================================
 
 export const loginUser = async (email, password) => {
   validateParams({ email, password }, ['email', 'password']);
   
   if (!validateEmail(email)) {
-    throw new Error('Por favor ingresa un email válido');
+    throw new Error('Por favor ingresá un email válido');
   }
   
-  try {
-    const response = await apiRequest('POST', ENDPOINTS.LOGIN, { email, password });
-    
-    if (!response || !response.idUser) {
-      throw new Error('Respuesta inválida del servidor: falta ID de usuario');
-    }
-    
-    // 🆕 Guardar tokens JWT
-    if (response.accessToken && response.refreshToken) {
-      saveTokens(response.accessToken, response.refreshToken);
-    }
-    
-    return response;
-  } catch (error) {
-    throw error;
+  const response = await apiRequest('POST', ENDPOINTS.LOGIN, { email, password });
+  
+  if (!response || !response.idUser) {
+    throw new Error('Respuesta inválida del servidor: falta ID de usuario');
   }
+  
+  if (response.accessToken && response.refreshToken) {
+    saveTokens(response.accessToken, response.refreshToken);
+  }
+  
+  return response;
 };
 
 export const registerUser = async (userData) => {
   validateParams(userData, ['email', 'password']);
   
   if (!validateEmail(userData.email)) {
-    throw new Error('Por favor ingresa un email válido');
+    throw new Error('Por favor ingresá un email válido');
   }
   
   if (userData.password.length < 6) {
@@ -505,11 +446,8 @@ export const registerUser = async (userData) => {
   try {
     const response = await apiRequest('POST', ENDPOINTS.REGISTER, registrationData);
     
-    if (!response) {
-      throw new Error('Respuesta inválida del servidor');
-    }
+    if (!response) throw new Error('Respuesta inválida del servidor');
     
-    // 🆕 Guardar tokens JWT
     if (response.accessToken && response.refreshToken) {
       saveTokens(response.accessToken, response.refreshToken);
     }
@@ -517,25 +455,19 @@ export const registerUser = async (userData) => {
     return response;
   } catch (error) {
     if (error.message.includes('duplicado') || error.message.includes('409')) {
-      if (isDevelopment) {
-        console.log('Username duplicado, reintentando con nuevo username...');
-      }
+      if (isDevelopment) console.log('Username duplicado, reintentando...');
       
       registrationData.username = generateUsername(userData.email);
       const retryResponse = await apiRequest('POST', ENDPOINTS.REGISTER, registrationData);
       
-      if (!retryResponse) {
-        throw new Error('Respuesta inválida del servidor');
-      }
+      if (!retryResponse) throw new Error('Respuesta inválida del servidor');
       
-      // 🆕 Guardar tokens JWT en retry
       if (retryResponse.accessToken && retryResponse.refreshToken) {
         saveTokens(retryResponse.accessToken, retryResponse.refreshToken);
       }
       
       return retryResponse;
     }
-    
     throw error;
   }
 };
@@ -543,14 +475,12 @@ export const registerUser = async (userData) => {
 export const logoutUser = async (userId) => {
   try {
     const response = await apiRequest('POST', ENDPOINTS.LOGOUT, { userId });
-    // 🆕 Limpiar tokens JWT
     clearTokens();
     return response;
   } catch (error) {
     if (isDevelopment) {
-      console.warn('Error en logout del backend, limpiando sesión local:', error.message);
+      console.warn('Error en logout del backend:', error.message);
     }
-    // 🆕 Limpiar tokens JWT incluso si falla
     clearTokens();
     return { success: true, message: 'Sesión cerrada localmente' };
   }
@@ -562,12 +492,6 @@ export const logoutUser = async (userId) => {
 
 export const getUserById = async (idUser) => {
   validateParams({ idUser }, ['idUser']);
-  
-  if (isDevelopment) {
-    console.log(`🔍 Obteniendo usuario con ID: ${idUser}`);
-    console.log(`🔗 URL completa: ${API_URL}${ENDPOINTS.GET_USER(idUser)}`);
-  }
-  
   return apiRequest('GET', ENDPOINTS.GET_USER(idUser));
 };
 
@@ -603,6 +527,23 @@ export const uploadImage = async (imageData) => {
 };
 
 // ============================================
+// HELPER: construir AddressDto desde location del LocationPicker
+// location viene como { lat, lng, address } del LocationPicker
+// ============================================
+
+const buildAddressDto = (location) => {
+  if (!location || (!location.lat && !location.lng)) return null;
+  return {
+    address:  location.address || "",  // dirección completa de Nominatim
+    street:   "",
+    district: "",
+    location: "",
+    lat:      location.lat  ?? null,
+    lng:      location.lng  ?? null,
+  };
+};
+
+// ============================================
 // FUNCIONES DE NEGOCIOS
 // ============================================
 
@@ -616,23 +557,27 @@ export const getBusinessByUserId = async (userId) => {
     if (!business) return null;
     
     return {
-      id_business: business.idCommerce,
-      id_user: business.idOwner,
-      name: business.name,
-      description: business.description,
-      email: business.email,
-      phone: business.phone,
-      link: business.link,
-      branchOf: business.branchOf,
+      id_business:  business.idCommerce,
+      id_user:      business.idOwner,
+      name:         business.name,
+      description:  business.description,
+      email:        business.email,
+      phone:        business.phone,
+      link:         business.link,
+      branchOf:     business.branchOf,
       profileImage: business.profileImage?.url || null,
-      coverImage: business.coverImage?.url || null,
+      coverImage:   business.coverImage?.url   || null,
+      // ── Ubicación ──
+      location: business.address?.lat ? {
+        lat:     parseFloat(business.address.lat),
+        lng:     parseFloat(business.address.lng),
+        address: business.address.address || business.address.street || "",
+      } : null,
     };
     
   } catch (error) {
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
-      if (isDevelopment) {
-        console.log("ℹ️ El usuario no tiene negocio creado (404)");
-      }
+      if (isDevelopment) console.log("ℹ️ El usuario no tiene negocio creado (404)");
       return null;
     }
     throw error;
@@ -643,33 +588,34 @@ export const getBusinessById = async (businessId) => {
   validateParams({ businessId }, ['businessId']);
   
   const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS(businessId));
-  
   const business = Array.isArray(response) ? response[0] : response;
   
-  if (!business) {
-    throw new Error('Negocio no encontrado');
-  }
+  if (!business) throw new Error('Negocio no encontrado');
   
   const profileImageUrl = business.profileImage?.url || null;
-  const coverImageUrl = business.coverImage?.url || null;
+  const coverImageUrl   = business.coverImage?.url   || null;
   
   if (isDevelopment) {
     console.log("🖼️ Datos del negocio completo:", business);
-    console.log("🖼️ Imagen de perfil:", profileImageUrl);
-    console.log("🖼️ Imagen de portada:", coverImageUrl);
   }
   
   return {
-    id_business: business.idCommerce,
-    id_user: business.idOwner,
-    name: business.name || '',
-    description: business.description || '',
-    email: business.email || '',
-    phone: business.phone || '',
-    link: business.link || '',
-    branchOf: business.branchOf || null,
+    id_business:  business.idCommerce,
+    id_user:      business.idOwner,
+    name:         business.name        || '',
+    description:  business.description || '',
+    email:        business.email       || '',
+    phone:        business.phone       || '',
+    link:         business.link        || '',
+    branchOf:     business.branchOf    || null,
     profileImage: profileImageUrl,
-    coverImage: coverImageUrl,
+    coverImage:   coverImageUrl,
+    // ── Ubicación ──
+    location: business.address?.lat ? {
+      lat:     parseFloat(business.address.lat),
+      lng:     parseFloat(business.address.lng),
+      address: business.address.address || business.address.street || "",
+    } : null,
   };
 };
 
@@ -679,50 +625,55 @@ export const createBusiness = async (businessData) => {
   if (!businessData.name || businessData.name.trim() === '') {
     throw new Error('El nombre del negocio es obligatorio');
   }
-  
   if (!businessData.description || businessData.description.trim() === '') {
     throw new Error('La descripción del negocio es obligatoria');
   }
-  
   if (!businessData.idOwner) {
-    console.log("❌ FALTA idOwner en businessData:", businessData);
     throw new Error('El ID de usuario es obligatorio');
   }
   
+  // ── 🆕 Incluir address con lat/lng ────────────────────────────────────────
   const dataToSend = {
-    name: businessData.name.trim(),
+    name:        businessData.name.trim(),
     description: businessData.description.trim(),
-    phone: businessData.phone?.trim() || '',
-    website: businessData.website?.trim() || '',
-    instagram: businessData.instagram?.trim() || null,
-    facebook: businessData.facebook?.trim() || null,
-    whatsapp: businessData.whatsapp?.trim() || null,
-    email: businessData.email?.trim() || '',
-    branchOf: businessData.branchOf || null,
-    idOwner: Number(businessData.idOwner),
+    phone:       businessData.phone?.trim()     || '',
+    website:     businessData.website?.trim()   || '',
+    instagram:   businessData.instagram?.trim() || null,
+    facebook:    businessData.facebook?.trim()  || null,
+    whatsapp:    businessData.whatsapp?.trim()  || null,
+    email:       businessData.email?.trim()     || '',
+    branchOf:    businessData.branchOf          || null,
+    idOwner:     Number(businessData.idOwner),
+    address:     buildAddressDto(businessData.location),  // 🆕
   };
   
-  console.log("📤 Enviando al backend (formato CommerceDto):", dataToSend);
-  console.log("🔗 URL completa:", `${API_URL}${ENDPOINTS.CREATE_BUSINESS}`);
+  if (isDevelopment) {
+    console.log("📤 Enviando al backend (createBusiness):", dataToSend);
+    console.log("🗺️ Address enviada:", dataToSend.address);
+  }
   
   try {
     const response = await apiRequest('POST', ENDPOINTS.CREATE_BUSINESS, dataToSend);
-    console.log("📦 Respuesta del backend:", response);
     
     return {
-      id_business: response.idCommerce,
-      id_user: response.idOwner,
-      name: response.name,
-      description: response.description,
-      email: response.email,
-      phone: response.phone,
-      website: response.website,
-      instagram: response.instagram,
-      facebook: response.facebook,
-      whatsapp: response.whatsapp,
-      branchOf: response.branchOf,
+      id_business:  response.idCommerce,
+      id_user:      response.idOwner,
+      name:         response.name,
+      description:  response.description,
+      email:        response.email,
+      phone:        response.phone,
+      website:      response.website,
+      instagram:    response.instagram,
+      facebook:     response.facebook,
+      whatsapp:     response.whatsapp,
+      branchOf:     response.branchOf,
       profileImage: response.profileImage?.url || null,
-      coverImage: response.coverImage?.url || null,
+      coverImage:   response.coverImage?.url   || null,
+      location: response.address?.lat ? {
+        lat:     parseFloat(response.address.lat),
+        lng:     parseFloat(response.address.lng),
+        address: response.address.address || "",
+      } : null,
     };
   } catch (error) {
     console.error("❌ Error en createBusiness:", error);
@@ -736,19 +687,29 @@ export const updateBusiness = async (businessId, businessData) => {
   if (businessData.name !== undefined && businessData.name.trim() === '') {
     throw new Error('El nombre del negocio no puede estar vacío');
   }
-  
   if (businessData.description !== undefined && businessData.description.trim() === '') {
     throw new Error('La descripción del negocio no puede estar vacía');
   }
   
   const dataToSend = {};
   
-  if (businessData.name !== undefined) dataToSend.name = businessData.name.trim();
+  if (businessData.name        !== undefined) dataToSend.name        = businessData.name.trim();
   if (businessData.description !== undefined) dataToSend.description = businessData.description.trim();
-  if (businessData.email !== undefined) dataToSend.email = businessData.email.trim();
-  if (businessData.phone !== undefined) dataToSend.phone = businessData.phone.trim();
-  if (businessData.link !== undefined) dataToSend.link = businessData.link.trim();
-  if (businessData.branchOf !== undefined) dataToSend.branchOf = businessData.branchOf;
+  if (businessData.email       !== undefined) dataToSend.email       = businessData.email.trim();
+  if (businessData.phone       !== undefined) dataToSend.phone       = businessData.phone.trim();
+  if (businessData.link        !== undefined) dataToSend.link        = businessData.link.trim();
+  if (businessData.website     !== undefined) dataToSend.website     = businessData.website.trim();
+  if (businessData.instagram   !== undefined) dataToSend.instagram   = businessData.instagram?.trim() || null;
+  if (businessData.facebook    !== undefined) dataToSend.facebook    = businessData.facebook?.trim()  || null;
+  if (businessData.branchOf    !== undefined) dataToSend.branchOf    = businessData.branchOf;
+
+  // ── 🆕 Incluir address con lat/lng ────────────────────────────────────────
+  if (businessData.location !== undefined) {
+    dataToSend.address = buildAddressDto(businessData.location);
+    if (isDevelopment) {
+      console.log("🗺️ Address enviada en update:", dataToSend.address);
+    }
+  }
   
   if (isDevelopment) {
     console.log("📤 Actualizando negocio:", businessId, dataToSend);
@@ -760,20 +721,23 @@ export const updateBusiness = async (businessId, businessData) => {
     console.log("📦 Respuesta del backend:", response);
   }
   
-  const profileImageUrl = response.profileImage?.url || null;
-  const coverImageUrl = response.coverImage?.url || null;
-  
   return {
-    id_business: response.idCommerce,
-    id_user: response.idOwner,
-    name: response.name,
-    description: response.description,
-    email: response.email,
-    phone: response.phone,
-    link: response.link,
-    branchOf: response.branchOf,
-    profileImage: profileImageUrl,
-    coverImage: coverImageUrl,
+    id_business:  response.idCommerce,
+    id_user:      response.idOwner,
+    name:         response.name,
+    description:  response.description,
+    email:        response.email,
+    phone:        response.phone,
+    link:         response.link,
+    branchOf:     response.branchOf,
+    profileImage: response.profileImage?.url || null,
+    coverImage:   response.coverImage?.url   || null,
+    // ── Ubicación normalizada de vuelta ──
+    location: response.address?.lat ? {
+      lat:     parseFloat(response.address.lat),
+      lng:     parseFloat(response.address.lng),
+      address: response.address.address || "",
+    } : null,
   };
 };
 
@@ -784,53 +748,29 @@ export const updateBusiness = async (businessId, businessData) => {
 export const uploadProfileImage = async (businessId, imageFile) => {
   validateParams({ businessId, imageFile }, ['businessId', 'imageFile']);
   
-  if (!(imageFile instanceof File)) {
-    throw new Error('Debes proporcionar un archivo de imagen válido');
-  }
+  if (!(imageFile instanceof File)) throw new Error('Debes proporcionar un archivo de imagen válido');
   
   const maxSize = 5 * 1024 * 1024;
-  if (imageFile.size > maxSize) {
-    throw new Error('La imagen no puede superar los 5MB');
-  }
+  if (imageFile.size > maxSize) throw new Error('La imagen no puede superar los 5MB');
   
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!validTypes.includes(imageFile.type)) {
-    throw new Error('Formato de imagen no válido. Usa JPG, PNG o WebP');
-  }
+  if (!validTypes.includes(imageFile.type)) throw new Error('Formato inválido. Usá JPG, PNG o WebP');
   
   const formData = new FormData();
   formData.append('image', imageFile);
   
   try {
-    if (isDevelopment) {
-      console.log('📤 Subiendo imagen de perfil...');
-    }
-    
     const response = await axios.post(
       `${API_URL}${ENDPOINTS.UPLOAD_PROFILE_IMAGE(businessId)}`,
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        timeout: 30000,
-      }
+      { headers: { 'Content-Type': 'multipart/form-data', 'ngrok-skip-browser-warning': 'true' }, timeout: 30000 }
     );
-    
-    if (isDevelopment) {
-      console.log('✅ Respuesta del backend:', response.data);
-    }
     
     await sleep(1000);
     const updatedBusiness = await getBusinessById(businessId);
     
-    if (isDevelopment) {
-      console.log('✅ Negocio actualizado:', updatedBusiness);
-    }
-    
     return {
-      success: true,
+      success:      true,
       profileImage: updatedBusiness.profileImage,
       cloudinaryData: response.data
     };
@@ -842,53 +782,29 @@ export const uploadProfileImage = async (businessId, imageFile) => {
 export const uploadCoverImage = async (businessId, imageFile) => {
   validateParams({ businessId, imageFile }, ['businessId', 'imageFile']);
   
-  if (!(imageFile instanceof File)) {
-    throw new Error('Debes proporcionar un archivo de imagen válido');
-  }
+  if (!(imageFile instanceof File)) throw new Error('Debes proporcionar un archivo de imagen válido');
   
   const maxSize = 5 * 1024 * 1024;
-  if (imageFile.size > maxSize) {
-    throw new Error('La imagen no puede superar los 5MB');
-  }
+  if (imageFile.size > maxSize) throw new Error('La imagen no puede superar los 5MB');
   
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!validTypes.includes(imageFile.type)) {
-    throw new Error('Formato de imagen no válido. Usa JPG, PNG o WebP');
-  }
+  if (!validTypes.includes(imageFile.type)) throw new Error('Formato inválido. Usá JPG, PNG o WebP');
   
   const formData = new FormData();
   formData.append('image', imageFile);
   
   try {
-    if (isDevelopment) {
-      console.log('📤 Subiendo imagen de portada...');
-    }
-    
     const response = await axios.post(
       `${API_URL}${ENDPOINTS.UPLOAD_COVER_IMAGE(businessId)}`,
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        timeout: 30000,
-      }
+      { headers: { 'Content-Type': 'multipart/form-data', 'ngrok-skip-browser-warning': 'true' }, timeout: 30000 }
     );
-    
-    if (isDevelopment) {
-      console.log('✅ Respuesta del backend:', response.data);
-    }
     
     await sleep(1000);
     const updatedBusiness = await getBusinessById(businessId);
     
-    if (isDevelopment) {
-      console.log('✅ Negocio actualizado:', updatedBusiness);
-    }
-    
     return {
-      success: true,
+      success:    true,
       coverImage: updatedBusiness.coverImage,
       cloudinaryData: response.data
     };
@@ -900,47 +816,23 @@ export const uploadCoverImage = async (businessId, imageFile) => {
 export const uploadGalleryImages = async (businessId, imageFiles) => {
   validateParams({ businessId, imageFiles }, ['businessId', 'imageFiles']);
   
-  if (!Array.isArray(imageFiles) || imageFiles.length === 0) {
-    throw new Error('Debes proporcionar al menos una imagen');
-  }
-  
-  if (imageFiles.length > 10) {
-    throw new Error('Máximo 10 imágenes por vez');
-  }
+  if (!Array.isArray(imageFiles) || imageFiles.length === 0) throw new Error('Debes proporcionar al menos una imagen');
+  if (imageFiles.length > 10) throw new Error('Máximo 10 imágenes por vez');
   
   const maxSize = 5 * 1024 * 1024;
   for (const file of imageFiles) {
-    if (file.size > maxSize) {
-      throw new Error(`La imagen "${file.name}" supera los 5MB`);
-    }
+    if (file.size > maxSize) throw new Error(`La imagen "${file.name}" supera los 5MB`);
   }
   
   const formData = new FormData();
-  imageFiles.forEach((file) => {
-    formData.append('files', file);
-  });
+  imageFiles.forEach((file) => formData.append('files', file));
   
   try {
-    if (isDevelopment) {
-      console.log(`📤 Subiendo ${imageFiles.length} imágenes a galería...`);
-    }
-    
     const response = await axios.post(
       `${API_URL}${ENDPOINTS.UPLOAD_GALLERY_IMAGES(businessId)}`,
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        timeout: 60000,
-      }
+      { headers: { 'Content-Type': 'multipart/form-data', 'ngrok-skip-browser-warning': 'true' }, timeout: 60000 }
     );
-    
-    if (isDevelopment) {
-      console.log('✅ Imágenes de galería subidas:', response.data);
-    }
-    
     return response.data;
   } catch (error) {
     throw handleApiError(error, 'uploadGalleryImages');
@@ -955,24 +847,10 @@ export const getPostsByCommerce = async (commerceId) => {
   validateParams({ commerceId }, ['commerceId']);
   
   try {
-    if (isDevelopment) {
-      console.log('📥 Obteniendo publicaciones del comercio:', commerceId);
-    }
-    
     const response = await apiRequest('GET', ENDPOINTS.POST_GET_BY_COMMERCE(commerceId));
-    
-    if (isDevelopment) {
-      console.log('✅ Publicaciones obtenidas:', Array.isArray(response) ? response.length : 0);
-    }
-    
     return Array.isArray(response) ? response : [];
   } catch (error) {
-    if (error.message.includes('404')) {
-      if (isDevelopment) {
-        console.warn('⚠️ Endpoint no disponible, devolviendo array vacío');
-      }
-      return [];
-    }
+    if (error.message.includes('404')) return [];
     throw error;
   }
 };
@@ -980,69 +858,29 @@ export const getPostsByCommerce = async (commerceId) => {
 export const createPost = async (description, idCommerce, imageFiles = [], eventData = null) => {
   validateParams({ description, idCommerce }, ['description', 'idCommerce']);
   
-  if (!imageFiles || imageFiles.length === 0) {
-    throw new Error('Debes subir al menos una imagen');
-  }
-  
-  if (imageFiles.length > 10) {
-    throw new Error('Máximo 10 imágenes por publicación');
-  }
+  if (!imageFiles || imageFiles.length === 0) throw new Error('Debes subir al menos una imagen');
+  if (imageFiles.length > 10) throw new Error('Máximo 10 imágenes por publicación');
   
   const maxSize = 5 * 1024 * 1024;
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   
   for (const file of imageFiles) {
-    if (!(file instanceof File)) {
-      throw new Error('Uno de los archivos no es válido');
-    }
-    if (file.size > maxSize) {
-      throw new Error(`La imagen "${file.name}" supera los 5MB`);
-    }
-    if (!validTypes.includes(file.type)) {
-      throw new Error(`Formato inválido en "${file.name}". Usa JPG, PNG o WebP`);
-    }
+    if (!(file instanceof File)) throw new Error('Uno de los archivos no es válido');
+    if (file.size > maxSize) throw new Error(`La imagen "${file.name}" supera los 5MB`);
+    if (!validTypes.includes(file.type)) throw new Error(`Formato inválido en "${file.name}". Usá JPG, PNG o WebP`);
   }
   
   const formData = new FormData();
   formData.append('description', description.trim());
   formData.append('idCommerce', idCommerce);
-  
-  imageFiles.forEach(file => {
-    formData.append('images', file);
-  });
-  
-  if (eventData) {
-    // TODO: Verificar si tu backend acepta estos campos
-    // formData.append('date', eventData.date);
-    // formData.append('time', eventData.time);
-    // formData.append('location', eventData.location);
-  }
+  imageFiles.forEach(file => formData.append('images', file));
   
   try {
-    if (isDevelopment) {
-      console.log('📤 Creando publicación:', {
-        description: description.slice(0, 50) + '...',
-        idCommerce,
-        imageCount: imageFiles.length
-      });
-    }
-    
     const response = await axios.post(
       `${API_URL}${ENDPOINTS.POST_CREATE}`,
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        timeout: 60000,
-      }
+      { headers: { 'Content-Type': 'multipart/form-data', 'ngrok-skip-browser-warning': 'true' }, timeout: 60000 }
     );
-    
-    if (isDevelopment) {
-      console.log('✅ Publicación creada:', response.data);
-    }
-    
     return response.data;
   } catch (error) {
     throw handleApiError(error, 'createPost');
@@ -1050,11 +888,7 @@ export const createPost = async (description, idCommerce, imageFiles = [], event
 };
 
 export const getAllPosts = async () => {
-  try {
-    return await apiRequest('GET', ENDPOINTS.POST_GET_ALL);
-  } catch (error) {
-    throw error;
-  }
+  return apiRequest('GET', ENDPOINTS.POST_GET_ALL);
 };
 
 export const getPostById = async (postId) => {
@@ -1065,69 +899,32 @@ export const getPostById = async (postId) => {
 export const updatePostText = async (postId, description, idCommerce) => {
   validateParams({ postId, description, idCommerce }, ['postId', 'description', 'idCommerce']);
   
-  if (!description || description.trim() === '') {
-    throw new Error('La descripción no puede estar vacía');
-  }
+  if (!description || description.trim() === '') throw new Error('La descripción no puede estar vacía');
   
-  const dataToSend = {
+  const response = await apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), {
     description: description.trim(),
-    idCommerce: idCommerce,
-  };
-  
-  if (isDevelopment) {
-    console.log('📤 Editando texto de publicación:', postId, dataToSend);
-  }
-  
-  const response = await apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), dataToSend);
-  
-  if (isDevelopment) {
-    console.log('✅ Publicación actualizada:', response);
-  }
+    idCommerce:  idCommerce,
+  });
   
   return normalizePostFromBackend(response);
 };
 
 export const updatePost = async (postId, postData) => {
   validateParams({ postId, postData }, ['postId', 'postData']);
-  
-  if (!postData.description || postData.description.trim() === '') {
-    throw new Error('La descripción no puede estar vacía');
-  }
-  
-  const dataToSend = {
+  if (!postData.description || postData.description.trim() === '') throw new Error('La descripción no puede estar vacía');
+  return apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), {
     description: postData.description.trim(),
-    idCommerce: postData.idCommerce,
-  };
-  
-  if (isDevelopment) {
-    console.log('📤 Editando publicación:', postId, dataToSend);
-  }
-  
-  return apiRequest('PUT', ENDPOINTS.POST_UPDATE(postId), dataToSend);
+    idCommerce:  postData.idCommerce,
+  });
 };
 
 export const deletePost = async (postId) => {
   validateParams({ postId }, ['postId']);
-  
-  if (isDevelopment) {
-    console.log('🗑️ Eliminando publicación:', postId);
-  }
-  
   try {
     const response = await axios.delete(
       `${API_URL}${ENDPOINTS.POST_DELETE(postId)}`,
-      {
-        timeout: TIMEOUT,
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-        },
-      }
+      { timeout: TIMEOUT, headers: { 'ngrok-skip-browser-warning': 'true' } }
     );
-    
-    if (isDevelopment) {
-      console.log('✅ Publicación eliminada:', response.data);
-    }
-    
     return response.data;
   } catch (error) {
     throw handleApiError(error, 'deletePost');
@@ -1136,33 +933,17 @@ export const deletePost = async (postId) => {
 
 export const addImagesToPost = async (postId, imageFiles) => {
   validateParams({ postId, imageFiles }, ['postId', 'imageFiles']);
-  
-  if (!Array.isArray(imageFiles) || imageFiles.length === 0) {
-    throw new Error('Debes proporcionar al menos una imagen');
-  }
+  if (!Array.isArray(imageFiles) || imageFiles.length === 0) throw new Error('Debes proporcionar al menos una imagen');
   
   const formData = new FormData();
-  imageFiles.forEach(file => {
-    formData.append('images', file);
-  });
+  imageFiles.forEach(file => formData.append('images', file));
   
   try {
     const response = await axios.post(
       `${API_URL}${ENDPOINTS.POST_ADD_IMAGES(postId)}`,
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        timeout: 60000,
-      }
+      { headers: { 'Content-Type': 'multipart/form-data', 'ngrok-skip-browser-warning': 'true' }, timeout: 60000 }
     );
-    
-    if (isDevelopment) {
-      console.log('✅ Imágenes agregadas a publicación:', response.data);
-    }
-    
     return response.data;
   } catch (error) {
     throw handleApiError(error, 'addImagesToPost');
@@ -1171,33 +952,14 @@ export const addImagesToPost = async (postId, imageFiles) => {
 
 export const deleteImagesFromPost = async (postId, imageIds) => {
   validateParams({ postId, imageIds }, ['postId', 'imageIds']);
-  
-  if (!Array.isArray(imageIds) || imageIds.length === 0) {
-    throw new Error('Debes proporcionar al menos un ID de imagen');
-  }
+  if (!Array.isArray(imageIds) || imageIds.length === 0) throw new Error('Debes proporcionar al menos un ID de imagen');
   
   try {
-    if (isDevelopment) {
-      console.log('🗑️ Eliminando imágenes:', { postId, imageIds });
-    }
-    
     const queryParams = imageIds.map(id => `imageIds=${id}`).join('&');
-    
     const response = await axios.delete(
       `${API_URL}${ENDPOINTS.POST_DELETE_IMAGES(postId)}?${queryParams}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        timeout: TIMEOUT,
-      }
+      { headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, timeout: TIMEOUT }
     );
-    
-    if (isDevelopment) {
-      console.log('✅ Imágenes eliminadas:', response.data);
-    }
-    
     return response.data;
   } catch (error) {
     throw handleApiError(error, 'deleteImagesFromPost');
@@ -1211,32 +973,31 @@ export const deleteImagesFromPost = async (postId, imageIds) => {
 export const normalizePostFromBackend = (post) => {
   if (post.images && Array.isArray(post.images)) {
     const sortedImages = post.images.sort((a, b) => a.imageOrder - b.imageOrder);
-    
     return {
-      id: post.idPost,
-      text: post.description,
-      images: sortedImages.map(img => img.url),
+      id:           post.idPost,
+      text:         post.description,
+      images:       sortedImages.map(img => img.url),
       imageDetails: sortedImages.map(img => ({
-        id: img.idImage,
-        url: img.url,
-        order: img.imageOrder,
-        publicId: img.publicId,
+        id:               img.idImage,
+        url:              img.url,
+        order:            img.imageOrder,
+        publicId:         img.publicId,
         originalFileName: img.originalFileName
       })),
-      type: "post",
+      type:         "post",
       businessName: post.nameCommerce,
-      createdAt: post.postedAt,
+      createdAt:    post.postedAt,
     };
   }
   
   return {
-    id: post.idPost || post.id,
-    text: post.description || post.text,
-    images: Array.isArray(post.images) ? post.images : [],
+    id:           post.idPost || post.id,
+    text:         post.description || post.text,
+    images:       Array.isArray(post.images) ? post.images : [],
     imageDetails: [],
-    type: "post",
+    type:         "post",
     businessName: post.nameCommerce || post.businessName,
-    createdAt: post.postedAt || post.createdAt,
+    createdAt:    post.postedAt || post.createdAt,
   };
 };
 
@@ -1245,32 +1006,18 @@ export const normalizePostFromBackend = (post) => {
 // ============================================
 
 export const searchCommerces = async (searchParam, limit = 10, offset = 0) => {
-  if (!searchParam || searchParam.trim() === '') {
-    throw new Error('Debes ingresar un término de búsqueda');
-  }
+  if (!searchParam || searchParam.trim() === '') throw new Error('Debes ingresar un término de búsqueda');
 
   const params = new URLSearchParams({
     searchParam: searchParam.trim(),
-    limit: limit.toString(),
-    offset: offset.toString()
+    limit:       limit.toString(),
+    offset:      offset.toString()
   });
 
   try {
-    if (isDevelopment) {
-      console.log('🔍 Buscando comercios:', { searchParam, limit, offset });
-    }
-
     const response = await apiRequest('GET', `${ENDPOINTS.SEARCH_COMMERCES}?${params}`);
-    
-    if (isDevelopment) {
-      console.log('✅ Resultados encontrados:', Array.isArray(response) ? response.length : 0);
-    }
-
     return Array.isArray(response) ? response : [];
   } catch (error) {
-    if (isDevelopment) {
-      console.error('❌ Error en búsqueda:', error);
-    }
     throw error;
   }
 };
@@ -1285,7 +1032,7 @@ export default {
   registerUser,
   logoutUser,
   
-  // JWT 🆕
+  // JWT
   setAuthToken,
   getStoredTokens,
   saveTokens,

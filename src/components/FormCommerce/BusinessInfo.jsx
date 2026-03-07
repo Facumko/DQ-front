@@ -122,9 +122,12 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     }))
   }
 
-  // Sincronizar con FormCommerce
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (typeof onUpdate === 'function') onUpdate(formData) }, [formData])
+  // ── Sincronizar con FormCommerce ──────────────────────────────────────────
+  // onUpdate viene envuelto en useCallback desde FormCommerce,
+  // así que es seguro incluirlo en las dependencias sin causar loops
+  useEffect(() => {
+    if (typeof onUpdate === 'function') onUpdate(formData)
+  }, [formData, onUpdate])
 
   const handleNext = () => {
     if (!isValid) {

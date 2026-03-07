@@ -1,8 +1,7 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import { createBusiness } from "../../Api/Api";
-// getBusinessByUserId eliminado — ya no se necesita acá
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
 import CreatorInfo from "./CreatorInfo";
@@ -13,7 +12,7 @@ import "./FormCommerce.css";
 // Pasos del formulario
 // 1 → Elegir plan
 // 2 → Datos del propietario
-// 3 → Datos del negocio
+// 3 → Datos del negocio  (incluye LocationPicker → guarda location: { lat, lng, address })
 // 4 → Confirmación
 // TODO: reincorporar paso de Pago (Mercado Pago) entre Plan y Propietario
 
@@ -46,6 +45,8 @@ function FormCommerce() {
     facebook:            "",
     website:             "",
     email:               "",
+    // 🆕 Ubicación del LocationPicker: { lat, lng, address } | null
+    location:            null,
   });
 
   // ── Verificar sesión ─────────────────────────────────────────────────────
@@ -58,7 +59,12 @@ function FormCommerce() {
   }, [user, navigate]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const updateFormData = (data) => setFormData(prev => ({ ...prev, ...data }));
+  // useCallback evita que updateFormData se recree en cada render,
+  // lo que causaba que BusinessInfo perdiera la location al sincronizar
+  const updateFormData = useCallback(
+    (data) => setFormData(prev => ({ ...prev, ...data })),
+    []
+  );
   const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
@@ -67,8 +73,11 @@ function FormCommerce() {
     setCurrentStep(2);
   };
 
-  // Paso 4: crear negocio
+  // ── Paso 4: crear negocio ─────────────────────────────────────────────────
   const handleSuccess = async () => {
+    console.log("🗺️ formData.location en handleSuccess:", formData.location)
+    console.log("📋 formData completo:", JSON.stringify(formData, null, 2))
+
     if (!user?.id_user) { navigate("/login"); return; }
 
     if (!formData.businessName || !formData.businessDescription) {
@@ -90,7 +99,15 @@ function FormCommerce() {
         email:       formData.email?.trim()     || "",
         branchOf:    null,
         idOwner:     Number(user.id_user),
+        // 🆕 Pasar location para que Api.jsx lo convierta a AddressDto
+        // location viene del LocationPicker como { lat, lng, address }
+        location:    formData.location || null,
       };
+
+      if (import.meta.env.MODE === 'development') {
+        console.log("📤 Creando negocio con datos:", businessData);
+        console.log("🗺️ Ubicación incluida:", businessData.location);
+      }
 
       const created = await createBusiness(businessData);
 
