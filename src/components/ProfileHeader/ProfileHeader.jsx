@@ -13,6 +13,7 @@ import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
 import ImageCropModal from "./ImageCropModal";
+import LocationPicker from "../LocationPicker/LocationPicker";
 
 // ─────────────────────────────────────────
 // MOCK DATA
@@ -24,6 +25,7 @@ const MOCK_BUSINESS = {
   email: "lacantina@example.com",
   phone: "(362) 456-7890",
   link: "https://instagram.com/lacantina",
+  location: { lat: -26.7909, lng: -60.4437, address: "Av. San Martín 123, Presidencia Roque Sáenz Peña, Chaco" },
   profileImage: { url: "https://i.pravatar.cc/150?img=12" },
   coverImage: { url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&q=80" },
 };
@@ -62,6 +64,7 @@ const normalizeBusiness = (d) => ({
   description:  d?.description || "",
   profileImage: d?.profileImage?.url || d?.profileImage || null,
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
+  location:     d?.location || null,
 });
 
 const normalizePost = (p) => {
@@ -170,7 +173,7 @@ const ProfileHeader = ({
   const [businessId,  setBusinessId] = useState(null);
   const [showSchedule,setShowSchedule] = useState(false);
 
-  const [businessData, setBusinessData] = useState({ name:"", email:"", phone:"", link:"", description:"", profileImage:null, coverImage:null });
+  const [businessData, setBusinessData] = useState({ name:"", email:"", phone:"", link:"", description:"", profileImage:null, coverImage:null, location:null });
   const [schedule,     setSchedule]     = useState(DEFAULT_SCHEDULE);
   const [draft,        setDraft]        = useState(businessData);
   const [draftSchedule,setDraftSchedule]= useState(schedule);
@@ -307,7 +310,7 @@ const ProfileHeader = ({
 
     setLoad("savingBusiness", true);
     try {
-      const payload = { name, description: desc, email, phone, link: t(draft.link) };
+      const payload = { name, description: desc, email, phone, link: t(draft.link), location: draft.location || null };
       if (businessId) await updateBusiness(businessId, payload);
       else {
         const res = await createBusiness({ ...payload, id_user: user.id_user });
@@ -612,6 +615,26 @@ const ProfileHeader = ({
                 </span>
               )}
             </div>
+
+            {/* Ubicación */}
+            {isEditing ? (
+              <div style={{ marginTop: 14 }}>
+                <LocationPicker
+                  label="Ubicación del negocio"
+                  value={draft.location}
+                  onChange={(loc) => setDraft((p) => ({ ...p, location: loc }))}
+                />
+              </div>
+            ) : businessData.location?.lat ? (
+              <div style={{ marginTop: 14 }}>
+                <p className={styles.infoSectionTitle} style={{ marginBottom: 8 }}>Ubicación</p>
+                <LocationPicker
+                  label=""
+                  value={businessData.location}
+                  onChange={() => {}}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
