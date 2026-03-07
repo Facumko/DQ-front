@@ -250,7 +250,11 @@ axios.interceptors.response.use(
       try {
         const newToken = await refreshAccessToken();
         processQueue(null, newToken);
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        // Actualizar el header en el request original y en axios.defaults
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+        originalRequest.headers['Authorization'.toLowerCase()] = `Bearer ${newToken}`;
+        setAuthToken(newToken);
         return axios(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
@@ -324,6 +328,9 @@ export const validatePasswordStrength = (password) => {
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const shouldRetry = (error) => {
+  // 401 lo maneja exclusivamente el interceptor de respuesta (refresh token).
+  // Si apiRequest tambien reintenta, los dos sistemas se pisan.
+  if (error.response?.status === 401) return false;
   if (!error.response) return true;
   if (error.code === 'ECONNABORTED') return true;
   if (error.response.status >= 500) return true;
@@ -399,7 +406,11 @@ const logResponse = (method, endpoint, data) => {
 
 const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) => {
   logRequest(method, endpoint, data);
-  
+
+  // Incluimos el token explicitamente porque este config sobreescribia
+  // axios.defaults.headers, dejando fuera el Authorization del interceptor.
+  const { accessToken } = getStoredTokens();
+
   const config = {
     method,
     url: `${API_URL}${endpoint}`,
@@ -408,7 +419,7 @@ const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) 
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'ngrok-skip-browser-warning': 'true',
-      'Access-Control-Allow-Origin': '*',
+      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
     },
     withCredentials: false,
   };

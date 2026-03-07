@@ -1,10 +1,9 @@
 import { useState, useEffect, useContext } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import { createBusiness, getBusinessByUserId } from "../../Api/Api";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
-import PaymentStep from "./PaymentStep";
 import CreatorInfo from "./CreatorInfo";
 import BusinessInfo from "./BusinessInfo";
 import Confirmation from "./Confirmation";
@@ -12,34 +11,30 @@ import "./FormCommerce.css";
 
 // Pasos del formulario
 // 1 → Elegir plan
-// 2 → Pagar (CheckoutPage embebido / redirección a MP)
-// 3 → Datos del propietario
-// 4 → Datos del negocio
-// 5 → Confirmación
+// 2 → Datos del propietario
+// 3 → Datos del negocio
+// 4 → Confirmación
+// TODO: reincorporar paso de Pago (Mercado Pago) entre Plan y Propietario
 
-const STEPS = ["Plan", "Pago", "Propietario", "Negocio", "Confirmación"];
+const STEPS = ["Plan", "Propietario", "Negocio", "Confirmación"];
 
 function FormCommerce() {
-  const navigate       = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { user, loadBusinesses } = useContext(UserContext);
+  const navigate = useNavigate();
+  const { user } = useContext(UserContext);
 
-  // ── Leer params de retorno de MP ─────────────────────────────────────────
-  const paramStep = parseInt(searchParams.get("step"));
-  const paramPlan = searchParams.get("plan");
-  const paramPaid = searchParams.get("paid") === "true";
-
-  const [currentStep,      setCurrentStep]      = useState(paramPaid && paramStep ? paramStep : 1);
-  const [isSubmitting,     setIsSubmitting]      = useState(false);
-  const [checkingBusiness, setCheckingBusiness]  = useState(true);
+  const [currentStep,      setCurrentStep]     = useState(1);
+  const [isSubmitting,     setIsSubmitting]     = useState(false);
+  const [checkingBusiness, setCheckingBusiness] = useState(true);
 
   const [formData, setFormData] = useState({
-    selectedPlan: paramPlan || "",
-    planPaid:     paramPaid,
+    // Paso 1 — Plan
+    selectedPlan: "",
+    // Paso 2 — Propietario
     firstName: "",
     lastName:  "",
     idNumber:  "",
     phone:     "",
+    // Paso 3 — Negocio
     businessName:        "",
     businessDescription: "",
     category:            "",
@@ -62,7 +57,7 @@ function FormCommerce() {
       }
       try {
         const existing = await getBusinessByUserId(user.id_user);
-        if (existing) navigate(`/negocios/${existing.id_business}`);
+        if (existing) navigate("/mi-negocio");
       } catch {
         // no tiene negocio, puede continuar
       } finally {
@@ -71,15 +66,6 @@ function FormCommerce() {
     };
     check();
   }, [user, navigate]);
-
-  // Limpiar params de URL una vez leídos
-  useEffect(() => {
-    if (paramPaid) {
-      navigate("/registro-negocio", { replace: true });
-    }
-  }, []); // eslint-disable-line
-
-  if (!user) return null;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const updateFormData = (data) => setFormData(prev => ({ ...prev, ...data }));
@@ -91,6 +77,7 @@ function FormCommerce() {
     setCurrentStep(2);
   };
 
+  // Paso 4: crear negocio
   const handleSuccess = async () => {
     if (!user?.id_user) { navigate("/login"); return; }
 
@@ -121,9 +108,9 @@ function FormCommerce() {
       await loadBusinesses(user.id_user);
 
       if (created?.id_business) {
-        navigate(`/negocios/${created.id_business}`);
+        navigate("/mi-negocio");
       } else {
-        navigate("/");
+        navigate("/mi-negocio");
       }
     } catch (err) {
       alert(`Error al crear el negocio: ${err.message}`);
@@ -162,23 +149,15 @@ function FormCommerce() {
           )}
 
           {currentStep === 2 && (
-            <PaymentStep
-              planId={formData.selectedPlan}
-              user={user}
+            <CreatorInfo
+              data={formData}
+              onUpdate={updateFormData}
+              onNext={handleNext}
               onBack={handleBack}
             />
           )}
 
           {currentStep === 3 && (
-            <CreatorInfo
-              data={formData}
-              onUpdate={updateFormData}
-              onNext={handleNext}
-              onBack={() => navigate("/")}
-            />
-          )}
-
-          {currentStep === 4 && (
             <BusinessInfo
               data={formData}
               onUpdate={updateFormData}
@@ -187,7 +166,7 @@ function FormCommerce() {
             />
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 4 && (
             <Confirmation
               data={formData}
               onSuccess={handleSuccess}

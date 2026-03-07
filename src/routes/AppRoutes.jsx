@@ -42,8 +42,11 @@ const AppRoutes = () => {
 
             {/* Negocios */}
             <Route path="/negocios/:id" element={<Negocios />} />
-            <Route path="/Mycommerce" element={<Negocios />} />
-            <Route path="/register-commerce" element={<FormCommerce />} />
+            <Route path="/mi-negocio" element={<Negocios />} />
+            {/* Redirect rutas viejas */}
+            <Route path="/Mycommerce" element={<Navigate to="/mi-negocio" replace />} />
+            <Route path="/registro-negocio" element={<FormCommerce />} />
+            <Route path="/register-commerce" element={<Navigate to="/registro-negocio" replace />} />
 
             {/* Usuario */}
             <Route path="/profile" element={<Profile />} />
