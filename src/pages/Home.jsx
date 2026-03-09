@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
 import styles from "./Home.module.css";
+import { getMainFeed } from "../Api/Api";
 import {
   Calendar,
   Utensils,
@@ -15,10 +16,9 @@ import {
   Star,
   Clock,
   MapPin,
-  Bookmark,
-  Heart,
-  Share2,
   Building2,
+  Share2,
+  Bookmark,
 } from "lucide-react";
 
 // ============================================
@@ -318,14 +318,90 @@ const DirectorySpotlight = ({ slides }) => {
 const Home = () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [posts, setPosts] = useState(MOCK_DATA.posts);
+  const [posts, setPosts]               = useState([]);
+  const [feedPage, setFeedPage]         = useState(0);
+  const [feedLoading, setFeedLoading]   = useState(false);
+  const [feedError, setFeedError]       = useState("");
+  const [feedHasMore, setFeedHasMore]   = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState({});
+  const [savedPosts, setSavedPosts] = useState(new Set());
   const sectionsRef = useRef([]);
+
+  const FEED_SIZE = 10;
+
+  // Formato de tiempo estilo Instagram
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return "";
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+    if (diff < 60)  return "ahora";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+    return new Date(dateStr).toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+  };
+
+  const handleShare = async (post) => {
+    const url = post.businessId ? `${window.location.origin}/negocios/${post.businessId}` : window.location.href;
+    const text = `${post.businessName}: ${post.content?.slice(0, 80)}...`;
+    if (navigator.share) {
+      try { await navigator.share({ title: post.businessName, text, url }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      alert("¡Link copiado al portapapeles!");
+    }
+  };
+
+  const toggleSave = (postId) => {
+    setSavedPosts((prev) => {
+      const next = new Set(prev);
+      next.has(postId) ? next.delete(postId) : next.add(postId);
+      return next;
+    });
+  };
+
+  // Normaliza un post del backend al formato que usa el feed
+  const normalizeFeedPost = (p) => {
+    const d = p.data || p; // el back envuelve en { data, type, createdAt, relevanceScore }
+    if (import.meta.env.DEV) console.log("📋 Post data:", d);
+    return {
+      id:           d.idPost       || d.id,
+      businessName: d.commerceName || d.nameCommerce || d.businessName || d.commerce?.name || "Sin nombre",
+      businessId:   d.commerceId   || d.idCommerce   || d.businessId   || d.commerce?.idCommerce,
+      businessLogo: d.commerceProfileImage || d.profileImageCommerce || d.businessLogo || d.commerce?.profileImage?.url || null,
+      timeAgo:      p.createdAt    || d.postedAt || d.createdAt || "",
+      content:      d.description  || d.text || "",
+      images:       Array.isArray(d.images)
+        ? d.images.sort((a, b) => (a.imageOrder || 0) - (b.imageOrder || 0)).map((i) => i.url || i)
+        : [],
+    };
+  };
+
+  const loadFeed = async (page = 0, append = false) => {
+    setFeedLoading(true);
+    setFeedError("");
+    try {
+      const data = await getMainFeed(page, FEED_SIZE);
+      const normalized = data.map(normalizeFeedPost);
+      setPosts((prev) => append ? [...prev, ...normalized] : normalized);
+      setFeedHasMore(data.length === FEED_SIZE);
+    } catch {
+      setFeedError("No se pudo cargar el feed. Intentá de nuevo.");
+    } finally {
+      setFeedLoading(false);
+    }
+  };
+
+  const loadMore = () => {
+    const next = feedPage + 1;
+    setFeedPage(next);
+    loadFeed(next, true);
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % MOCK_DATA.heroSlides.length);
     }, 6000);
+    loadFeed(0);
     return () => clearInterval(timer);
   }, []);
 
@@ -349,16 +425,6 @@ const Home = () => {
     const map = { event: styles.badgeEvent, featured: styles.badgeFeatured, promotion: styles.badgePromotion };
     return map[type] || styles.badgeDefault;
   };
-
-  const toggleLike = (postId) =>
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, isLiked: !p.isLiked, likes: p.isLiked ? p.likes - 1 : p.likes + 1 } : p
-      )
-    );
-
-  const toggleSave = (postId) =>
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, saved: !p.saved } : p)));
 
   const nextImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) + 1) % total }));
@@ -489,33 +555,65 @@ const Home = () => {
         </div>
 
         <div className={styles.postsFeed}>
+
+          {/* Estado de carga inicial */}
+          {feedLoading && posts.length === 0 && (
+            <div className={styles.feedLoading}>
+              {[1,2,3].map((i) => (
+                <div key={i} className={styles.postCardSkeleton}>
+                  <div className={styles.skeletonHeader} />
+                  <div className={styles.skeletonBody} />
+                  <div className={styles.skeletonImage} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error */}
+          {feedError && (
+            <div className={styles.feedError}>
+              <p>{feedError}</p>
+              <button className={styles.retryBtn} onClick={() => loadFeed(0)}>Reintentar</button>
+            </div>
+          )}
+
+          {/* Sin publicaciones */}
+          {!feedLoading && !feedError && posts.length === 0 && (
+            <div className={styles.feedEmpty}>
+              <p>No hay publicaciones todavía.</p>
+            </div>
+          )}
+
+          {/* Posts */}
           {posts.map((post) => {
             const currentIndex = currentImageIndex[post.id] || 0;
+            const isSaved = savedPosts.has(post.id);
             return (
               <div key={post.id} className={styles.postCard}>
+
+                {/* Header: avatar + nombre + tiempo */}
                 <div className={styles.postHeader}>
-                  <img src={post.businessLogo} alt={post.businessName} className={styles.postAvatar} />
+                  {post.businessLogo
+                    ? <img src={post.businessLogo} alt={post.businessName} className={styles.postAvatar} />
+                    : <div className={styles.postAvatarFallback}>{post.businessName?.charAt(0).toUpperCase()}</div>
+                  }
                   <div className={styles.postBusinessInfo}>
-                    <h3 className={styles.postBusinessName}>{post.businessName}</h3>
-                    <div className={styles.postMetadata}>
-                      <MapPin size={14} /><span>{post.location}</span>
-                      <span>•</span>
-                      <Clock size={14} /><span>hace {post.timeAgo}</span>
-                    </div>
+                    {post.businessId
+                      ? <Link to={`/negocios/${post.businessId}`} className={styles.postBusinessName}>{post.businessName}</Link>
+                      : <span className={styles.postBusinessName}>{post.businessName}</span>
+                    }
                   </div>
-                  <button
-                    className={`${styles.postSaveBtn} ${post.saved ? styles.postSaveBtnActive : ""}`}
-                    onClick={() => toggleSave(post.id)}
-                  >
-                    <Bookmark size={20} fill={post.saved ? "currentColor" : "none"} />
-                  </button>
+                  <span className={styles.postHeaderTime}>{formatTimeAgo(post.timeAgo)}</span>
                 </div>
 
-                <div className={styles.postContent}><p>{post.content}</p></div>
-
+                {/* Imágenes */}
                 {post.images.length > 0 && (
                   <div className={styles.postImagesContainer}>
-                    <img src={post.images[currentIndex]} alt={`${post.businessName} ${currentIndex + 1}`} className={styles.postImage} />
+                    <img
+                      src={post.images[currentIndex]}
+                      alt={`${post.businessName} ${currentIndex + 1}`}
+                      className={styles.postImage}
+                    />
                     {post.images.length > 1 && (
                       <>
                         <button className={`${styles.postImageBtn} ${styles.postImageBtnPrev}`} onClick={() => prevImage(post.id, post.images.length)}>
@@ -526,7 +624,7 @@ const Home = () => {
                         </button>
                         <div className={styles.postImageIndicators}>
                           {post.images.map((_, i) => (
-                            <div key={i} className={`${styles.postImageDot} ${i === currentIndex ? styles.postImageDotActive : ""}`} />
+                            <div key={`${post.id}-img-${i}`} className={`${styles.postImageDot} ${i === currentIndex ? styles.postImageDotActive : ""}`} />
                           ))}
                         </div>
                       </>
@@ -534,25 +632,51 @@ const Home = () => {
                   </div>
                 )}
 
+                {/* Acciones */}
                 <div className={styles.postActions}>
                   <div className={styles.postActionsLeft}>
-                    <button className={`${styles.postActionBtn} ${post.isLiked ? styles.postLikeBtnActive : ""}`} onClick={() => toggleLike(post.id)}>
-                      <Heart size={20} fill={post.isLiked ? "currentColor" : "none"} />
-                      <span>{post.likes}</span>
-                    </button>
-                    <button className={styles.postActionBtn}>
-                      <Share2 size={20} /><span>Compartir</span>
+                    <button className={styles.postActionBtn} onClick={() => handleShare(post)} title="Compartir">
+                      <Share2 size={20} />
+                      <span>Compartir</span>
                     </button>
                   </div>
-                  <span className={styles.postLikesCount}>{post.likes} me gusta</span>
+                  <button
+                    className={`${styles.postActionBtn} ${isSaved ? styles.postActionBtnActive : ""}`}
+                    onClick={() => toggleSave(post.id)}
+                    title={isSaved ? "Guardado" : "Guardar"}
+                  >
+                    <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
+                  </button>
                 </div>
+
+                {/* Descripción */}
+                {post.content && (
+                  <div className={styles.postContent}>
+                    <span className={styles.postContentBusiness}>{post.businessName} </span>
+                    <span>{post.content}</span>
+                  </div>
+                )}
+
+                {/* Tiempo */}
+                <span className={styles.postFooterTime}>{formatTimeAgo(post.timeAgo)}</span>
+
               </div>
             );
           })}
 
-          <div className={styles.loadMoreContainer}>
-            <button className={styles.loadMoreBtn}>Cargar más publicaciones</button>
-          </div>
+          {/* Cargar más */}
+          {posts.length > 0 && (
+            <div className={styles.loadMoreContainer}>
+              {feedHasMore ? (
+                <button className={styles.loadMoreBtn} onClick={loadMore} disabled={feedLoading}>
+                  {feedLoading ? "Cargando..." : "Cargar más publicaciones"}
+                </button>
+              ) : (
+                <p className={styles.feedEnd}>Ya viste todo por ahora 👀</p>
+              )}
+            </div>
+          )}
+
         </div>
       </section>
 
