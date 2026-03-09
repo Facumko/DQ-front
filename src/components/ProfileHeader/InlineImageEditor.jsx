@@ -3,19 +3,45 @@ import { Camera, ZoomIn, ZoomOut, RotateCcw, Check, X, Move, Upload } from "luci
 import styles from "./InlineImageEditor.module.css";
 import { compressAvatar, compressCover } from "./imageUtils";
 
+// ── Hook reutilizable: maneja imgLoaded con soporte de caché ──
+// Si la imagen ya estaba cacheada, onLoad no se dispara.
+// Este hook chequea .complete en el ref para cubrirlo.
+const useImgLoaded = (src) => {
+  const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef(null);
+
+  useEffect(() => {
+    setLoaded(false);
+    if (!src) return;
+    // Chequeo inmediato por si ya está en caché
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, [src]);
+
+  const onLoad  = useCallback(() => setLoaded(true),  []);
+  const onError = useCallback(() => setLoaded(true),  []); // en error también sacamos skeleton
+
+  return { imgRef, loaded, onLoad, onError };
+};
+
 // ═══════════════════════════════════════════════════════
-// COVER EDITOR — Edición inline de portada
+// COVER EDITOR
 // ═══════════════════════════════════════════════════════
 export const CoverEditor = ({
   currentImage,
   isEditing,
-  onFileSelect,   // (file, previewUrl) => void
-  pendingFile,    // { file, previewUrl } | null
-  onConfirm,      // (posY, zoom) => void
-  onDiscard,      // () => void
+  onFileSelect,
+  pendingFile,
+  onConfirm,
+  onDiscard,
 }) => {
-  const containerRef    = useRef(null);
-  const fileInputRef    = useRef(null);
+  const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const displayImage = pendingFile?.previewUrl || currentImage || null;
+  const { imgRef, loaded: imgLoaded, onLoad, onError } = useImgLoaded(displayImage);
 
   const [isDragging,    setIsDragging]    = useState(false);
   const [posY,          setPosY]          = useState(50);
@@ -25,29 +51,18 @@ export const CoverEditor = ({
   const [showGrid,      setShowGrid]      = useState(false);
   const [isDragOver,    setIsDragOver]    = useState(false);
   const [confirmed,     setConfirmed]     = useState(false);
-  const [imgLoaded,     setImgLoaded]     = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  // Reset cuando llega imagen nueva
   useEffect(() => {
-    if (pendingFile) {
-      setPosY(50); setZoom(1);
-      setConfirmed(false); setImgLoaded(false);
-    }
+    if (pendingFile) { setPosY(50); setZoom(1); setConfirmed(false); }
   }, [pendingFile?.previewUrl]);
 
-  // Reset imgLoaded cuando cambia la imagen actual del servidor
-  useEffect(() => { setImgLoaded(false); }, [currentImage]);
-
-  // Si el padre limpia pendingFile => reset confirmed
   useEffect(() => {
     if (!pendingFile) setConfirmed(false);
   }, [pendingFile]);
 
-  const displayImage = pendingFile?.previewUrl || currentImage;
-  const canDrag      = pendingFile && isEditing && !confirmed;
+  const canDrag = pendingFile && isEditing && !confirmed;
 
-  // ── Drag para reposicionar ──
   const onMouseDown = useCallback((e) => {
     if (!canDrag) return;
     e.preventDefault();
@@ -61,9 +76,7 @@ export const CoverEditor = ({
     setPosY(Math.max(0, Math.min(100, startPosY - ((e.clientY - startY) / h) * 100)));
   }, [isDragging, startY, startPosY]);
 
-  const onMouseUp = useCallback(() => {
-    setIsDragging(false); setShowGrid(false);
-  }, []);
+  const onMouseUp = useCallback(() => { setIsDragging(false); setShowGrid(false); }, []);
 
   const onTouchStart = useCallback((e) => {
     if (!canDrag) return;
@@ -91,10 +104,6 @@ export const CoverEditor = ({
     };
   }, [onMouseMove, onMouseUp, onTouchMove]);
 
-  // ── Drag & drop de archivo ──
-  const onDragOver  = (e) => { e.preventDefault(); setIsDragOver(true); };
-  const onDragLeave = () => setIsDragOver(false);
-
   const processFile = async (file) => {
     setIsCompressing(true);
     try {
@@ -107,27 +116,21 @@ export const CoverEditor = ({
     }
   };
 
+  const onDragOver  = (e) => { e.preventDefault(); setIsDragOver(true); };
+  const onDragLeave = () => setIsDragOver(false);
   const onDrop = async (e) => {
     e.preventDefault(); setIsDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file?.type.startsWith("image/")) processFile(file);
   };
-
   const handleFileInput = (e) => {
     const file = e.target.files[0];
     if (file) processFile(file);
     e.target.value = "";
   };
 
-  const handleConfirm = () => {
-    onConfirm(posY, zoom);
-    setConfirmed(true);
-  };
-
-  const handleDiscard = () => {
-    setConfirmed(false);
-    onDiscard();
-  };
+  const handleConfirm = () => { onConfirm(posY, zoom); setConfirmed(true); };
+  const handleDiscard = () => { setConfirmed(false); onDiscard(); };
 
   return (
     <div
@@ -137,14 +140,12 @@ export const CoverEditor = ({
       onDragLeave={isEditing ? onDragLeave : undefined}
       onDrop={isEditing ? onDrop : undefined}
     >
-      {/* Skeleton mientras carga */}
-      {!imgLoaded && displayImage && (
-        <div className={styles.coverSkeleton} />
-      )}
+      {/* Skeleton: visible mientras no cargó */}
+      {!imgLoaded && <div className={styles.coverSkeleton} />}
 
-      {/* Imagen o placeholder */}
       {displayImage ? (
         <img
+          ref={imgRef}
           src={displayImage}
           alt="Portada"
           className={`${styles.coverImage} ${imgLoaded ? styles.coverImgLoaded : styles.coverImgLoading}`}
@@ -154,7 +155,8 @@ export const CoverEditor = ({
             transformOrigin: `center ${posY}%`,
             cursor: canDrag ? (isDragging ? "grabbing" : "grab") : "default",
           }}
-          onLoad={() => setImgLoaded(true)}
+          onLoad={onLoad}
+          onError={onError}
           onMouseDown={onMouseDown}
           onTouchStart={onTouchStart}
           draggable={false}
@@ -165,7 +167,6 @@ export const CoverEditor = ({
         </div>
       )}
 
-      {/* Overlay de compresión */}
       {isCompressing && (
         <div className={styles.compressingOverlay}>
           <div className={styles.compressingSpinner} />
@@ -173,14 +174,10 @@ export const CoverEditor = ({
         </div>
       )}
 
-      {/* Grid de tercios al arrastrar */}
       {showGrid && <div className={styles.gridOverlay} />}
 
-      {/* Controles de edición */}
       {isEditing && (
         <div className={styles.coverOverlay}>
-
-          {/* Hint de drop */}
           {isDragOver && (
             <div className={styles.dropHint}>
               <Upload size={32} />
@@ -188,7 +185,6 @@ export const CoverEditor = ({
             </div>
           )}
 
-          {/* Toolbar de ajuste — visible solo con imagen pendiente no confirmada */}
           {!isDragOver && pendingFile && !confirmed && (
             <div className={styles.coverToolbar}>
               <div className={styles.toolbarGroup}>
@@ -201,12 +197,9 @@ export const CoverEditor = ({
                   onClick={() => setZoom(z => Math.max(1, +(z - 0.1).toFixed(2)))}>
                   <ZoomOut size={13} />
                 </button>
-                <input
-                  type="range" min={1} max={2.5} step={0.05}
-                  value={zoom}
+                <input type="range" min={1} max={2.5} step={0.05} value={zoom}
                   onChange={e => setZoom(Number(e.target.value))}
-                  className={styles.zoomSlider}
-                />
+                  className={styles.zoomSlider} />
                 <button type="button" className={styles.toolBtn}
                   onClick={() => setZoom(z => Math.min(2.5, +(z + 0.1).toFixed(2)))}>
                   <ZoomIn size={13} />
@@ -214,8 +207,7 @@ export const CoverEditor = ({
                 <span className={styles.zoomVal}>{Math.round(zoom * 100)}%</span>
               </div>
               <button type="button" className={styles.toolBtn}
-                onClick={() => { setPosY(50); setZoom(1); }}
-                title="Resetear posición">
+                onClick={() => { setPosY(50); setZoom(1); }} title="Resetear">
                 <RotateCcw size={13} />
               </button>
               <div className={styles.toolbarDivider} />
@@ -228,24 +220,17 @@ export const CoverEditor = ({
             </div>
           )}
 
-          {/* Botón subir — siempre visible en modo edición */}
           {!isDragOver && (
             <label className={styles.uploadBtn}>
               <Camera size={14} />
               {currentImage || pendingFile ? "Cambiar portada" : "Subir portada"}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileInput}
-                className={styles.hiddenInput}
-              />
+              <input ref={fileInputRef} type="file" accept="image/*"
+                onChange={handleFileInput} className={styles.hiddenInput} />
             </label>
           )}
         </div>
       )}
 
-      {/* Badge de estado */}
       {pendingFile && isEditing && (
         <div className={`${styles.unsavedBadge} ${confirmed ? styles.badgeReady : ""}`}>
           <span className={confirmed ? styles.readyDot : styles.unsavedDot} />
@@ -258,17 +243,20 @@ export const CoverEditor = ({
 
 
 // ═══════════════════════════════════════════════════════
-// AVATAR EDITOR — Edición inline de foto de perfil
+// AVATAR EDITOR
 // ═══════════════════════════════════════════════════════
 export const AvatarEditor = ({
   currentImage,
   isEditing,
-  onFileSelect,   // (file, previewUrl) => void
-  pendingFile,    // { file, previewUrl } | null
-  onConfirm,      // (offsetX, offsetY, zoom) => void
-  onDiscard,      // () => void
+  onFileSelect,
+  pendingFile,
+  onConfirm,
+  onDiscard,
 }) => {
   const fileInputRef = useRef(null);
+
+  const displayImage = pendingFile?.previewUrl || currentImage || null;
+  const { imgRef, loaded: imgLoaded, onLoad, onError } = useImgLoaded(displayImage);
 
   const [zoom,          setZoom]          = useState(1);
   const [offset,        setOffset]        = useState({ x: 50, y: 50 });
@@ -277,26 +265,19 @@ export const AvatarEditor = ({
   const [startOffset,   setStartOffset]   = useState({ x: 50, y: 50 });
   const [expanded,      setExpanded]      = useState(false);
   const [confirmed,     setConfirmed]     = useState(false);
-  const [imgLoaded,     setImgLoaded]     = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  // Reset al llegar imagen nueva
   useEffect(() => {
     if (pendingFile) {
       setZoom(1); setOffset({ x: 50, y: 50 });
-      setExpanded(true); setConfirmed(false); setImgLoaded(false);
+      setExpanded(true); setConfirmed(false);
     } else {
       setExpanded(false); setConfirmed(false);
     }
   }, [pendingFile?.previewUrl]);
 
-  // Reset imgLoaded cuando cambia imagen del servidor
-  useEffect(() => { setImgLoaded(false); }, [currentImage]);
+  const canDrag = pendingFile && !confirmed;
 
-  const displayImage = pendingFile?.previewUrl || currentImage;
-  const canDrag      = pendingFile && !confirmed;
-
-  // ── Drag para reposicionar ──
   const onMouseDown = useCallback((e) => {
     if (!canDrag) return;
     e.preventDefault();
@@ -381,40 +362,29 @@ export const AvatarEditor = ({
   return (
     <div className={`${styles.avatarWrapper} ${expanded ? styles.avatarExpanded : ""}`}>
 
-      {/* Anillo pulsante en edición activa */}
-      {isEditing && pendingFile && !confirmed && (
-        <div className={styles.avatarRing} />
-      )}
-
-      {/* Tick verde al confirmar */}
+      {isEditing && pendingFile && !confirmed && <div className={styles.avatarRing} />}
       {isEditing && confirmed && (
-        <div className={styles.avatarConfirmedBadge}>
-          <Check size={10} />
-        </div>
+        <div className={styles.avatarConfirmedBadge}><Check size={10} /></div>
       )}
 
-      {/* Círculo principal */}
       <div
         className={`${styles.avatarCircle} ${pendingFile && !confirmed ? styles.avatarCircleEditing : ""}`}
         onMouseDown={onMouseDown}
         onTouchStart={onTouchStart}
         style={{ cursor: canDrag ? (isDragging ? "grabbing" : "grab") : "default" }}
       >
-        {/* Skeleton */}
-        {!imgLoaded && displayImage && (
-          <div className={styles.avatarSkeleton} />
-        )}
+        {/* Skeleton visible hasta que cargue */}
+        {!imgLoaded && <div className={styles.avatarSkeleton} />}
 
-        {/* Spinner compresión */}
         {isCompressing && (
           <div className={styles.avatarCompressing}>
             <div className={styles.compressingSpinner} />
           </div>
         )}
 
-        {/* Imagen o fallback SVG */}
         {displayImage ? (
           <img
+            ref={imgRef}
             src={displayImage}
             alt="Perfil"
             draggable={false}
@@ -424,7 +394,8 @@ export const AvatarEditor = ({
               transform: `scale(${zoom})`,
               transformOrigin: `${offset.x}% ${offset.y}%`,
             }}
-            onLoad={() => setImgLoaded(true)}
+            onLoad={onLoad}
+            onError={onError}
           />
         ) : (
           <div className={styles.avatarFallback}>
@@ -437,22 +408,15 @@ export const AvatarEditor = ({
           </div>
         )}
 
-        {/* Overlay cámara — aparece al hover en desktop, siempre en mobile */}
         {isEditing && !pendingFile && (
           <label className={styles.avatarCameraOverlay}>
             <Camera size={22} />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileInput}
-              className={styles.hiddenInput}
-            />
+            <input ref={fileInputRef} type="file" accept="image/*"
+              onChange={handleFileInput} className={styles.hiddenInput} />
           </label>
         )}
       </div>
 
-      {/* Panel de ajuste — visible mientras edita, se cierra al confirmar */}
       {isEditing && pendingFile && expanded && !confirmed && (
         <div className={styles.avatarEditPanel}>
           <p className={styles.avatarEditHint}>
@@ -460,12 +424,9 @@ export const AvatarEditor = ({
           </p>
           <div className={styles.avatarZoomRow}>
             <ZoomOut size={13} />
-            <input
-              type="range" min={1} max={3} step={0.05}
-              value={zoom}
+            <input type="range" min={1} max={3} step={0.05} value={zoom}
               onChange={e => setZoom(Number(e.target.value))}
-              className={styles.avatarZoomSlider}
-            />
+              className={styles.avatarZoomSlider} />
             <ZoomIn size={13} />
             <span className={styles.avatarZoomVal}>{Math.round(zoom * 100)}%</span>
           </div>
@@ -475,11 +436,11 @@ export const AvatarEditor = ({
               <input type="file" accept="image/*" onChange={handleFileInput} className={styles.hiddenInput} />
             </label>
             <button type="button" className={styles.avatarResetBtn}
-              onClick={() => { setOffset({ x: 50, y: 50 }); setZoom(1); }}
-              title="Resetear">
+              onClick={() => { setOffset({ x: 50, y: 50 }); setZoom(1); }} title="Resetear">
               <RotateCcw size={12} />
             </button>
-            <button type="button" className={styles.avatarDiscardBtn} onClick={handleDiscard} title="Descartar">
+            <button type="button" className={styles.avatarDiscardBtn}
+              onClick={handleDiscard} title="Descartar">
               <X size={12} />
             </button>
             <button type="button" className={styles.avatarConfirmBtn} onClick={handleConfirm}>
@@ -489,7 +450,6 @@ export const AvatarEditor = ({
         </div>
       )}
 
-      {/* Dot de estado */}
       {pendingFile && isEditing && (
         <div className={confirmed ? styles.avatarReadyDot : styles.avatarUnsaved} />
       )}
