@@ -361,13 +361,12 @@ const Home = () => {
 
   // Normaliza un post del backend al formato que usa el feed
   const normalizeFeedPost = (p) => {
-    const d = p.data || p; // el back envuelve en { data, type, createdAt, relevanceScore }
-    if (import.meta.env.DEV) console.log("📋 Post data:", d);
+    const d = p.data || p;
     return {
       id:           d.idPost       || d.id,
       businessName: d.commerceName || d.nameCommerce || d.businessName || d.commerce?.name || "Sin nombre",
       businessId:   d.commerceId   || d.idCommerce   || d.businessId   || d.commerce?.idCommerce,
-      businessLogo: d.commerceProfileImage || d.profileImageCommerce || d.businessLogo || d.commerce?.profileImage?.url || null,
+      businessLogo: p.commerceProfileImageUrl || d.commerceProfileImage || d.profileImageCommerce || d.commerce?.profileImage?.url || null,
       timeAgo:      p.createdAt    || d.postedAt || d.createdAt || "",
       content:      d.description  || d.text || "",
       images:       Array.isArray(d.images)
@@ -656,9 +655,6 @@ const Home = () => {
                     <span>{post.content}</span>
                   </div>
                 )}
-
-                {/* Tiempo */}
-                <span className={styles.postFooterTime}>{formatTimeAgo(post.timeAgo)}</span>
 
               </div>
             );
