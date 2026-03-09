@@ -116,19 +116,19 @@ const Navbar = () => {
     <>
       <nav className={styles.navbar}>
 
-        {/* Hamburger */}
-        <div
-          className={`${styles.hamburger} ${showDrawer ? styles.activeIcon : ""}`}
-          title="Categorías y más"
-          onClick={() => setShowDrawer(true)}
-        >
-          <FaBars className={styles.outlineIcon} />
-        </div>
-
-        {/* Logo */}
-        <div className={styles.logo} onClick={() => navigate("/")}>
-          <img src="/logoDQ.png" alt="Logo" className={styles.logoIcon} />
-          <span className={styles.logoText}>Dónde Queda?</span>
+        {/* Hamburger + Logo agrupados a la izquierda */}
+        <div className={styles.navLeft}>
+          <div
+            className={`${styles.hamburger} ${showDrawer ? styles.activeIcon : ""}`}
+            title="Categorías y más"
+            onClick={() => setShowDrawer(true)}
+          >
+            <FaBars className={styles.outlineIcon} />
+          </div>
+          <div className={styles.logo} onClick={() => navigate("/")}>
+            <img src="/logoDQ.png" alt="Logo" className={styles.logoIcon} />
+            <span className={styles.logoText}>Dónde Queda?</span>
+          </div>
         </div>
 
         {/* Buscador */}
