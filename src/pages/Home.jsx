@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
+import LoginModal from "../components/LoginForm/LoginModal";
 import styles from "./Home.module.css";
 import { getMainFeed } from "../Api/Api";
+import { UserContext } from "./UserContext";
 import {
   Calendar,
   Utensils,
@@ -133,10 +135,6 @@ const MOCK_DATA = {
     },
   ],
 
-  // ── MOCK: Directorio por subcategoría ──────────────────────────
-  // En producción esto vendrá del endpoint del back.
-  // El backend ya se encarga de elegir los comercios al azar
-  // y rotar los que aún no fueron mostrados.
   directorySlides: [
     {
       subcategory: "Abogados",
@@ -178,52 +176,6 @@ const MOCK_DATA = {
       ],
     },
   ],
-
-  posts: [
-    {
-      id: "1",
-      businessName: "Restaurante El Buen Sabor",
-      businessLogo: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=60&q=80",
-      location: "Centro Histórico",
-      timeAgo: "2 horas",
-      content: "🍽️ ¡Nuevo menú de temporada disponible! Ven y prueba nuestros platos especiales preparados con ingredientes frescos de la región. Reserva tu mesa llamando al 555-0123.",
-      images: [
-        "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600&q=80",
-        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80",
-        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80",
-      ],
-      likes: 47,
-      isLiked: false,
-      saved: false,
-    },
-    {
-      id: "2",
-      businessName: "Café Central",
-      businessLogo: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=60&q=80",
-      location: "Plaza Principal",
-      timeAgo: "4 horas",
-      content: "☕ Comenzamos la semana con energía. Nuestro café recién tostado te está esperando. Abierto desde las 7:00 AM con desayunos especiales y wifi gratuito.",
-      images: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80"],
-      likes: 32,
-      isLiked: true,
-      saved: true,
-    },
-    {
-      id: "3",
-      businessName: "Tienda La Esquina",
-      businessLogo: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=60&q=80",
-      location: "Barrio Norte",
-      timeAgo: "6 horas",
-      content: "🛍️ Gran oferta de fin de semana: 20% de descuento en toda la ropa de temporada. Además, envío gratis en compras superiores a $50. Válido hasta el domingo.",
-      images: [
-        "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=600&q=80",
-        "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&q=80",
-      ],
-      likes: 28,
-      isLiked: false,
-      saved: false,
-    },
-  ],
 };
 
 // ============================================
@@ -232,8 +184,7 @@ const MOCK_DATA = {
 const DirectorySpotlight = ({ slides }) => {
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
-
-  const INTERVAL = 6000; // ms entre transiciones
+  const INTERVAL = 6000;
 
   const startTimer = () => {
     clearInterval(timerRef.current);
@@ -247,35 +198,27 @@ const DirectorySpotlight = ({ slides }) => {
     return () => clearInterval(timerRef.current);
   }, [slides.length]);
 
-  const goTo = (idx) => {
-    setCurrent(idx);
-    startTimer(); // reinicia el timer si el usuario hace click
-  };
-
+  const goTo = (idx) => { setCurrent(idx); startTimer(); };
   const { subcategory, businesses } = slides[current];
 
   return (
     <aside className={styles.directoryWidget}>
-      {/* Cabecera */}
       <div className={styles.directoryHeader}>
         <Building2 size={16} className={styles.directoryHeaderIcon} />
         <span>Directorio de servicios</span>
       </div>
 
-      {/* Contenido con animación */}
       <div className={styles.directorySlide} key={current}>
         <h3 className={styles.directorySubcategory}>{subcategory}</h3>
-
         <ul className={styles.directoryList}>
           {businesses.map((biz) => (
             <li key={biz.id} className={styles.directoryItem}>
               <Link to={`/negocios/${biz.id}`} className={styles.directoryLink}>
                 <div className={styles.directoryAvatar}>
-                  {biz.image ? (
-                    <img src={biz.image} alt={biz.name} />
-                  ) : (
-                    <span>{biz.name.charAt(0).toUpperCase()}</span>
-                  )}
+                  {biz.image
+                    ? <img src={biz.image} alt={biz.name} />
+                    : <span>{biz.name.charAt(0).toUpperCase()}</span>
+                  }
                 </div>
                 <span className={styles.directoryName}>{biz.name}</span>
               </Link>
@@ -284,7 +227,6 @@ const DirectorySpotlight = ({ slides }) => {
         </ul>
       </div>
 
-      {/* Indicadores / navegación */}
       <div className={styles.directoryNav}>
         {slides.map((slide, idx) => (
           <button
@@ -296,7 +238,6 @@ const DirectorySpotlight = ({ slides }) => {
         ))}
       </div>
 
-      {/* Barra de progreso */}
       <div className={styles.directoryProgress}>
         <div
           className={styles.directoryProgressBar}
@@ -317,31 +258,38 @@ const DirectorySpotlight = ({ slides }) => {
 // ============================================
 const Home = () => {
   const navigate = useNavigate();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [posts, setPosts]               = useState([]);
-  const [feedPage, setFeedPage]         = useState(0);
-  const [feedLoading, setFeedLoading]   = useState(false);
-  const [feedError, setFeedError]       = useState("");
-  const [feedHasMore, setFeedHasMore]   = useState(true);
+
+  // ── Context ───────────────────────────────────────────────────────────
+  const { user, savedPostIds, toggleSavedPost } = useContext(UserContext);
+
+  // ── UI state ──────────────────────────────────────────────────────────
+  const [currentSlide, setCurrentSlide]           = useState(0);
+  const [posts, setPosts]                         = useState([]);
+  const [feedPage, setFeedPage]                   = useState(0);
+  const [feedLoading, setFeedLoading]             = useState(false);
+  const [feedError, setFeedError]                 = useState("");
+  const [feedHasMore, setFeedHasMore]             = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState({});
-  const [savedPosts, setSavedPosts] = useState(new Set());
+  const [showLogin, setShowLogin]                 = useState(false);
   const sectionsRef = useRef([]);
 
   const FEED_SIZE = 10;
 
-  // Formato de tiempo estilo Instagram
+  // ── Helpers ───────────────────────────────────────────────────────────
   const formatTimeAgo = (dateStr) => {
     if (!dateStr) return "";
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-    if (diff < 60)  return "ahora";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    if (diff < 60)     return "ahora";
+    if (diff < 3600)   return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400)  return `${Math.floor(diff / 3600)}h`;
     if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
     return new Date(dateStr).toLocaleDateString("es-AR", { day: "numeric", month: "short" });
   };
 
   const handleShare = async (post) => {
-    const url = post.businessId ? `${window.location.origin}/negocios/${post.businessId}` : window.location.href;
+    const url  = post.businessId
+      ? `${window.location.origin}/negocios/${post.businessId}`
+      : window.location.href;
     const text = `${post.businessName}: ${post.content?.slice(0, 80)}...`;
     if (navigator.share) {
       try { await navigator.share({ title: post.businessName, text, url }); } catch {}
@@ -351,26 +299,24 @@ const Home = () => {
     }
   };
 
-  const toggleSave = (postId) => {
-    setSavedPosts((prev) => {
-      const next = new Set(prev);
-      next.has(postId) ? next.delete(postId) : next.add(postId);
-      return next;
-    });
+  // Si no hay sesión → abre login en lugar de guardar silenciosamente
+  const handleToggleSave = async (post) => {
+    if (!user) { setShowLogin(true); return; }
+    await toggleSavedPost(post);
   };
 
-  // Normaliza un post del backend al formato que usa el feed
+  // ── Feed ──────────────────────────────────────────────────────────────
   const normalizeFeedPost = (p) => {
-    const d = p.data || p; // el back envuelve en { data, type, createdAt, relevanceScore }
-    if (import.meta.env.DEV) console.log("📋 Post data:", d);
+    const d = p.data || p;
     return {
       id:           d.idPost       || d.id,
+      idPost:       d.idPost       || d.id,   // necesario para toggleSavedPost
       businessName: d.commerceName || d.nameCommerce || d.businessName || d.commerce?.name || "Sin nombre",
       businessId:   d.commerceId   || d.idCommerce   || d.businessId   || d.commerce?.idCommerce,
       businessLogo: d.commerceProfileImage || d.profileImageCommerce || d.businessLogo || d.commerce?.profileImage?.url || null,
       timeAgo:      p.createdAt    || d.postedAt || d.createdAt || "",
       content:      d.description  || d.text || "",
-      images:       Array.isArray(d.images)
+      images: Array.isArray(d.images)
         ? d.images.sort((a, b) => (a.imageOrder || 0) - (b.imageOrder || 0)).map((i) => i.url || i)
         : [],
     };
@@ -380,7 +326,7 @@ const Home = () => {
     setFeedLoading(true);
     setFeedError("");
     try {
-      const data = await getMainFeed(page, FEED_SIZE);
+      const data       = await getMainFeed(page, FEED_SIZE);
       const normalized = data.map(normalizeFeedPost);
       setPosts((prev) => append ? [...prev, ...normalized] : normalized);
       setFeedHasMore(data.length === FEED_SIZE);
@@ -407,11 +353,7 @@ const Home = () => {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) entry.target.classList.add(styles.visible);
-        });
-      },
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add(styles.visible); }),
       { threshold: 0.05, rootMargin: "0px 0px -60px 0px" }
     );
     sectionsRef.current.forEach((s) => s && observer.observe(s));
@@ -428,18 +370,17 @@ const Home = () => {
 
   const nextImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) + 1) % total }));
-
   const prevImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) - 1 + total) % total }));
 
+  // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className={styles.homeContainer}>
 
-      {/* ── HERO: Carousel + Sidebar negocios destacados ── */}
+      {/* ── HERO ── */}
       <section ref={(el) => (sectionsRef.current[0] = el)} className={`${styles.section} ${styles.heroSection}`}>
         <div className={styles.heroGrid}>
 
-          {/* Carousel */}
           <div className={styles.carouselContainer}>
             <div className={styles.carousel}>
               {MOCK_DATA.heroSlides.map((slide, index) => (
@@ -490,7 +431,6 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Sidebar negocios premium */}
           <div className={styles.sidebar}>
             {MOCK_DATA.featuredBusinesses.map((business) => (
               <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
@@ -511,7 +451,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ── ¿Qué estás buscando? + Directorio básico ── */}
+      {/* ── CATEGORÍAS + DIRECTORIO ── */}
       <section ref={(el) => (sectionsRef.current[1] = el)} className={`${styles.section} ${styles.categoriesSection}`}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>¿Qué estás buscando?</h2>
@@ -520,7 +460,6 @@ const Home = () => {
           </p>
         </div>
 
-        {/* Layout: categorías a la izq, directorio a la der */}
         <div className={styles.categoriesLayout}>
           <div className={styles.categoriesGrid}>
             {MOCK_DATA.categories.map((category) => {
@@ -542,12 +481,11 @@ const Home = () => {
             })}
           </div>
 
-          {/* ── DIRECTORIO BÁSICO / INTERMEDIO ── */}
           <DirectorySpotlight slides={MOCK_DATA.directorySlides} />
         </div>
       </section>
 
-      {/* ── Feed de publicaciones ── */}
+      {/* ── FEED ── */}
       <section ref={(el) => (sectionsRef.current[2] = el)} className={`${styles.section} ${styles.postsSection}`}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Últimas Publicaciones</h2>
@@ -556,7 +494,6 @@ const Home = () => {
 
         <div className={styles.postsFeed}>
 
-          {/* Estado de carga inicial */}
           {feedLoading && posts.length === 0 && (
             <div className={styles.feedLoading}>
               {[1,2,3].map((i) => (
@@ -569,7 +506,6 @@ const Home = () => {
             </div>
           )}
 
-          {/* Error */}
           {feedError && (
             <div className={styles.feedError}>
               <p>{feedError}</p>
@@ -577,21 +513,20 @@ const Home = () => {
             </div>
           )}
 
-          {/* Sin publicaciones */}
           {!feedLoading && !feedError && posts.length === 0 && (
             <div className={styles.feedEmpty}>
               <p>No hay publicaciones todavía.</p>
             </div>
           )}
 
-          {/* Posts */}
           {posts.map((post) => {
             const currentIndex = currentImageIndex[post.id] || 0;
-            const isSaved = savedPosts.has(post.id);
+            // Estado leído del contexto global — sincronizado con backend
+            const isSaved = savedPostIds?.has(post.id) ?? false;
+
             return (
               <div key={post.id} className={styles.postCard}>
 
-                {/* Header: avatar + nombre + tiempo */}
                 <div className={styles.postHeader}>
                   {post.businessLogo
                     ? <img src={post.businessLogo} alt={post.businessName} className={styles.postAvatar} />
@@ -606,7 +541,6 @@ const Home = () => {
                   <span className={styles.postHeaderTime}>{formatTimeAgo(post.timeAgo)}</span>
                 </div>
 
-                {/* Imágenes */}
                 {post.images.length > 0 && (
                   <div className={styles.postImagesContainer}>
                     <img
@@ -632,7 +566,6 @@ const Home = () => {
                   </div>
                 )}
 
-                {/* Acciones */}
                 <div className={styles.postActions}>
                   <div className={styles.postActionsLeft}>
                     <button className={styles.postActionBtn} onClick={() => handleShare(post)} title="Compartir">
@@ -642,14 +575,13 @@ const Home = () => {
                   </div>
                   <button
                     className={`${styles.postActionBtn} ${isSaved ? styles.postActionBtnActive : ""}`}
-                    onClick={() => toggleSave(post.id)}
+                    onClick={() => handleToggleSave(post)}
                     title={isSaved ? "Guardado" : "Guardar"}
                   >
                     <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
                   </button>
                 </div>
 
-                {/* Descripción */}
                 {post.content && (
                   <div className={styles.postContent}>
                     <span className={styles.postContentBusiness}>{post.businessName} </span>
@@ -657,14 +589,11 @@ const Home = () => {
                   </div>
                 )}
 
-                {/* Tiempo */}
                 <span className={styles.postFooterTime}>{formatTimeAgo(post.timeAgo)}</span>
-
               </div>
             );
           })}
 
-          {/* Cargar más */}
           {posts.length > 0 && (
             <div className={styles.loadMoreContainer}>
               {feedHasMore ? (
@@ -681,6 +610,9 @@ const Home = () => {
       </section>
 
       <FloatingChat />
+
+      {/* Modal login — se abre si el usuario intenta guardar sin sesión */}
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 };
