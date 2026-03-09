@@ -1,9 +1,17 @@
 import axios from "axios";
 
+// ============================================
+// CONFIGURACIÓN
+// ============================================
+
 const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
 const TIMEOUT = 15000;
 const MAX_RETRIES = 2;
 const isDevelopment = import.meta.env.MODE === 'development';
+
+// ============================================
+// ENDPOINTS CENTRALIZADOS
+// ============================================
 
 const ENDPOINTS = {
   LOGIN: '/auth/login',
@@ -67,13 +75,23 @@ export const getStoredTokens = () => {
 };
 
 export const saveTokens = (accessToken, refreshToken) => {
-  try { localStorage.setItem('accessToken', accessToken); localStorage.setItem('refreshToken', refreshToken); setAuthToken(accessToken); }
-  catch (error) { console.error('Error guardando tokens:', error); }
+  try {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    setAuthToken(accessToken);
+  } catch (error) {
+    console.error('Error guardando tokens:', error);
+  }
 };
 
 export const clearTokens = () => {
-  try { localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); setAuthToken(null); }
-  catch (error) { console.error('Error limpiando tokens:', error); }
+  try {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    setAuthToken(null);
+  } catch (error) {
+    console.error('Error limpiando tokens:', error);
+  }
 };
 
 const refreshAccessToken = async () => {
@@ -197,9 +215,6 @@ export const capitalizeFirstLetter = (str) => {
 
 export const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-export const generateUsername = (email) => { const b = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,''); return `${b}${Math.random().toString(36).substring(2,6)}`; };
-export const capitalizeFirstLetter = (str) => { if (!str) return ''; return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase(); };
-export const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 export const validatePasswordStrength = (password) => {
   if (!password) return { strength: 'none', message: '' };
   const score = [
@@ -224,8 +239,6 @@ const shouldRetry = (error) => {
   return false;
 };
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const shouldRetry = (error) => { if (error.response?.status===401) return false; if (!error.response) return true; if (error.code==='ECONNABORTED') return true; if (error.response.status>=500) return true; return false; };
 const validateApiResponse = (response, endpoint) => {
   if (typeof response === 'string' && response.includes('<!DOCTYPE html>'))
     throw new Error(`El servidor respondió con HTML en lugar de JSON. Endpoint: ${endpoint}`);
@@ -233,6 +246,7 @@ const validateApiResponse = (response, endpoint) => {
     throw new Error(`Ngrok está bloqueando la petición. Endpoint: ${endpoint}`);
   return true;
 };
+
 const handleApiError = (error, endpoint) => {
   if (isDevelopment) console.error(`❌ Error en ${endpoint}:`, error);
   if (error.response && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE html>'))
@@ -271,21 +285,27 @@ const logRequest = (method, endpoint, data) => {
 const logResponse = (method, endpoint, data) => {
   if (isDevelopment) console.log(`✅ ${method} ${endpoint} - Success`, data);
 };
-const validateParams = (params, names) => { for (const n of names) { if (params[n]===null||params[n]===undefined||params[n]==='') throw new Error(`Parámetro requerido faltante: ${n}`); } };
 
 const apiRequest = async (method, endpoint, data = null, retries = MAX_RETRIES) => {
   logRequest(method, endpoint, data);
   const { accessToken } = getStoredTokens();
   const config = {
-    method, url:`${API_URL}${endpoint}`, timeout:TIMEOUT,
-    headers:{ 'Content-Type':'application/json','Accept':'application/json','ngrok-skip-browser-warning':'true',...(accessToken?{'Authorization':`Bearer ${accessToken}`}:{}) },
-    withCredentials:false,
+    method,
+    url: `${API_URL}${endpoint}`,
+    timeout: TIMEOUT,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+    },
+    withCredentials: false,
   };
   if (data && ['POST', 'PUT', 'PATCH'].includes(method)) config.data = data;
   try {
     const response = await axios(config);
     validateApiResponse(response.data, endpoint);
-    if (isDevelopment) console.log(`✅ ${method} ${endpoint} - Success`, response.data);
+    logResponse(method, endpoint, response.data);
     return response.data;
   } catch (error) {
     if (retries > 0 && shouldRetry(error)) {
@@ -527,7 +547,10 @@ export const createBusiness = async (businessData) => {
         address: response.address.address || "",
       } : null,
     };
-  } catch (error) { console.error("❌ Error en createBusiness:", error); throw error; }
+  } catch (error) {
+    console.error("❌ Error en createBusiness:", error);
+    throw error;
+  }
 };
 
 export const updateBusiness = async (businessId, businessData) => {
@@ -653,7 +676,7 @@ export const getPostsByCommerce = async (commerceId) => {
   }
 };
 
-export const createPost = async (description, idCommerce, imageFiles=[], eventData=null) => {
+export const createPost = async (description, idCommerce, imageFiles = [], eventData = null) => {
   validateParams({ description, idCommerce }, ['description', 'idCommerce']);
   if (!imageFiles || imageFiles.length === 0) throw new Error('Debes subir al menos una imagen');
   if (imageFiles.length > 10) throw new Error('Máximo 10 imágenes por publicación');
@@ -810,7 +833,7 @@ export const getMainFeed = async (page = 0, size = 10) => {
 };
 
 // ============================================
-// EXPORTACIÓN
+// EXPORTACIÓN POR DEFECTO
 // ============================================
 
 export default {
