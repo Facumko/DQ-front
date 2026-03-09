@@ -42,6 +42,13 @@ const ENDPOINTS = {
   POST_DELETE_IMAGES: (postId) => `/publicacion/eliminar/imagenes/${postId}`,
   SEARCH_COMMERCES: '/comercio/buscar',
   MAIN_FEED: '/main/feed',
+  // Favoritos
+  FAV_COMMERCE_ADD:    (idUser, idCommerce) => `/usuario/agregar/comercio/fav/${idUser}/${idCommerce}`,
+  FAV_COMMERCE_REMOVE: (idUser, idCommerce) => `/usuario/eliminar/comercio/fav/${idUser}/${idCommerce}`,
+  FAV_COMMERCES_GET:   (idUser)             => `/usuario/traer/comercios/fav${idUser}`,
+  SAVED_POST_ADD:      (idUser, idPost)     => `/usuario/guardar/post/${idUser}/${idPost}`,
+  SAVED_POST_REMOVE:   (idUser, idPost)     => `/usuario/eliminar/post/guardado/${idUser}/${idPost}`,
+  SAVED_POSTS_GET:     (idUser)             => `/usuario/traer/posts/guardados/${idUser}`,
 };
 
 // ============================================
@@ -833,6 +840,52 @@ export const getMainFeed = async (page = 0, size = 10) => {
 };
 
 // ============================================
+// FAVORITOS Y POSTS GUARDADOS
+// ============================================
+
+export const getFavoriteCommerces = async (idUser) => {
+  validateParams({ idUser }, ['idUser']);
+  try {
+    const response = await apiRequest('GET', ENDPOINTS.FAV_COMMERCES_GET(idUser));
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    if (error.message.includes('404')) return [];
+    throw error;
+  }
+};
+
+export const addFavoriteCommerce = async (idUser, idCommerce) => {
+  validateParams({ idUser, idCommerce }, ['idUser', 'idCommerce']);
+  return apiRequest('POST', ENDPOINTS.FAV_COMMERCE_ADD(idUser, idCommerce));
+};
+
+export const removeFavoriteCommerce = async (idUser, idCommerce) => {
+  validateParams({ idUser, idCommerce }, ['idUser', 'idCommerce']);
+  return apiRequest('POST', ENDPOINTS.FAV_COMMERCE_REMOVE(idUser, idCommerce));
+};
+
+export const getSavedPosts = async (idUser) => {
+  validateParams({ idUser }, ['idUser']);
+  try {
+    const response = await apiRequest('GET', ENDPOINTS.SAVED_POSTS_GET(idUser));
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    if (error.message.includes('404')) return [];
+    throw error;
+  }
+};
+
+export const addSavedPost = async (idUser, idPost) => {
+  validateParams({ idUser, idPost }, ['idUser', 'idPost']);
+  return apiRequest('POST', ENDPOINTS.SAVED_POST_ADD(idUser, idPost));
+};
+
+export const removeSavedPost = async (idUser, idPost) => {
+  validateParams({ idUser, idPost }, ['idUser', 'idPost']);
+  return apiRequest('POST', ENDPOINTS.SAVED_POST_REMOVE(idUser, idPost));
+};
+
+// ============================================
 // EXPORTACIÓN POR DEFECTO
 // ============================================
 
@@ -850,5 +903,7 @@ export default {
   updatePost, updatePostText, deletePost, addImagesToPost, deleteImagesFromPost,
   normalizePostFromBackend,
   getMainFeed,
+  getFavoriteCommerces, addFavoriteCommerce, removeFavoriteCommerce,
+  getSavedPosts, addSavedPost, removeSavedPost,
   generateUsername, capitalizeFirstLetter, validateEmail, validatePasswordStrength,
 };

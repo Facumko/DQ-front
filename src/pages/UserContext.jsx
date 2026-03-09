@@ -1,96 +1,238 @@
 import { createContext, useState, useEffect, useCallback } from "react";
-import { loginUser, registerUser, logoutUser, saveTokens, clearTokens, getStoredTokens } from "../Api/Api";
+import {
+  loginUser, registerUser, logoutUser,
+  saveTokens, clearTokens, getStoredTokens,
+  getFavoriteCommerces, addFavoriteCommerce, removeFavoriteCommerce,
+  getSavedPosts, addSavedPost, removeSavedPost,
+} from "../Api/Api";
 
 export const UserContext = createContext();
 
-const MAX_LOGIN_ATTEMPTS = 3;
-const LOCKOUT_DURATION = 30000;
+const MAX_LOGIN_ATTEMPTS  = 3;
+const LOCKOUT_DURATION    = 30000;
 const ERROR_DISPLAY_DURATION = 5000;
 
 const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
 
+// ── Helpers localStorage ──────────────────────────────────────────────────
+const safeGet = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+};
+
+const safeSet = (key, value) => {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+};
+
 export function UserProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+
+  // ── Usuario ───────────────────────────────────────────────────────────
+  const [user, setUser] = useState(() => safeGet("user", null));
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error,   setError]   = useState(null);
 
-  const [loginAttempts, setLoginAttempts] = useState(() => {
-    const stored = localStorage.getItem("loginAttempts");
-    return stored ? JSON.parse(stored) : { count: 0, lockedUntil: null };
-  });
+  const [loginAttempts, setLoginAttempts] = useState(
+    () => safeGet("loginAttempts", { count: 0, lockedUntil: null })
+  );
 
-  // Array de negocios del usuario
-  const [businesses, setBusinesses] = useState([]);
+  // ── Negocios del usuario ──────────────────────────────────────────────
+  const [businesses,  setBusinesses]  = useState([]);
   const hasBusiness = businesses.length > 0;
 
-  // Cargar todos los negocios del usuario
-  const loadBusinesses = useCallback(async (userId) => {
-    if (!userId) {
-      setBusinesses([]);
-      return;
+  // ── Favoritos: objetos completos + Set de IDs para lookup O(1) ────────
+  const [favoriteCommerces,    setFavoriteCommerces]    = useState(
+    () => safeGet("favoriteCommerces", [])
+  );
+  const [favoriteCommerceIds,  setFavoriteCommerceIds]  = useState(
+    () => new Set(safeGet("favoriteCommerceIds", []))
+  );
+
+  // ── Posts guardados: objetos completos + Set de IDs ───────────────────
+  const [savedPosts,    setSavedPosts]    = useState(
+    () => safeGet("savedPosts", [])
+  );
+  const [savedPostIds,  setSavedPostIds]  = useState(
+    () => new Set(safeGet("savedPostIds", []))
+  );
+
+  // ── Auto-clear error ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), ERROR_DISPLAY_DURATION);
+    return () => clearTimeout(t);
+  }, [error]);
+
+  // ── Verificar sesión al montar ────────────────────────────────────────
+  useEffect(() => {
+    const storedUser   = localStorage.getItem("user");
+    const { accessToken } = getStoredTokens();
+    if (storedUser && !accessToken) {
+      localStorage.removeItem("user");
+      setUser(null);
     }
+  }, []);
+
+  // ── Cargar negocios del usuario ───────────────────────────────────────
+  const loadBusinesses = useCallback(async (userId) => {
+    if (!userId) { setBusinesses([]); return; }
     try {
       const token = localStorage.getItem("accessToken");
-      const response = await fetch(`${API_URL}/comercio/traer/usuario/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+      const res   = await fetch(`${API_URL}/comercio/traer/usuario/${userId}`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
-      if (!response.ok) {
-        setBusinesses([]);
-        return;
-      }
-      const data = await response.json();
-      const arr = Array.isArray(data) ? data : data ? [data] : [];
+      if (!res.ok) { setBusinesses([]); return; }
+      const data = await res.json();
+      const arr  = Array.isArray(data) ? data : data ? [data] : [];
       setBusinesses(
         arr.filter(Boolean).map((b) => ({
-          id_business: b.idCommerce,
-          name: b.name,
+          id_business:  b.idCommerce,
+          name:         b.name,
           profileImage: b.profileImage?.url || null,
         }))
       );
-    } catch {
-      setBusinesses([]);
-    }
+    } catch { setBusinesses([]); }
   }, []);
 
   useEffect(() => {
     loadBusinesses(user?.id_user);
   }, [user?.id_user, loadBusinesses]);
 
-  // Verificar si hay tokens válidos al iniciar
-  useEffect(() => {
-    const { accessToken } = getStoredTokens();
-    if (accessToken && user) {
-      console.log("✅ Sesión JWT restaurada");
-    } else if (!accessToken && user) {
-      console.warn("⚠️ Usuario sin token JWT, limpiando sesión");
-      setUser(null);
-      localStorage.removeItem("user");
+  // ── Cargar favoritos y posts guardados ────────────────────────────────
+  const loadFavorites = useCallback(async (userId) => {
+    if (!userId) return;
+    try {
+      const [commerces, posts] = await Promise.all([
+        getFavoriteCommerces(userId),
+        getSavedPosts(userId),
+      ]);
+
+      setFavoriteCommerces(commerces);
+      setFavoriteCommerceIds(new Set(commerces.map((c) => c.idCommerce ?? c.id)));
+      safeSet("favoriteCommerces",   commerces);
+      safeSet("favoriteCommerceIds", commerces.map((c) => c.idCommerce ?? c.id));
+
+      setSavedPosts(posts);
+      setSavedPostIds(new Set(posts.map((p) => p.idPost ?? p.id)));
+      safeSet("savedPosts",   posts);
+      safeSet("savedPostIds", posts.map((p) => p.idPost ?? p.id));
+    } catch (err) {
+      if (isDevelopment) console.warn("Error cargando favoritos:", err);
     }
   }, []);
 
+  // Cargar favoritos al restaurar sesión
   useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), ERROR_DISPLAY_DURATION);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
+    if (user?.id_user) loadFavorites(user.id_user);
+  }, [user?.id_user, loadFavorites]);
 
+  // ── Toggle favorito comercio ──────────────────────────────────────────
+  const toggleFavoriteCommerce = useCallback(async (commerce) => {
+    if (!user?.id_user) return { error: "Debés iniciar sesión" };
+
+    const id        = commerce.idCommerce ?? commerce.id_business ?? commerce.id;
+    const isFav     = favoriteCommerceIds.has(id);
+
+    // Optimistic update
+    if (isFav) {
+      const newIds      = new Set(favoriteCommerceIds); newIds.delete(id);
+      const newCommerces = favoriteCommerces.filter((c) => (c.idCommerce ?? c.id) !== id);
+      setFavoriteCommerceIds(newIds);
+      setFavoriteCommerces(newCommerces);
+      safeSet("favoriteCommerceIds", [...newIds]);
+      safeSet("favoriteCommerces",   newCommerces);
+      try {
+        await removeFavoriteCommerce(user.id_user, id);
+        return { removed: true };
+      } catch {
+        // Revertir si falla
+        const revertIds = new Set(favoriteCommerceIds); revertIds.add(id);
+        setFavoriteCommerceIds(revertIds);
+        setFavoriteCommerces(favoriteCommerces);
+        safeSet("favoriteCommerceIds", [...revertIds]);
+        safeSet("favoriteCommerces",   favoriteCommerces);
+        return { error: "Error al eliminar favorito" };
+      }
+    } else {
+      const newIds      = new Set(favoriteCommerceIds); newIds.add(id);
+      const newCommerces = [...favoriteCommerces, commerce];
+      setFavoriteCommerceIds(newIds);
+      setFavoriteCommerces(newCommerces);
+      safeSet("favoriteCommerceIds", [...newIds]);
+      safeSet("favoriteCommerces",   newCommerces);
+      try {
+        await addFavoriteCommerce(user.id_user, id);
+        return { added: true };
+      } catch {
+        const revertIds = new Set(favoriteCommerceIds); revertIds.delete(id);
+        setFavoriteCommerceIds(revertIds);
+        setFavoriteCommerces(favoriteCommerces);
+        safeSet("favoriteCommerceIds", [...revertIds]);
+        safeSet("favoriteCommerces",   favoriteCommerces);
+        return { error: "Error al agregar favorito" };
+      }
+    }
+  }, [user, favoriteCommerceIds, favoriteCommerces]);
+
+  // ── Toggle post guardado ──────────────────────────────────────────────
+  const toggleSavedPost = useCallback(async (post) => {
+    if (!user?.id_user) return { error: "Debés iniciar sesión" };
+
+    const id      = post.idPost ?? post.id;
+    const isSaved = savedPostIds.has(id);
+
+    // Optimistic update
+    if (isSaved) {
+      const newIds   = new Set(savedPostIds); newIds.delete(id);
+      const newPosts = savedPosts.filter((p) => (p.idPost ?? p.id) !== id);
+      setSavedPostIds(newIds);
+      setSavedPosts(newPosts);
+      safeSet("savedPostIds", [...newIds]);
+      safeSet("savedPosts",   newPosts);
+      try {
+        await removeSavedPost(user.id_user, id);
+        return { removed: true };
+      } catch {
+        const revertIds = new Set(savedPostIds); revertIds.add(id);
+        setSavedPostIds(revertIds);
+        setSavedPosts(savedPosts);
+        safeSet("savedPostIds", [...revertIds]);
+        safeSet("savedPosts",   savedPosts);
+        return { error: "Error al eliminar post guardado" };
+      }
+    } else {
+      const newIds   = new Set(savedPostIds); newIds.add(id);
+      const newPosts = [...savedPosts, post];
+      setSavedPostIds(newIds);
+      setSavedPosts(newPosts);
+      safeSet("savedPostIds", [...newIds]);
+      safeSet("savedPosts",   newPosts);
+      try {
+        await addSavedPost(user.id_user, id);
+        return { added: true };
+      } catch {
+        const revertIds = new Set(savedPostIds); revertIds.delete(id);
+        setSavedPostIds(revertIds);
+        setSavedPosts(savedPosts);
+        safeSet("savedPostIds", [...revertIds]);
+        safeSet("savedPosts",   savedPosts);
+        return { error: "Error al guardar post" };
+      }
+    }
+  }, [user, savedPostIds, savedPosts]);
+
+  // ── Auth ──────────────────────────────────────────────────────────────
   const isLocked = useCallback(() => {
     if (!loginAttempts.lockedUntil) return false;
     const now = Date.now();
     if (now < loginAttempts.lockedUntil) {
-      const remainingSeconds = Math.ceil((loginAttempts.lockedUntil - now) / 1000);
-      return { locked: true, remainingSeconds };
+      return { locked: true, remainingSeconds: Math.ceil((loginAttempts.lockedUntil - now) / 1000) };
     }
-    setLoginAttempts({ count: 0, lockedUntil: null });
-    localStorage.setItem("loginAttempts", JSON.stringify({ count: 0, lockedUntil: null }));
+    const reset = { count: 0, lockedUntil: null };
+    setLoginAttempts(reset);
+    safeSet("loginAttempts", reset);
     return false;
   }, [loginAttempts]);
 
@@ -98,210 +240,147 @@ export function UserProvider({ children }) {
     const newCount = loginAttempts.count + 1;
     if (newCount >= MAX_LOGIN_ATTEMPTS) {
       const lockedUntil = Date.now() + LOCKOUT_DURATION;
-      const newAttempts = { count: newCount, lockedUntil };
-      setLoginAttempts(newAttempts);
-      localStorage.setItem("loginAttempts", JSON.stringify(newAttempts));
-      return { blocked: true, message: "Demasiados intentos fallidos. Intenta nuevamente en 30 segundos." };
+      const next = { count: newCount, lockedUntil };
+      setLoginAttempts(next); safeSet("loginAttempts", next);
+      return { blocked: true, message: "Demasiados intentos fallidos. Intentá de nuevo en 30 segundos." };
     }
-    const newAttempts = { count: newCount, lockedUntil: null };
-    setLoginAttempts(newAttempts);
-    localStorage.setItem("loginAttempts", JSON.stringify(newAttempts));
+    const next = { count: newCount, lockedUntil: null };
+    setLoginAttempts(next); safeSet("loginAttempts", next);
     return { blocked: false, remainingAttempts: MAX_LOGIN_ATTEMPTS - newCount };
   }, [loginAttempts]);
 
   const resetFailedAttempts = useCallback(() => {
-    setLoginAttempts({ count: 0, lockedUntil: null });
-    localStorage.setItem("loginAttempts", JSON.stringify({ count: 0, lockedUntil: null }));
+    const reset = { count: 0, lockedUntil: null };
+    setLoginAttempts(reset); safeSet("loginAttempts", reset);
   }, []);
 
+  const normalizeUser = (response) => ({
+    id_user:        response.idUser        || response.id_user        || response.user?.idUser,
+    username:       response.username      || response.user?.username,
+    name:           response.name          || response.user?.name,
+    lastname:       response.lastname      || response.user?.lastname,
+    email:          response.email         || response.user?.email,
+    recovery_email: response.recoveryEmail || response.recovery_email || response.user?.recoveryEmail,
+    phone:          response.phone         || response.user?.phone,
+    lastLogin:      new Date().toISOString(),
+  });
+
   const login = async (email, password) => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     const lockStatus = isLocked();
-    if (lockStatus && lockStatus.locked) {
+    if (lockStatus?.locked) {
       setLoading(false);
-      setError(`Demasiados intentos. Espera ${lockStatus.remainingSeconds} segundos.`);
-      return { success: false, error: `Demasiados intentos. Espera ${lockStatus.remainingSeconds} segundos.` };
+      const msg = `Demasiados intentos. Esperá ${lockStatus.remainingSeconds} segundos.`;
+      setError(msg);
+      return { success: false, error: msg };
     }
     try {
       const response = await loginUser(email, password);
-      const userData = {
-        id_user: response.idUser || response.id_user || response.user?.idUser || response.user?.id_user,
-        username: response.username || response.user?.username,
-        name: response.name || response.user?.name,
-        lastname: response.lastname || response.user?.lastname,
-        email: response.email || response.user?.email,
-        recovery_email: response.recoveryEmail || response.recovery_email || response.user?.recoveryEmail,
-        phone: response.phone || response.user?.phone,
-        lastLogin: new Date().toISOString(),
-      };
-
-      console.log("Usuario normalizado:", userData);
-
-      if (!userData.id_user) {
-        throw new Error("No se recibió el ID del usuario del servidor");
-      }
-
-      // Los tokens ya se guardaron en Api.jsx, solo resetear intentos
+      const userData = normalizeUser(response);
+      if (!userData.id_user) throw new Error("No se recibió el ID del usuario del servidor");
       resetFailedAttempts();
       setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      safeSet("user", userData);
+      // Cargar favoritos y negocios en paralelo
+      await Promise.all([
+        loadFavorites(userData.id_user),
+        loadBusinesses(userData.id_user),
+      ]);
       return { success: true, data: userData };
     } catch (err) {
-      const errorMessage = err.message || "Error al iniciar sesión";
+      const errorMessage  = err.message || "Error al iniciar sesión";
       const attemptResult = incrementFailedAttempts();
-      let finalErrorMessage = errorMessage;
-      if (attemptResult.blocked) finalErrorMessage = attemptResult.message;
-      else if (attemptResult.remainingAttempts)
-        finalErrorMessage = `${errorMessage}. Te quedan ${attemptResult.remainingAttempts} intentos.`;
-      setError(finalErrorMessage);
-      return { success: false, error: finalErrorMessage };
-    } finally {
-      setLoading(false);
-    }
+      const finalMsg = attemptResult.blocked
+        ? attemptResult.message
+        : attemptResult.remainingAttempts
+        ? `${errorMessage}. Te quedan ${attemptResult.remainingAttempts} intentos.`
+        : errorMessage;
+      setError(finalMsg);
+      return { success: false, error: finalMsg };
+    } finally { setLoading(false); }
   };
 
   const register = async (userData) => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const response = await registerUser(userData);
-      const newUser = {
-        id_user: response.idUser || response.id_user || response.user?.idUser || response.user?.id_user,
-        username: response.username || response.user?.username,
-        name: response.name || response.user?.name,
-        lastname: response.lastname || response.user?.lastname,
-        email: response.email || response.user?.email,
-        recovery_email: response.recoveryEmail || response.recovery_email || response.user?.recoveryEmail,
-        phone: response.phone || response.user?.phone,
-        lastLogin: new Date().toISOString(),
-      };
-
-      console.log("Usuario normalizado:", newUser);
-
-      if (!newUser.id_user) {
-        throw new Error("No se recibió el ID del usuario del servidor");
-      }
-
-      // Los tokens ya se guardaron en Api.jsx
+      const newUser  = normalizeUser(response);
+      if (!newUser.id_user) throw new Error("No se recibió el ID del usuario del servidor");
       setUser(newUser);
-      localStorage.setItem("user", JSON.stringify(newUser));
+      safeSet("user", newUser);
       return { success: true, data: newUser };
     } catch (err) {
-      const errorMessage = err.message || "Error al registrar usuario";
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
+      const msg = err.message || "Error al registrar usuario";
+      setError(msg);
+      return { success: false, error: msg };
+    } finally { setLoading(false); }
   };
 
   const logout = async () => {
     setLoading(true);
     try {
-      if (user?.id_user) {
-        await logoutUser(user.id_user); // Ya limpia tokens en Api.jsx
-      }
+      if (user?.id_user) await logoutUser(user.id_user);
     } catch (err) {
       console.warn("Error al cerrar sesión en backend:", err);
     } finally {
-      setUser(null);
-      setError(null);
-      setBusinesses([]); // Limpiar negocios al cerrar sesión
+      setUser(null); setError(null);
+      setBusinesses([]);
+      setFavoriteCommerces([]); setFavoriteCommerceIds(new Set());
+      setSavedPosts([]);        setSavedPostIds(new Set());
       localStorage.removeItem("user");
-      clearTokens(); // Asegurar limpieza de tokens
+      localStorage.removeItem("favoriteCommerces");
+      localStorage.removeItem("favoriteCommerceIds");
+      localStorage.removeItem("savedPosts");
+      localStorage.removeItem("savedPostIds");
+      clearTokens();
       setLoading(false);
     }
   };
 
-  const updateUserContext = useCallback(
-    (updatedData) => {
-      const normalizedData = {
-        id_user: updatedData.idUser || updatedData.id_user || user?.id_user,
-        username: updatedData.username,
-        name: updatedData.name,
-        lastname: updatedData.lastname,
-        email: updatedData.email,
-        recovery_email: updatedData.recoveryEmail || updatedData.recovery_email,
-        phone: updatedData.phone,
-        lastLogin: user?.lastLogin,
-      };
-      const newUser = { ...user, ...normalizedData };
-      setUser(newUser);
-      localStorage.setItem("user", JSON.stringify(newUser));
-    },
-    [user]
-  );
-
-  const clearError = useCallback(() => setError(null), []);
-
-  const isAuthenticated = useCallback(() => {
-    const { accessToken } = getStoredTokens(); // Verificar token
-    return user !== null && user.id_user !== undefined && !!accessToken;
+  const updateUserContext = useCallback((updatedData) => {
+    const newUser = {
+      ...user,
+      id_user:        updatedData.idUser        || updatedData.id_user        || user?.id_user,
+      username:       updatedData.username,
+      name:           updatedData.name,
+      lastname:       updatedData.lastname,
+      email:          updatedData.email,
+      recovery_email: updatedData.recoveryEmail || updatedData.recovery_email,
+      phone:          updatedData.phone,
+      lastLogin:      user?.lastLogin,
+    };
+    setUser(newUser);
+    safeSet("user", newUser);
   }, [user]);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const storedUser = localStorage.getItem("user");
-      const { accessToken } = getStoredTokens();
+  const clearError      = useCallback(() => setError(null), []);
+  const isAuthenticated = useCallback(() => {
+    const { accessToken } = getStoredTokens();
+    return !!user?.id_user && !!accessToken;
+  }, [user]);
 
-      if (storedUser && accessToken) {
-        try {
-          const userData = JSON.parse(storedUser);
-          if (!userData.id_user) {
-            localStorage.removeItem("user");
-            clearTokens();
-            setUser(null);
-            return;
-          }
-          setUser(userData);
-        } catch {
-          localStorage.removeItem("user");
-          clearTokens();
-          setUser(null);
-        }
-      } else if (storedUser && !accessToken) {
-        // Usuario sin token = sesión inválida
-        console.warn("Usuario sin token JWT, limpiando");
-        localStorage.removeItem("user");
-        setUser(null);
-      }
-    };
-    checkSession();
-  }, []);
-
-  const handleApiError = useCallback((error) => {
-    if (error.response?.status === 401) {
-      logout();
-      setError("Sesión expirada. Por favor inicia sesión nuevamente.");
-    } else {
-      setError(error.message || "Error de conexión");
-    }
-  }, []);
-
-  const contextValue = {
-    user,
-    loading,
-    error,
-    login,
-    register,
-    logout,
-    updateUserContext,
-    clearError,
-    isAuthenticated,
-    handleApiError,
-    isLoggedIn: isAuthenticated(),
-    loginAttempts: loginAttempts.count,
-    isLocked: isLocked(),
-    // Negocios
-    businesses,
-    setBusinesses,
-    hasBusiness,
-    loadBusinesses,
-  };
+  // ── isDevelopment (para los logs de favoritos) ────────────────────────
+  const isDevelopment = import.meta.env.MODE === 'development';
 
   return (
-    <UserContext.Provider value={contextValue}>
+    <UserContext.Provider value={{
+      // Auth
+      user, loading, error,
+      login, register, logout,
+      updateUserContext, clearError,
+      isAuthenticated,
+      isLoggedIn:     isAuthenticated(),
+      loginAttempts:  loginAttempts.count,
+      isLocked:       isLocked(),
+      // Negocios
+      businesses, setBusinesses, hasBusiness, loadBusinesses,
+      // Favoritos — comercios
+      favoriteCommerces, favoriteCommerceIds, toggleFavoriteCommerce,
+      // Posts guardados
+      savedPosts, savedPostIds, toggleSavedPost,
+      // Refrescar manualmente si hace falta
+      loadFavorites,
+    }}>
       {children}
     </UserContext.Provider>
   );
