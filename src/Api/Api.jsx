@@ -45,10 +45,10 @@ const ENDPOINTS = {
   // Favoritos
   FAV_COMMERCE_ADD:    (idUser, idCommerce) => `/usuario/agregar/comercio/fav/${idUser}/${idCommerce}`,
   FAV_COMMERCE_REMOVE: (idUser, idCommerce) => `/usuario/eliminar/comercio/fav/${idUser}/${idCommerce}`,
-  FAV_COMMERCES_GET:   (idUser)             => `/usuario/favoritos/${idUser}`,
+  FAV_COMMERCES_GET:   (idUser)             => `/usuario/traer/comercios/fav${idUser}`,
   SAVED_POST_ADD:      (idUser, idPost)     => `/usuario/guardar/post/${idUser}/${idPost}`,
   SAVED_POST_REMOVE:   (idUser, idPost)     => `/usuario/eliminar/post/guardado/${idUser}/${idPost}`,
-  SAVED_POSTS_GET:     (idUser)             => `/usuario/posts/guardados/${idUser}`,
+  SAVED_POSTS_GET:     (idUser)             => `/usuario/traer/posts/guardados/${idUser}`,
 };
 
 // ============================================
