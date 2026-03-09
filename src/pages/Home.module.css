@@ -5,6 +5,8 @@
 /* ── Container principal ── */
 .homeContainer {
   width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   min-height: 100vh;
   background: #fafafa;
 }

@@ -313,7 +313,7 @@ const Home = () => {
       idPost:       d.idPost       || d.id,   // necesario para toggleSavedPost
       businessName: d.commerceName || d.nameCommerce || d.businessName || d.commerce?.name || "Sin nombre",
       businessId:   d.commerceId   || d.idCommerce   || d.businessId   || d.commerce?.idCommerce,
-      businessLogo: d.commerceProfileImage || d.profileImageCommerce || d.businessLogo || d.commerce?.profileImage?.url || null,
+      businessLogo: p.commerceProfileImageUrl || d.commerceProfileImage || d.profileImageCommerce || d.commerce?.profileImage?.url || null,
       timeAgo:      p.createdAt    || d.postedAt || d.createdAt || "",
       content:      d.description  || d.text || "",
       images: Array.isArray(d.images)
