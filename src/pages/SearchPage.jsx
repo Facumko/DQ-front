@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { searchCommerces, getAllCommerces } from "../Api/Api";
+import { searchCommerces, getAllCommerces, getRecentCommerces } from "../Api/Api";
 import SearchResultCard from "../components/SearchResultCard/SearchResultCard";
-import { Loader, SearchX, Store } from "lucide-react";
+import { Loader, SearchX, Store} from "lucide-react";
 import styles from "./SearchPage.module.css";
 
 const LIMIT = 12;
@@ -11,10 +11,10 @@ const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // q="" → todos los negocios | q="texto" → búsqueda | q=null → no mostrar nada
-  const query = searchParams.get("q");
-  const isAllMode    = query !== null && query.trim() === "";
-  const isSearchMode = query !== null && query.trim() !== "";
+  const query       = searchParams.get("q");
+  const isAgregados = searchParams.get("agregados") === "true";
+  const isAllMode    = !isAgregados && query !== null && query.trim() === "";
+  const isSearchMode = !isAgregados && query !== null && query.trim() !== "";
 
   const [results,     setResults]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -35,8 +35,11 @@ const SearchPage = () => {
     }
 
     try {
-      if (isAllMode) {
-        // Trae todo de una — sin paginación
+      if (isAgregados) {
+        const data = await getRecentCommerces();
+        setResults(Array.isArray(data) ? data.slice(0, 50) : []);
+        setHasMore(false);
+      } else if (isAllMode) {
         const all = await getAllCommerces();
         setResults(all);
         setHasMore(false);
@@ -58,51 +61,52 @@ const SearchPage = () => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [query, isAllMode, isSearchMode]);
+  }, [query, isAgregados, isAllMode, isSearchMode]);
 
   useEffect(() => {
     load(false);
-  }, [query]);
+  }, [query, isAgregados]);
 
   const handleLoadMore = () => {
     if (hasMore && !loadingMore) load(true);
   };
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className={styles.container}>
         <div className={styles.loadingContainer}>
           <Loader size={40} className={styles.spinner} />
-          <p>{isAllMode ? "Cargando negocios..." : "Buscando..."}</p>
+          <p>{isAgregados ? "Cargando novedades..." : isAllMode ? "Cargando negocios..." : "Buscando..."}</p>
         </div>
       </div>
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className={styles.container}>
 
-      {/* Header */}
       <div className={styles.header}>
-        <div className={styles.headerIcon}>
-          <Store size={20} />
-        </div>
         <div>
           <h1 className={styles.title}>
-            {isAllMode ? "Todos los negocios" : `Resultados para "${query}"`}
+            {isAgregados
+              ? "Agregados recientemente"
+              : isAllMode
+                ? "Todos los negocios"
+                : `Resultados para "${query}"`}
           </h1>
           {results.length > 0 && (
             <p className={styles.queryText}>
               {results.length} negocio{results.length !== 1 ? "s" : ""}
-              {isAllMode ? " en Sáenz Peña" : ` encontrado${results.length !== 1 ? "s" : ""}`}
+              {isAgregados
+                ? " nuevos en los últimos 30 días"
+                : isAllMode
+                  ? " en Sáenz Peña"
+                  : ` encontrado${results.length !== 1 ? "s" : ""}`}
             </p>
           )}
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className={styles.errorBanner}>
           <SearchX size={18} />
@@ -110,19 +114,22 @@ const SearchPage = () => {
         </div>
       )}
 
-      {/* Sin resultados */}
       {results.length === 0 && !error && (
         <div className={styles.noResults}>
           <SearchX size={56} strokeWidth={1.5} />
           <h3>
-            {isAllMode
-              ? "Todavía no hay negocios registrados"
-              : "No se encontraron negocios"}
+            {isAgregados
+              ? "No hay negocios nuevos este mes"
+              : isAllMode
+                ? "Todavía no hay negocios registrados"
+                : "No se encontraron negocios"}
           </h3>
           <p>
-            {isAllMode
-              ? "Pronto aparecerán los primeros negocios de la ciudad"
-              : "Probá con otro término o revisá la ortografía"}
+            {isAgregados
+              ? "Volvé pronto, ¡cada día se suman más!"
+              : isAllMode
+                ? "Pronto aparecerán los primeros negocios de la ciudad"
+                : "Probá con otro término o revisá la ortografía"}
           </p>
           <button className={styles.backButton} onClick={() => navigate("/")}>
             Volver al inicio
@@ -130,7 +137,6 @@ const SearchPage = () => {
         </div>
       )}
 
-      {/* Grid */}
       {results.length > 0 && (
         <>
           <div className={styles.resultsGrid}>
@@ -142,7 +148,6 @@ const SearchPage = () => {
             ))}
           </div>
 
-          {/* Cargar más (solo en modo búsqueda) */}
           {hasMore && (
             <div className={styles.loadMoreContainer}>
               <button
@@ -164,4 +169,4 @@ const SearchPage = () => {
   );
 };
 
-export default SearchPage;  
+export default SearchPage;
