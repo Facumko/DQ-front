@@ -68,11 +68,9 @@ const Footer = () => {
                 ¿Cómo funciona?
               </Link>
             </li>
-            <li>
-              <a href="mailto:desarrollomf.arg@gmail.com" className={styles.footerLink}>
-                <FaEnvelope className={styles.inlineIcon} />
-                desarrollomf.arg@gmail.com
-              </a>
+            <li className={styles.footerLink}>
+              <FaEnvelope className={styles.inlineIcon} />
+              <span>desarrollomf.arg@gmail.com</span>
             </li>
           </ul>
         </div>
