@@ -1,8 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
-import Publications from "../components/Publications/Publications";
-import Gallery from "../components/Gallery/Gallery";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
 import { getBusinessByUserId, getBusinessById } from "../Api/Api";
 import { useParams, useNavigate } from "react-router-dom";
@@ -15,12 +13,9 @@ const Negocios = () => {
   const isPublic = !!id;
 
   const [businessData, setBusinessData] = useState(null);
-  const [posts,        setPosts]        = useState([]);
-  const [gallery,      setGallery]      = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
 
-  // ✅ isOwner se calcula DESPUÉS de cargar el negocio, comparando IDs
   const isOwner = !!user && !!businessData && Number(businessData.id_user) === Number(user.id_user);
 
   useEffect(() => {
@@ -38,9 +33,7 @@ const Negocios = () => {
             navigate("/login");
             return;
           }
-
           business = await getBusinessByUserId(user.id_user);
-
           if (!business) {
             navigate("/registro-negocio");
             return;
@@ -48,16 +41,12 @@ const Negocios = () => {
         }
 
         if (business) {
-          // Api.jsx ya normaliza idCommerce -> id_business
-          const normalized = {
+          setBusinessData({
             ...business,
-            id:         business.id_business || business.idCommerce || business.id,
+            id:          business.id_business || business.idCommerce || business.id,
             id_business: business.id_business || business.idCommerce,
-            idowner:    business.id_user || business.idOwner || user?.id_user,
-          };
-          setBusinessData(normalized);
-          setPosts(business.posts   || []);
-          setGallery(business.gallery || []);
+            idowner:     business.id_user     || business.idOwner    || user?.id_user,
+          });
         } else {
           setError(isPublic ? "Negocio no encontrado" : "No tenés un negocio creado");
         }
@@ -69,7 +58,7 @@ const Negocios = () => {
     };
 
     load();
-  }, [user?.id_user, id]); // solo estas dos dependencias para evitar loop infinito
+  }, [user?.id_user, id]);
 
   if (loading) {
     return (
@@ -107,8 +96,6 @@ const Negocios = () => {
   return (
     <div style={{ background: "#f4f5f8", minHeight: "100vh", padding: "24px" }}>
       <ProfileHeader isOwner={isOwner} businessData={businessData} />
-      <Publications publicaciones={posts} isOwner={isOwner} />
-      <Gallery images={gallery} isOwner={isOwner} />
       <FloatingChat />
     </div>
   );
