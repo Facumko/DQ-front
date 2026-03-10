@@ -25,10 +25,12 @@ const truncate = (str, n) =>
 function CommerceCard({ commerce, onRemove, onNavigate }) {
   const coverUrl     = commerce.coverImage?.url   || commerce.coverImage   || null;
   const avatarUrl    = commerce.profileImage?.url || commerce.profileImage || null;
-  const categoryName =
+  const rawCategory =
     commerce.categories?.[0]?.name ||
     commerce.commerceType           ||
     commerce.category               || "";
+  const HIDDEN = ["private", "PUBLIC", "PRIVATE", "public"];
+  const categoryName = HIDDEN.includes(rawCategory) ? "" : rawCategory;
   const addressText =
     commerce.address?.address ||
     commerce.address?.street  ||
