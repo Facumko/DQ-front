@@ -15,6 +15,8 @@
   top: 0;
   z-index: 1000;
   color: white;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 /* ── Hamburger (izquierda) ── */
@@ -29,7 +31,6 @@
   color: rgba(255, 255, 255, 0.85);
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
-  margin-right: -130px;
 }
 .hamburger:hover {
   background: rgba(255, 255, 255, 0.12);
@@ -51,8 +52,17 @@
   white-space: nowrap;
   flex-shrink: 0;
   transition: opacity 0.2s ease;
+  margin-left: 12px;
 }
 .logo:hover { opacity: 0.88; }
+
+/* ── Grupo izquierdo: hamburger + logo ── */
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
 
 .logoIcon {
   width: 34px;
@@ -66,7 +76,7 @@
   position: relative;
   flex: 1;
   max-width: 520px;
-  margin: 0 28px;
+  margin: 0 24px;
   display: flex;
   align-items: center;
 }
