@@ -128,7 +128,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255,255,255,0.88);
   border: none;
   cursor: pointer;
   display: flex;
@@ -139,12 +139,5 @@
   transition: color 0.15s, background 0.15s, transform 0.15s;
   padding: 0;
 }
-.favBtn:hover {
-  color: #f59e0b;
-  background: #fff;
-  transform: scale(1.15);
-}
-.favBtnActive {
-  color: #f59e0b !important;
-  background: #fff !important;
-}
+.favBtn:hover    { color: #f59e0b; background: #fff; transform: scale(1.15); }
+.favBtnActive    { color: #f59e0b !important; background: #fff !important; }
