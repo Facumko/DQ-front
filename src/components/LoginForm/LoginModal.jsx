@@ -12,6 +12,8 @@ import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaCheckCircle, FaArrowLeft } f
 // "forgot"    → olvidé contraseña
 // "resetSent" → enlace enviado
 
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
+
 export default function LoginModal({ onClose }) {
   const { login, register, loading, error, clearError, isLocked } = useContext(UserContext);
 
@@ -158,8 +160,17 @@ export default function LoginModal({ onClose }) {
   };
 
   const handleSocialLogin = (provider) => {
-    // TODO: window.location.href = `/oauth2/authorization/${provider.toLowerCase()}`;
-    setLocalError(`${provider} estará disponible próximamente.`);
+    // Guardamos la ruta actual para volver después del login
+    const currentPath = window.location.pathname;
+    if (currentPath !== "/" && currentPath !== "/login") {
+      sessionStorage.setItem("oauth2_return_to", currentPath);
+    }
+
+    // Redirige al backend de Spring Security que inicia el flujo OAuth2.
+    // El backend redirige a Google/Facebook, recibe el callback,
+    // genera los JWT y redirige al frontend a /oauth2/success?accessToken=...
+    const providerKey = provider.toLowerCase(); // "google" | "facebook"
+    window.location.href = `${API_URL}/oauth2/authorization/${providerKey}`;
   };
 
   // ── Sub-componentes ───────────────────────────────────────────────────────
@@ -214,10 +225,10 @@ export default function LoginModal({ onClose }) {
             <p className="modal-subtitle">Ingresá tu email o continuá con una red social</p>
 
             <div className="social-section">
-              <button type="button" className="social-btn-full google" onClick={() => handleSocialLogin("Google")}>
+              <button type="button" className="social-btn-full google" onClick={() => handleSocialLogin("google")}>
                 <FaGoogle className="social-icon" /> Continuar con Google
               </button>
-              <button type="button" className="social-btn-full facebook" onClick={() => handleSocialLogin("Facebook")}>
+              <button type="button" className="social-btn-full facebook" onClick={() => handleSocialLogin("facebook")}>
                 <FaFacebook className="social-icon" /> Continuar con Facebook
               </button>
             </div>
