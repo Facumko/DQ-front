@@ -240,7 +240,7 @@
 .coverWrap {
   position: relative;
   width: 100%;
-  height: 170px;
+  height: 140px;
   overflow: hidden;
   background: #f3f4f6;
   flex-shrink: 0;
@@ -386,7 +386,9 @@
 
 .avatarWrap {
   flex-shrink: 0;
-  margin-top: -36px;
+  margin-top: -28px;
+  position: relative;
+  z-index: 2;
 }
 
 .avatar {
