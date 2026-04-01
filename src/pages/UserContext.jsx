@@ -101,12 +101,11 @@ export function UserProvider({ children }) {
   }, [user?.id_user, loadBusinesses]);
 
   // ── Cargar favoritos y posts guardados ────────────────────────────────
-  const loadFavorites = useCallback(async (userId) => {
-    if (!userId) return;
+  const loadFavorites = useCallback(async () => {
     try {
       const [commerces, posts] = await Promise.all([
-        getFavoriteCommerces(userId),
-        getSavedPosts(userId),
+        getFavoriteCommerces(),
+        getSavedPosts(),
       ]);
 
       setFavoriteCommerces(commerces);
@@ -125,7 +124,7 @@ export function UserProvider({ children }) {
 
   // Cargar favoritos al restaurar sesión
   useEffect(() => {
-    if (user?.id_user) loadFavorites(user.id_user);
+    if (user?.id_user) loadFavorites();
   }, [user?.id_user, loadFavorites]);
 
   // ── Toggle favorito comercio ──────────────────────────────────────────
@@ -144,7 +143,7 @@ export function UserProvider({ children }) {
       safeSet("favoriteCommerceIds", [...newIds]);
       safeSet("favoriteCommerces",   newCommerces);
       try {
-        await removeFavoriteCommerce(user.id_user, id);
+        await removeFavoriteCommerce(id);
         return { removed: true };
       } catch {
         // Revertir si falla
@@ -163,7 +162,7 @@ export function UserProvider({ children }) {
       safeSet("favoriteCommerceIds", [...newIds]);
       safeSet("favoriteCommerces",   newCommerces);
       try {
-        await addFavoriteCommerce(user.id_user, id);
+        await addFavoriteCommerce(id);
         return { added: true };
       } catch {
         const revertIds = new Set(favoriteCommerceIds); revertIds.delete(id);
@@ -192,7 +191,7 @@ export function UserProvider({ children }) {
       safeSet("savedPostIds", [...newIds]);
       safeSet("savedPosts",   newPosts);
       try {
-        await removeSavedPost(user.id_user, id);
+        await removeSavedPost(id);
         return { removed: true };
       } catch {
         const revertIds = new Set(savedPostIds); revertIds.add(id);
@@ -210,7 +209,7 @@ export function UserProvider({ children }) {
       safeSet("savedPostIds", [...newIds]);
       safeSet("savedPosts",   newPosts);
       try {
-        await addSavedPost(user.id_user, id);
+        await addSavedPost(id);
         return { added: true };
       } catch {
         const revertIds = new Set(savedPostIds); revertIds.delete(id);
@@ -283,7 +282,7 @@ export function UserProvider({ children }) {
       safeSet("user", userData);
       // Cargar favoritos y negocios en paralelo
       await Promise.all([
-        loadFavorites(userData.id_user),
+        loadFavorites(),
         loadBusinesses(userData.id_user),
       ]);
       return { success: true, data: userData };

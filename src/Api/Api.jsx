@@ -10,14 +10,14 @@ const ENDPOINTS = {
   REGISTER: '/auth/registrarse',
   LOGOUT: '/auth/logout',
   REFRESH_TOKEN: '/auth/refresh',
-  GET_USER: (id) => `/usuario/traer/${id}`,
-  UPDATE_USER: (id) => `/usuario/editar/${id}`,
+  GET_USER: '/usuario/traer/mis/datos',
+  UPDATE_USER: '/usuario/editar',
   DELETE_USER: (id) => `/usuario/eliminar/${id}`,
   GET_CATEGORIES: '/categoria/traer',
   GET_IMAGES: '/imagen/traer',
   UPLOAD_IMAGE: '/imagen/guardar',
   GET_ALL_COMMERCES: '/comercio/traer',
-  GET_BUSINESS_BY_USER: (userId) => `/comercio/traer/usuario/${userId}`,
+  GET_MY_BUSINESSES:`/comercio/traer/mis/comercios`,
   GET_BUSINESS: (businessId) => `/comercio/traer/${businessId}`,
   UPDATE_BUSINESS: (businessId) => `/comercio/editar/${businessId}`,
   CREATE_BUSINESS: '/comercio/guardar',
@@ -35,13 +35,14 @@ const ENDPOINTS = {
   SEARCH_COMMERCES: '/comercio/buscar',
   GET_RECENT_COMMERCES: '/comercio/recientes',
   MAIN_FEED: '/main/feed',
-  // Favoritos
-  FAV_COMMERCE_ADD:    (idUser, idCommerce) => `/usuario/agregar/comercio/fav/${idUser}/${idCommerce}`,
-  FAV_COMMERCE_REMOVE: (idUser, idCommerce) => `/usuario/eliminar/comercio/fav/${idUser}/${idCommerce}`,
-  FAV_COMMERCES_GET:   (idUser)             => `/usuario/traer/comercios/fav/${idUser}`,
-  SAVED_POST_ADD:      (idUser, idPost)     => `/usuario/guardar/post/${idUser}/${idPost}`,
-  SAVED_POST_REMOVE:   (idUser, idPost)     => `/usuario/eliminar/post/guardado/${idUser}/${idPost}`,
-  SAVED_POSTS_GET:     (idUser)             => `/usuario/traer/posts/guardados/${idUser}`,
+  FOR_YOU_FEED: '/foryou/feed',
+  // Favoritos - ACTUALIZADOS
+  FAV_COMMERCE_ADD:    (idCommerce) => `/usuario/agregar/comercio/fav/${idCommerce}`,
+  FAV_COMMERCE_REMOVE: (idCommerce) => `/usuario/eliminar/comercio/fav/${idCommerce}`,
+  FAV_COMMERCES_GET:   '/usuario/traer/mis/comercios/fav',
+  SAVED_POST_ADD:      (idPost)     => `/usuario/guardar/post/${idPost}`,
+  SAVED_POST_REMOVE:   (idPost)     => `/usuario/eliminar/post/guardado/${idPost}`,
+  SAVED_POSTS_GET:     '/usuario/traer/mis/posts/guardados',
 };
 
 let isRefreshing = false;
@@ -232,12 +233,22 @@ export const logoutUser = async (userId) => {
 };
 
 // ============================================
-// USUARIO
+// USUARIO - ACTUALIZADOS
 // ============================================
 
-export const getUserById = async (idUser) => { validateParams({idUser},['idUser']); return apiRequest('GET', ENDPOINTS.GET_USER(idUser)); };
-export const updateUser = async (idUser, userData) => { validateParams({idUser,userData},['idUser','userData']); return apiRequest('PUT', ENDPOINTS.UPDATE_USER(idUser), userData); };
-export const deleteUser = async (idUser) => { validateParams({idUser},['idUser']); return apiRequest('DELETE', ENDPOINTS.DELETE_USER(idUser)); };
+export const getUserById = async () => { 
+  return apiRequest('GET', ENDPOINTS.GET_USER); 
+};
+
+export const updateUser = async (userData) => { 
+  validateParams({userData},['userData']); 
+  return apiRequest('PUT', ENDPOINTS.UPDATE_USER, userData); 
+};
+
+export const deleteUser = async (idUser) => { 
+  validateParams({idUser},['idUser']); 
+  return apiRequest('DELETE', ENDPOINTS.DELETE_USER(idUser)); 
+};
 
 // ============================================
 // CATEGORÍAS
@@ -271,7 +282,7 @@ export const getAllCommerces = async () => {
 export const getBusinessByUserId = async (userId) => {
   validateParams({ userId }, ['userId']);
   try {
-    const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS_BY_USER(userId));
+    const response = await apiRequest('GET', ENDPOINTS.GET_MY_BUSINESSES);
     const business = Array.isArray(response) ? response[0] : response;
     if (!business) return null;
     return {
@@ -504,13 +515,12 @@ export const searchCommerces = async (searchParam, limit=10, offset=0) => {
 };
 
 // ============================================
-// FAVORITOS Y GUARDADOS
+// FAVORITOS Y GUARDADOS - ACTUALIZADOS
 // ============================================
 
-export const getFavoriteCommerces = async (idUser) => {
-  validateParams({ idUser }, ['idUser']);
+export const getFavoriteCommerces = async () => {
   try {
-    const response = await apiRequest('GET', ENDPOINTS.FAV_COMMERCES_GET(idUser));
+    const response = await apiRequest('GET', ENDPOINTS.FAV_COMMERCES_GET);
     return Array.isArray(response) ? response : [];
   } catch (error) {
     if (error.message?.includes('404')) return [];
@@ -518,20 +528,19 @@ export const getFavoriteCommerces = async (idUser) => {
   }
 };
 
-export const addFavoriteCommerce = async (idUser, idCommerce) => {
-  validateParams({ idUser, idCommerce }, ['idUser', 'idCommerce']);
-  return apiRequest('POST', ENDPOINTS.FAV_COMMERCE_ADD(idUser, idCommerce));
+export const addFavoriteCommerce = async (idCommerce) => {
+  validateParams({ idCommerce }, ['idCommerce']);
+  return apiRequest('POST', ENDPOINTS.FAV_COMMERCE_ADD(idCommerce));
 };
 
-export const removeFavoriteCommerce = async (idUser, idCommerce) => {
-  validateParams({ idUser, idCommerce }, ['idUser', 'idCommerce']);
-  return apiRequest('POST', ENDPOINTS.FAV_COMMERCE_REMOVE(idUser, idCommerce));
+export const removeFavoriteCommerce = async (idCommerce) => {
+  validateParams({ idCommerce }, ['idCommerce']);
+  return apiRequest('DELETE', ENDPOINTS.FAV_COMMERCE_REMOVE(idCommerce));
 };
 
-export const getSavedPosts = async (idUser) => {
-  validateParams({ idUser }, ['idUser']);
+export const getSavedPosts = async () => {
   try {
-    const response = await apiRequest('GET', ENDPOINTS.SAVED_POSTS_GET(idUser));
+    const response = await apiRequest('GET', ENDPOINTS.SAVED_POSTS_GET);
     return Array.isArray(response) ? response : [];
   } catch (error) {
     if (error.message?.includes('404')) return [];
@@ -539,14 +548,14 @@ export const getSavedPosts = async (idUser) => {
   }
 };
 
-export const addSavedPost = async (idUser, idPost) => {
-  validateParams({ idUser, idPost }, ['idUser', 'idPost']);
-  return apiRequest('POST', ENDPOINTS.SAVED_POST_ADD(idUser, idPost));
+export const addSavedPost = async (idPost) => {
+  validateParams({ idPost }, ['idPost']);
+  return apiRequest('POST', ENDPOINTS.SAVED_POST_ADD(idPost));
 };
 
-export const removeSavedPost = async (idUser, idPost) => {
-  validateParams({ idUser, idPost }, ['idUser', 'idPost']);
-  return apiRequest('POST', ENDPOINTS.SAVED_POST_REMOVE(idUser, idPost));
+export const removeSavedPost = async (idPost) => {
+  validateParams({ idPost }, ['idPost']);
+  return apiRequest('DELETE', ENDPOINTS.SAVED_POST_REMOVE(idPost));
 };
 
 // ============================================
@@ -563,7 +572,7 @@ export const getRecentCommerces = async () => {
 };
 
 // ============================================
-// FEED PRINCIPAL
+// FEED PRINCIPAL - ACTUALIZADO
 // ============================================
 
 export const getMainFeed = async (page = 0, size = 10) => {
