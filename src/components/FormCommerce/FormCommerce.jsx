@@ -98,7 +98,6 @@ function FormCommerce() {
         whatsapp:    null,
         email:       formData.email?.trim()     || "",
         branchOf:    null,
-        idOwner:     Number(user.id_user),
         // 🆕 Pasar location para que Api.jsx lo convierta a AddressDto
         // location viene del LocationPicker como { lat, lng, address }
         location:    formData.location || null,
@@ -112,7 +111,8 @@ function FormCommerce() {
       const created = await createBusiness(businessData);
 
       // Refrescar lista de negocios en el Navbar
-      await loadBusinesses(user.id_user);
+      await loadBusinesses();
+      loadBusinesses();
 
       navigate(`/negocios/${created.id_business}`);
     } catch (err) {

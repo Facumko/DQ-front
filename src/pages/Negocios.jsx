@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
-import { getBusinessByUserId, getBusinessById } from "../Api/Api";
+import { getMyBusiness, getBusinessById } from "../Api/Api";
 import { useParams, useNavigate } from "react-router-dom";
 
 const Negocios = () => {
@@ -33,7 +33,7 @@ const Negocios = () => {
             navigate("/login");
             return;
           }
-          business = await getBusinessByUserId(user.id_user);
+          business = await getMyBusiness();
           if (!business) {
             navigate("/registro-negocio");
             return;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useContext, useCallback } from "re
 import { UserContext } from "../../pages/UserContext";
 import LoginModal from "../LoginForm/LoginModal";
 import {
-  getBusinessByUserId, getBusinessById, updateBusiness, createBusiness,
+  getMyBusiness, getBusinessById, updateBusiness, createBusiness,
   uploadProfileImage, uploadCoverImage,
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
@@ -247,7 +247,7 @@ const ProfileHeader = ({
   const loadBusinessData = async () => {
     setLoad("business", true);
     try {
-      const biz = await getBusinessByUserId(user.id_user);
+      const biz = await getMyBusiness();
       if (biz) {
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);

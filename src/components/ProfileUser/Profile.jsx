@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { UserContext } from "../../pages/UserContext";
-import { getUserById, updateUser } from "../../Api/Api";
+import { getMyUser, updateUser } from "../../Api/Api";
 import styles from "./Profile.module.css";
 import {
   User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle,
@@ -123,7 +123,7 @@ export default function Profile() {
     if (!user?.id_user) { setLoadingData(false); return; }
     setLoadingData(true);
     try {
-      const d = await getUserById(user.id_user);
+      const d = await getMyUser();
       const norm = {
         username:      d.username       || "",
         name:          d.name           || "",
@@ -212,7 +212,7 @@ export default function Profile() {
   const doSave = useCallback(async (data) => {
     setLoading(true);
     try {
-      const updated = await updateUser(user.id_user, data);
+      const updated = await updateUser(data);
       if (updateUserContext) updateUserContext(updated);
       await loadUserData();
       setIsEditing(false);
@@ -237,7 +237,7 @@ export default function Profile() {
     if (err) { showToast(err, "error"); return; }
     setLoading(true);
     try {
-      await updateUser(user.id_user, { password: pwData.next });
+      await updateUser({ password: pwData.next });
       showToast("¡Contraseña actualizada correctamente!");
       setShowPwSection(false);
       setPwData({ current: "", next: "", confirm: "" });

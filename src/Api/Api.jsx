@@ -12,7 +12,7 @@ const ENDPOINTS = {
   REFRESH_TOKEN: '/auth/refresh',
   GET_USER: '/usuario/traer/mis/datos',
   UPDATE_USER: '/usuario/editar',
-  DELETE_USER: (id) => `/usuario/eliminar/${id}`,
+  DELETE_USER: '/usuario/eliminar',
   GET_CATEGORIES: '/categoria/traer',
   GET_IMAGES: '/imagen/traer',
   UPLOAD_IMAGE: '/imagen/guardar',
@@ -227,16 +227,16 @@ export const registerUser = async (userData) => {
   }
 };
 
-export const logoutUser = async (userId) => {
-  try { const r = await apiRequest('POST', ENDPOINTS.LOGOUT, { userId }); clearTokens(); return r; }
-  catch (error) { if (isDevelopment) console.warn('Error en logout:', error.message); clearTokens(); return { success:true }; }
+export const logoutUser = async () => {
+  try { const r = await apiRequest('POST', ENDPOINTS.LOGOUT); clearTokens(); return r; }
+  catch (error) { clearTokens(); return { success: true }; }
 };
 
 // ============================================
 // USUARIO - ACTUALIZADOS
 // ============================================
 
-export const getUserById = async () => { 
+export const getMyUser  = async () => { 
   return apiRequest('GET', ENDPOINTS.GET_USER); 
 };
 
@@ -245,9 +245,8 @@ export const updateUser = async (userData) => {
   return apiRequest('PUT', ENDPOINTS.UPDATE_USER, userData); 
 };
 
-export const deleteUser = async (idUser) => { 
-  validateParams({idUser},['idUser']); 
-  return apiRequest('DELETE', ENDPOINTS.DELETE_USER(idUser)); 
+export const deleteUser = async () => {
+  return apiRequest('DELETE', ENDPOINTS.DELETE_USER);
 };
 
 // ============================================
@@ -279,8 +278,9 @@ export const getAllCommerces = async () => {
   }
 };
 
-export const getBusinessByUserId = async (userId) => {
-  validateParams({ userId }, ['userId']);
+export const getMyBusiness = async () => {
+  // Backend now uses authenticated user context (token) to resolve the business.
+  // No userId can be trusted from client input (IDOR mitigation).
   try {
     const response = await apiRequest('GET', ENDPOINTS.GET_MY_BUSINESSES);
     const business = Array.isArray(response) ? response[0] : response;
@@ -298,6 +298,10 @@ export const getBusinessByUserId = async (userId) => {
     throw error;
   }
 };
+
+// Mantener alias para compatibilidad de código legado
+export const getBusinessByUserId = getMyBusiness;
+
 
 export const getBusinessById = async (businessId) => {
   validateParams({ businessId }, ['businessId']);
@@ -319,14 +323,13 @@ export const createBusiness = async (businessData) => {
   validateParams({ businessData }, ['businessData']);
   if (!businessData.name?.trim()) throw new Error('El nombre es obligatorio');
   if (!businessData.description?.trim()) throw new Error('La descripción es obligatoria');
-  if (!businessData.idOwner) throw new Error('El ID de usuario es obligatorio');
+  // El backend obtiene el usuario auth desde el token. No confiamos en un idOwner enviado por cliente.
   const dataToSend = {
     name: businessData.name.trim(), description: businessData.description.trim(),
     phone: businessData.phone?.trim() || '', website: businessData.website?.trim() || '',
     instagram: businessData.instagram?.trim() || null, facebook: businessData.facebook?.trim() || null,
     whatsapp: businessData.whatsapp?.trim() || null, email: businessData.email?.trim() || '',
-    branchOf: businessData.branchOf || null, idOwner: Number(businessData.idOwner),
-  };
+    branchOf: businessData.branchOf || null,};
   if (isDevelopment) console.log("📤 Creando negocio:", dataToSend);
   try {
     const response = await apiRequest('POST', ENDPOINTS.CREATE_BUSINESS, dataToSend);
@@ -591,12 +594,12 @@ export const getMainFeed = async (page = 0, size = 10) => {
 export default {
   loginUser, registerUser, logoutUser,
   setAuthToken, getStoredTokens, saveTokens, clearTokens,
-  getUserById, updateUser, deleteUser,
+  getMyUser, updateUser, deleteUser,
   searchCommerces, getRecentCommerces,
   getCategories,
   getImages, uploadImage,
   getAllCommerces,
-  getBusinessByUserId, getBusinessById, createBusiness, updateBusiness,
+  getMyBusiness, getBusinessByUserId, getBusinessById, createBusiness, updateBusiness,
   uploadProfileImage, uploadCoverImage, uploadGalleryImages,
   createPost, getAllPosts, getPostById, getPostsByCommerce,
   updatePost, updatePostText, deletePost, addImagesToPost, deleteImagesFromPost,

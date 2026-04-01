@@ -47,7 +47,6 @@ export default function PaymentStep({ planId, user, onBack }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId,
-          userId:    user.id_user,
           userEmail: user.email,
           // URL de retorno: vuelve al form en paso 3 con el plan seleccionado
           successUrl: `${window.location.origin}/registro-negocio?step=3&plan=${planId}&paid=true`,

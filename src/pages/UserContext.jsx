@@ -76,12 +76,15 @@ export function UserProvider({ children }) {
   }, []);
 
   // ── Cargar negocios del usuario ───────────────────────────────────────
-  const loadBusinesses = useCallback(async (userId) => {
-    if (!userId) { setBusinesses([]); return; }
+  const loadBusinesses = useCallback(async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const res   = await fetch(`${API_URL}/comercio/traer/usuario/${userId}`, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${API_URL}/comercio/traer/mis/comercios`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
       });
       if (!res.ok) { setBusinesses([]); return; }
       const data = await res.json();
@@ -97,7 +100,7 @@ export function UserProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    loadBusinesses(user?.id_user);
+    loadBusinesses();
   }, [user?.id_user, loadBusinesses]);
 
   // ── Cargar favoritos y posts guardados ────────────────────────────────
@@ -318,7 +321,7 @@ export function UserProvider({ children }) {
   const logout = async () => {
     setLoading(true);
     try {
-      if (user?.id_user) await logoutUser(user.id_user);
+      await logoutUser();
     } catch (err) {
       console.warn("Error al cerrar sesión en backend:", err);
     } finally {
