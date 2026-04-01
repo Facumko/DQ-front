@@ -338,7 +338,7 @@ const ProfileHeader = ({
       if (businessId) {
         await updateBusiness(businessId, payload);
       } else {
-        const res = await createBusiness({ ...payload, id_user: user.id_user });
+        const res = await createBusiness(payload);
         currentBusinessId = res.id_business;
         setBusinessId(currentBusinessId);
       }

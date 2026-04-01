@@ -286,7 +286,7 @@ export function UserProvider({ children }) {
       // Cargar favoritos y negocios en paralelo
       await Promise.all([
         loadFavorites(),
-        loadBusinesses(userData.id_user),
+        loadBusinesses(),
       ]);
       return { success: true, data: userData };
     } catch (err) {

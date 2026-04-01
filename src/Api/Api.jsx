@@ -76,8 +76,10 @@ export const clearTokens = () => {
 
 const refreshAccessToken = async () => {
   const { refreshToken } = getStoredTokens();
-  console.log('🔄 ========== INICIO REFRESH TOKEN ==========');
-  console.log('🔍 1. refreshToken:', refreshToken ? '✅ Existe' : '❌ NULL');
+  if (isDevelopment) {
+    console.log('🔄 ========== INICIO REFRESH TOKEN ==========');
+    console.log('🔍 1. refreshToken:', refreshToken ? '✅ Existe' : '❌ NULL');
+  }
   if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null' || refreshToken.trim() === '') {
     clearTokens(); throw new Error('No hay refresh token disponible');
   }
@@ -89,10 +91,14 @@ const refreshAccessToken = async () => {
     const { accessToken, refreshToken: newRefreshToken } = response.data;
     if (!accessToken) throw new Error('Backend no devolvió accessToken');
     saveTokens(accessToken, newRefreshToken || refreshToken);
-    console.log('✅ ========== FIN REFRESH TOKEN EXITOSO ==========');
+    if (isDevelopment) {
+      console.log('✅ ========== FIN REFRESH TOKEN EXITOSO ==========');
+    }
     return accessToken;
   } catch (error) {
-    console.error('❌ Error en refresh token:', error);
+    if (isDevelopment) {
+      console.error('❌ Error en refresh token:', error);
+    }
     clearTokens(); throw error;
   }
 };
