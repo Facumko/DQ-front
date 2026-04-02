@@ -24,6 +24,16 @@ import {
 } from "lucide-react";
 
 // ============================================
+// Placeholder para imágenes que fallan
+// ============================================
+const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23e0e0e0' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='14' fill='%23888' text-anchor='middle' dy='0.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+const handleImageError = (e) => {
+  e.target.src = PLACEHOLDER_IMAGE;
+  e.target.style.backgroundColor = '#f0f0f0';
+};
+
+// ============================================
 // 🔥 DATA MOCK TEMPORAL
 // ============================================
 const MOCK_DATA = {
@@ -139,7 +149,7 @@ const MOCK_DATA = {
     {
       subcategory: "Abogados",
       businesses: [
-        { id: 101, name: "Estudio Ramírez & Asociados", image: "https://images.unsplash.com/photo-1521791055366-0d553872952f?w=120&q=80" },
+        { id: 101, name: "Estudio Ramírez & Asociados", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&q=80" },
         { id: 102, name: "Dra. Silvia Méndez", image: null },
         { id: 103, name: "Bufete Legal Norte", image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=120&q=80" },
         { id: 104, name: "Asesoría Jurídica Pérez", image: null },
@@ -216,7 +226,7 @@ const DirectorySpotlight = ({ slides }) => {
               <Link to={`/negocios/${biz.id}`} className={styles.directoryLink}>
                 <div className={styles.directoryAvatar}>
                   {biz.image
-                    ? <img src={biz.image} alt={biz.name} />
+                    ? <img src={biz.image} alt={biz.name} onError={handleImageError} />
                     : <span>{biz.name.charAt(0).toUpperCase()}</span>
                   }
                 </div>
@@ -385,7 +395,7 @@ const Home = () => {
             <div className={styles.carousel}>
               {MOCK_DATA.heroSlides.map((slide, index) => (
                 <div key={slide.id} className={`${styles.slide} ${index === currentSlide ? styles.slideActive : ""}`}>
-                  <img src={slide.image} alt={slide.title} className={styles.slideImage} />
+                  <img src={slide.image} alt={slide.title} className={styles.slideImage} onError={handleImageError} />
                   <div className={styles.slideOverlay}>
                     <div className={styles.slideBadgeContainer}>
                       <span className={`${styles.slideBadge} ${getBadgeClass(slide.badge.type)}`}>
@@ -435,7 +445,7 @@ const Home = () => {
             {MOCK_DATA.featuredBusinesses.map((business) => (
               <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
                 <div className={styles.businessHeader}>
-                  <img src={business.logo} alt={business.name} className={styles.businessLogo} />
+                  <img src={business.logo} alt={business.name} className={styles.businessLogo} onError={handleImageError} />
                   <div className={styles.businessInfo}>
                     <h3 className={styles.businessName}>{business.name}</h3>
                     <p className={styles.businessCategory}>{business.category}</p>
@@ -467,7 +477,7 @@ const Home = () => {
               return (
                 <div key={category.id} className={styles.categoryCard}>
                   <div className={styles.categoryImageContainer}>
-                    <img src={category.image} alt={category.title} className={styles.categoryImage} />
+                    <img src={category.image} alt={category.title} className={styles.categoryImage} onError={handleImageError} />
                     <div className={`${styles.categoryOverlay} ${styles[category.gradient]}`}>
                       <IconComponent size={64} className={styles.categoryIcon} />
                     </div>

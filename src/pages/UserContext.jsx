@@ -1,7 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useEffect, useCallback } from "react";
 import {
   loginUser, registerUser, logoutUser,
-  saveTokens, clearTokens, getStoredTokens,
+  clearTokens, getStoredTokens,
   getFavoriteCommerces, addFavoriteCommerce, removeFavoriteCommerce,
   getSavedPosts, addSavedPost, removeSavedPost,
 } from "../Api/Api";
@@ -23,7 +24,8 @@ const safeGet = (key, fallback) => {
 };
 
 const safeSet = (key, value) => {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  try { localStorage.setItem(key, JSON.stringify(value)); }
+  catch { /* ignore localStorage write failures */ }
 };
 
 export function UserProvider({ children }) {
@@ -99,13 +101,16 @@ export function UserProvider({ children }) {
     } catch { setBusinesses([]); }
   }, []);
 
-  useEffect(() => {
-    loadBusinesses();
-  }, [user?.id_user, loadBusinesses]);
-
   // ── Cargar favoritos y posts guardados ────────────────────────────────
   const loadFavorites = useCallback(async () => {
+    const { accessToken } = getStoredTokens();
+    // Si no hay token, silenciosamente ignorar
+    if (!accessToken) {
+      if (isDevelopment) console.warn("⚠️ loadFavorites: No hay token disponible");
+      return;
+    }
     try {
+      if (isDevelopment) console.log("📦 Cargando favoritos y posts guardados...");
       const [commerces, posts] = await Promise.all([
         getFavoriteCommerces(),
         getSavedPosts(),
@@ -120,15 +125,38 @@ export function UserProvider({ children }) {
       setSavedPostIds(new Set(posts.map((p) => p.idPost ?? p.id)));
       safeSet("savedPosts",   posts);
       safeSet("savedPostIds", posts.map((p) => p.idPost ?? p.id));
+      
+      if (isDevelopment) console.log("✅ Favoritos cargados correctamente");
     } catch (err) {
-      if (isDevelopment) console.warn("Error cargando favoritos:", err);
+      // Manejar errores 401 específicamente
+      if (err.status === 401 || err.message?.includes('401')) {
+        if (isDevelopment) console.warn("⚠️ Error 401: Token expirado o inválido. Se requiere login nuevamente.", err.message);
+        // No reseteamos la sesión aquí - dejar que el usuario intente con un nuevo login
+      } else if (isDevelopment) {
+        console.warn("Error cargando favoritos:", err.message);
+      }
     }
   }, []);
 
-  // Cargar favoritos al restaurar sesión
   useEffect(() => {
-    if (user?.id_user) loadFavorites();
-  }, [user?.id_user, loadFavorites]);
+    if (user?.id_user) {
+      const { accessToken } = getStoredTokens();
+      if (accessToken) {
+        loadBusinesses();
+        loadFavorites();
+      } else {
+        if (isDevelopment) console.log("⚠️ Usuario detectado pero sin token de acceso");
+      }
+    }
+  }, [user?.id_user, loadBusinesses, loadFavorites]);
+
+  // Cargar favoritos al restaurar sesión (si hay token)
+  useEffect(() => {
+    const { accessToken } = getStoredTokens();
+    if (accessToken && user?.id_user) {
+      loadFavorites();
+    }
+  }, [loadFavorites, user?.id_user]);
 
   // ── Toggle favorito comercio ──────────────────────────────────────────
   const toggleFavoriteCommerce = useCallback(async (commerce) => {
@@ -290,12 +318,20 @@ export function UserProvider({ children }) {
       ]);
       return { success: true, data: userData };
     } catch (err) {
-      const errorMessage  = err.message || "Error al iniciar sesión";
+      let errorMessage = err.message || "Error al iniciar sesión";
+
+      // Detectar errores específicos de credenciales
+      if (errorMessage.includes("Email o contraseña incorrecto") ||
+          errorMessage.includes("credenciales") ||
+          errorMessage.includes("incorrecto")) {
+        errorMessage = "Email o contraseña incorrectos. Verificá tus datos e intentá nuevamente.";
+      }
+
       const attemptResult = incrementFailedAttempts();
       const finalMsg = attemptResult.blocked
         ? attemptResult.message
         : attemptResult.remainingAttempts
-        ? `${errorMessage}. Te quedan ${attemptResult.remainingAttempts} intentos.`
+        ? `${errorMessage} Te quedan ${attemptResult.remainingAttempts} intentos.`
         : errorMessage;
       setError(finalMsg);
       return { success: false, error: finalMsg };

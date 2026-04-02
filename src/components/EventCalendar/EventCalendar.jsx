@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import styles from "./EventCalendar.module.css";
 import {
@@ -317,7 +318,7 @@ const WeekView = ({ anchorDate, eventsByDate, onDayClick }) => {
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
 const EventCalendar = ({ events = MOCK_EVENTS, compact = false }) => {
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
 
   const [view,       setView      ] = useState("month");
   const [year,       setYear      ] = useState(today.getFullYear());
@@ -428,7 +429,7 @@ const EventCalendar = ({ events = MOCK_EVENTS, compact = false }) => {
   const upcomingCount = useMemo(() => {
     const todayKey = toKey(today.getFullYear(), today.getMonth(), today.getDate());
     return events.filter(e => e.date >= todayKey).length;
-  }, [events]);
+  }, [events, today]);
 
   // ── título header ──
   const headerTitle = useMemo(() => {

@@ -169,12 +169,19 @@ const handleApiError = (error, endpoint) => {
   const { status, data } = error.response;
   const serverMessage = data?.message || data?.error;
   const msgs = { 400:'Datos inválidos.',401:'Credenciales incorrectas.',403:'Sin permisos.',404:'No encontrado.',409:'Ya existe un registro con estos datos.',422:'Error de validación.',500:'Error interno del servidor.',502:'Servidor no disponible.',503:'Servicio no disponible.' };
-  return new Error(serverMessage || msgs[status] || `Error ${status}`);
+   const errorMsg = serverMessage || msgs[status] || `Error ${status}`;
+  const err = new Error(errorMsg);
+  err.status = status;
+  err.response = error.response;
+  return err;
 };
 const validateParams = (params, names) => { for (const n of names) { if (params[n]===null||params[n]===undefined||params[n]==='') throw new Error(`Parámetro requerido faltante: ${n}`); } };
 
 const apiRequest = async (method, endpoint, data=null, retries=MAX_RETRIES) => {
-  if (isDevelopment) console.log(`🌐 ${method} ${endpoint}`, data||'');
+  if (isDevelopment) {
+    console.log(`🌐 ${method} ${endpoint}`);
+    if (data) console.log('📤 Request data:', JSON.stringify(data, null, 2));
+  }
   const { accessToken } = getStoredTokens();
   const config = {
     method, url:`${API_URL}${endpoint}`, timeout:TIMEOUT,
@@ -200,10 +207,72 @@ const apiRequest = async (method, endpoint, data=null, retries=MAX_RETRIES) => {
 export const loginUser = async (email, password) => {
   validateParams({ email, password }, ['email', 'password']);
   if (!validateEmail(email)) throw new Error('Por favor ingresa un email válido');
-  const response = await apiRequest('POST', ENDPOINTS.LOGIN, { email, password });
-  if (!response || !response.idUser) throw new Error('Respuesta inválida del servidor');
-  if (response.accessToken && response.refreshToken) saveTokens(response.accessToken, response.refreshToken);
-  return response;
+
+  // Debug: mostrar exactamente qué se envía
+  const loginPayload = { email, password };
+  if (isDevelopment) {
+    console.log('🔐 Login attempt:', {
+      email: email ? '***@***' : 'EMPTY',
+      password: password ? '***' : 'EMPTY',
+      payload: loginPayload
+    });
+  }
+
+  try {
+    const response = await apiRequest('POST', ENDPOINTS.LOGIN, loginPayload);
+    if (!response || !response.idUser) throw new Error('Respuesta inválida del servidor');
+    if (response.accessToken && response.refreshToken) saveTokens(response.accessToken, response.refreshToken);
+    return response;
+  } catch (error) {
+    if (isDevelopment) {
+      console.error('❌ Login failed:', {
+        status: error.status,
+        message: error.message,
+        response: error.response?.data
+      });
+    }
+    throw error;
+  }
+};
+
+export const loginUserAlt = async (email, password) => {
+  validateParams({ email, password }, ['email', 'password']);
+  if (!validateEmail(email)) throw new Error('Por favor ingresa un email válido');
+
+  // Probar diferentes formatos que el backend podría esperar
+  const payloads = [
+    { email, password },           // Formato actual
+    { correo: email, password },   // email -> correo
+    { email, contrasena: password }, // password -> contrasena
+    { correo: email, contrasena: password }, // Ambos cambiados
+    { username: email, password }, // email como username
+  ];
+
+  for (let i = 0; i < payloads.length; i++) {
+    const payload = payloads[i];
+    if (isDevelopment) {
+      console.log(`🔄 Probando formato ${i + 1}:`, JSON.stringify(payload, null, 2));
+    }
+
+    try {
+      const response = await apiRequest('POST', ENDPOINTS.LOGIN, payload);
+      if (response && response.idUser) {
+        if (isDevelopment) {
+          console.log(`✅ Login exitoso con formato ${i + 1}`);
+        }
+        if (response.accessToken && response.refreshToken) saveTokens(response.accessToken, response.refreshToken);
+        return response;
+      }
+    } catch (error) {
+      if (isDevelopment) {
+        console.log(`❌ Formato ${i + 1} falló:`, error.message);
+      }
+      // Si no es el último formato, continuar probando
+      if (i < payloads.length - 1) continue;
+      // Si es el último, lanzar el error
+      throw error;
+    }
+  }
 };
 
 export const registerUser = async (userData) => {
@@ -235,7 +304,7 @@ export const registerUser = async (userData) => {
 
 export const logoutUser = async () => {
   try { const r = await apiRequest('POST', ENDPOINTS.LOGOUT); clearTokens(); return r; }
-  catch (error) { clearTokens(); return { success: true }; }
+  catch { clearTokens(); return { success: true }; }
 };
 
 // ============================================
@@ -442,6 +511,9 @@ export const createPost = async (description, idCommerce, imageFiles=[], eventDa
     if (!['image/jpeg','image/jpg','image/png','image/webp'].includes(f.type)) throw new Error(`Formato inválido en "${f.name}"`);
   }
   const formData = new FormData();
+  if (eventData) {
+    formData.append('eventData', JSON.stringify(eventData));
+  }
   formData.append('description', description.trim());
   formData.append('idCommerce', idCommerce);
   imageFiles.forEach(f => formData.append('images', f));
@@ -572,12 +644,8 @@ export const removeSavedPost = async (idPost) => {
 // ============================================
 
 export const getRecentCommerces = async () => {
-  try {
-    const response = await apiRequest('GET', ENDPOINTS.GET_RECENT_COMMERCES);
-    return Array.isArray(response) ? response : [];
-  } catch (error) {
-    throw error;
-  }
+  const response = await apiRequest('GET', ENDPOINTS.GET_RECENT_COMMERCES);
+  return Array.isArray(response) ? response : [];
 };
 
 // ============================================
@@ -585,12 +653,8 @@ export const getRecentCommerces = async () => {
 // ============================================
 
 export const getMainFeed = async (page = 0, size = 10) => {
-  try {
-    const response = await apiRequest('GET', `${ENDPOINTS.MAIN_FEED}?page=${page}&size=${size}`);
-    return Array.isArray(response) ? response : [];
-  } catch (error) {
-    throw error;
-  }
+  const response = await apiRequest('GET', `${ENDPOINTS.MAIN_FEED}?page=${page}&size=${size}`);
+  return Array.isArray(response) ? response : [];
 };
 
 // ============================================

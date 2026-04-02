@@ -183,8 +183,8 @@ const ProfileHeader = ({
 
   const [pendingCover,  setPendingCover]  = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
-  const [coverPos,  setCoverPos]  = useState({ posY: 50, zoom: 1 });
-  const [avatarPos, setAvatarPos] = useState({ x: 50, y: 50, zoom: 1 });
+  const [, setCoverPos]  = useState({ posY: 50, zoom: 1 });
+  const [, setAvatarPos] = useState({ x: 50, y: 50, zoom: 1 });
 
   const { errors, validate, clearErrors } = useFormValidation();
   const statusInfo = useBusinessStatus(schedule);
