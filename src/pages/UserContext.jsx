@@ -77,6 +77,25 @@ export function UserProvider({ children }) {
     }
   }, []);
 
+  // ── Escuchar logout forzado (refresh token expirado) ───────────────────
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setUser(null);
+      setBusinesses([]);
+      setFavoriteCommerces([]); setFavoriteCommerceIds(new Set());
+      setSavedPosts([]); setSavedPostIds(new Set());
+      localStorage.removeItem("user");
+      localStorage.removeItem("favoriteCommerces");
+      localStorage.removeItem("favoriteCommerceIds");
+      localStorage.removeItem("savedPosts");
+      localStorage.removeItem("savedPostIds");
+      clearTokens();
+    };
+
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, []);
+
   // ── Cargar negocios del usuario ───────────────────────────────────────
   const loadBusinesses = useCallback(async () => {
     try {
@@ -319,22 +338,46 @@ export function UserProvider({ children }) {
       return { success: true, data: userData };
     } catch (err) {
       let errorMessage = err.message || "Error al iniciar sesión";
+      let authErrorType = err.authErrorType || 'GENERIC';
 
-      // Detectar errores específicos de credenciales
-      if (errorMessage.includes("Email o contraseña incorrecto") ||
-          errorMessage.includes("credenciales") ||
-          errorMessage.includes("incorrecto")) {
-        errorMessage = "Email o contraseña incorrectos. Verificá tus datos e intentá nuevamente.";
+      // Manejar según el tipo de error
+      if (authErrorType === 'WRONG_PASSWORD') {
+        errorMessage = 'La contraseña es incorrecta.';
+        const attemptResult = incrementFailedAttempts();
+        const finalMsg = attemptResult.blocked
+          ? attemptResult.message
+          : attemptResult.remainingAttempts === 1
+          ? `${errorMessage} Te queda 1 intento antes del bloqueo temporal.`
+          : errorMessage;
+        setError(finalMsg);
+        return { success: false, error: finalMsg, authErrorType };
+      } else if (authErrorType === 'USER_NOT_FOUND') {
+        errorMessage = 'No encontramos una cuenta con ese email.';
+        // NO incrementar intentos
+        setError(errorMessage);
+        return { success: false, error: errorMessage, authErrorType };
+      } else if (authErrorType === 'ACCOUNT_BLOCKED') {
+        errorMessage = 'Tu cuenta fue suspendida. Contactanos para más información.';
+        // NO incrementar intentos
+        setError(errorMessage);
+        return { success: false, error: errorMessage, authErrorType };
+      } else if (authErrorType === 'UNVERIFIED') {
+        errorMessage = 'Verificá tu email antes de iniciar sesión.';
+        // NO incrementar intentos
+        setError(errorMessage);
+        return { success: false, error: errorMessage, authErrorType };
+      } else {
+        // GENERIC or others
+        errorMessage = 'Email o contraseña incorrectos.';
+        const attemptResult = incrementFailedAttempts();
+        const finalMsg = attemptResult.blocked
+          ? attemptResult.message
+          : attemptResult.remainingAttempts === 1
+          ? `${errorMessage} Te queda 1 intento antes del bloqueo temporal.`
+          : errorMessage;
+        setError(finalMsg);
+        return { success: false, error: finalMsg, authErrorType };
       }
-
-      const attemptResult = incrementFailedAttempts();
-      const finalMsg = attemptResult.blocked
-        ? attemptResult.message
-        : attemptResult.remainingAttempts
-        ? `${errorMessage} Te quedan ${attemptResult.remainingAttempts} intentos.`
-        : errorMessage;
-      setError(finalMsg);
-      return { success: false, error: finalMsg };
     } finally { setLoading(false); }
   };
 
@@ -403,13 +446,13 @@ export function UserProvider({ children }) {
   return (
     <UserContext.Provider value={{
       // Auth
-      user, loading, error,
+      user, setUser, loading, error,
       login, register, logout,
       updateUserContext, clearError,
       isAuthenticated,
       isLoggedIn:     isAuthenticated(),
       loginAttempts:  loginAttempts.count,
-      isLocked:       isLocked(),
+      isLocked,
       // Negocios
       businesses, setBusinesses, hasBusiness, loadBusinesses,
       // Favoritos — comercios

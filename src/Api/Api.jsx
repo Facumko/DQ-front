@@ -104,7 +104,13 @@ const refreshAccessToken = async () => {
 };
 
 axios.interceptors.request.use((config) => {
-  const publicEndpoints = [ENDPOINTS.LOGIN, ENDPOINTS.REGISTER, ENDPOINTS.REFRESH_TOKEN];
+  const publicEndpoints = [
+    ENDPOINTS.LOGIN,
+    ENDPOINTS.REGISTER,
+    ENDPOINTS.REFRESH_TOKEN,
+    '/oauth2',
+    '/login/oauth2',
+  ];
   const isPublic = publicEndpoints.some(ep => config.url.includes(ep));
   if (!isPublic) {
     const { accessToken } = getStoredTokens();
@@ -116,7 +122,11 @@ axios.interceptors.request.use((config) => {
 axios.interceptors.response.use((response) => response, async (error) => {
   const originalRequest = error.config;
   if (error.response?.status === 401 && !originalRequest._retry) {
-    if (originalRequest.url.includes(ENDPOINTS.REFRESH_TOKEN)) { clearTokens(); window.location.href = '/'; return Promise.reject(error); }
+    if (originalRequest.url.includes(ENDPOINTS.REFRESH_TOKEN)) {
+      clearTokens();
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      return Promise.reject(error);
+    }
     if (isRefreshing) {
       return new Promise((resolve, reject) => { failedQueue.push({ resolve, reject }); })
         .then(token => { originalRequest.headers.Authorization = `Bearer ${token}`; return axios(originalRequest); })
@@ -130,8 +140,12 @@ axios.interceptors.response.use((response) => response, async (error) => {
       originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
       setAuthToken(newToken);
       return axios(originalRequest);
-    } catch (refreshError) { processQueue(refreshError, null); clearTokens(); window.location.href = '/'; return Promise.reject(refreshError); }
-    finally { isRefreshing = false; }
+    } catch (refreshError) {
+      processQueue(refreshError, null);
+      clearTokens();
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      return Promise.reject(refreshError);
+    } finally { isRefreshing = false; }
   }
   return Promise.reject(error);
 });
@@ -167,12 +181,59 @@ const handleApiError = (error, endpoint) => {
   if (isDevelopment) console.error(`❌ Error en ${endpoint}:`, error);
   if (!error.response) { if (error.code==='ECONNABORTED') return new Error('⏱️ Timeout.'); return new Error(`🔌 No se pudo conectar al servidor en ${API_URL}`); }
   const { status, data } = error.response;
-  const serverMessage = data?.message || data?.error;
-  const msgs = { 400:'Datos inválidos.',401:'Credenciales incorrectas.',403:'Sin permisos.',404:'No encontrado.',409:'Ya existe un registro con estos datos.',422:'Error de validación.',500:'Error interno del servidor.',502:'Servidor no disponible.',503:'Servicio no disponible.' };
-   const errorMsg = serverMessage || msgs[status] || `Error ${status}`;
+  const serverMessage = (data?.message || data?.error || data?.mensaje || '').toLowerCase();
+  let errorMsg = '';
+  let authErrorType = null;
+
+  if (endpoint.includes(ENDPOINTS.LOGIN)) {
+    if (status === 401) {
+      if (serverMessage.includes('password') || serverMessage.includes('contraseña')) {
+        errorMsg = 'La contraseña es incorrecta.';
+        authErrorType = 'WRONG_PASSWORD';
+      } else if (serverMessage.includes('email') || serverMessage.includes('user') || serverMessage.includes('cuenta')) {
+        errorMsg = 'No encontramos una cuenta con ese email.';
+        authErrorType = 'USER_NOT_FOUND';
+      } else {
+        errorMsg = 'Email o contraseña incorrectos.';
+        authErrorType = 'GENERIC';
+      }
+    } else if (status === 403) {
+      if (serverMessage.includes('block') || serverMessage.includes('suspend') || serverMessage.includes('bloquead')) {
+        errorMsg = 'Tu cuenta fue suspendida. Contactanos para más información.';
+        authErrorType = 'ACCOUNT_BLOCKED';
+      } else if (serverMessage.includes('verif') || serverMessage.includes('verificar')) {
+        errorMsg = 'Verificá tu email antes de iniciar sesión.';
+        authErrorType = 'UNVERIFIED';
+      } else {
+        errorMsg = 'Sin permisos para iniciar sesión.';
+        authErrorType = 'GENERIC';
+      }
+    } else if (status === 429) {
+      errorMsg = 'Demasiados intentos. Esperá unos minutos antes de volver a intentar.';
+      authErrorType = 'RATE_LIMITED';
+    } else {
+      errorMsg = 'Error al iniciar sesión.';
+      authErrorType = 'GENERIC';
+    }
+  } else {
+    const msgs = {
+      400: 'Datos inválidos.',
+      401: 'Sesión expirada. Por favor iniciá sesión nuevamente.',
+      403: 'Sin permisos.',
+      404: 'No encontrado.',
+      409: 'Ya existe un registro con estos datos.',
+      422: 'Error de validación.',
+      500: 'Error interno del servidor.',
+      502: 'Servidor no disponible.',
+      503: 'Servicio no disponible.',
+    };
+    errorMsg = serverMessage || msgs[status] || `Error ${status}`;
+  }
+
   const err = new Error(errorMsg);
   err.status = status;
   err.response = error.response;
+  if (authErrorType) err.authErrorType = authErrorType;
   return err;
 };
 const validateParams = (params, names) => { for (const n of names) { if (params[n]===null||params[n]===undefined||params[n]==='') throw new Error(`Parámetro requerido faltante: ${n}`); } };
@@ -235,45 +296,8 @@ export const loginUser = async (email, password) => {
   }
 };
 
-export const loginUserAlt = async (email, password) => {
-  validateParams({ email, password }, ['email', 'password']);
-  if (!validateEmail(email)) throw new Error('Por favor ingresa un email válido');
-
-  // Probar diferentes formatos que el backend podría esperar
-  const payloads = [
-    { email, password },           // Formato actual
-    { correo: email, password },   // email -> correo
-    { email, contrasena: password }, // password -> contrasena
-    { correo: email, contrasena: password }, // Ambos cambiados
-    { username: email, password }, // email como username
-  ];
-
-  for (let i = 0; i < payloads.length; i++) {
-    const payload = payloads[i];
-    if (isDevelopment) {
-      console.log(`🔄 Probando formato ${i + 1}:`, JSON.stringify(payload, null, 2));
-    }
-
-    try {
-      const response = await apiRequest('POST', ENDPOINTS.LOGIN, payload);
-      if (response && response.idUser) {
-        if (isDevelopment) {
-          console.log(`✅ Login exitoso con formato ${i + 1}`);
-        }
-        if (response.accessToken && response.refreshToken) saveTokens(response.accessToken, response.refreshToken);
-        return response;
-      }
-    } catch (error) {
-      if (isDevelopment) {
-        console.log(`❌ Formato ${i + 1} falló:`, error.message);
-      }
-      // Si no es el último formato, continuar probando
-      if (i < payloads.length - 1) continue;
-      // Si es el último, lanzar el error
-      throw error;
-    }
-  }
-};
+// Nota: loginUserAlt se eliminó porque es una función de debug peligrosa (hace varios requests en cascada).
+// Usar loginUser() para produccion.
 
 export const registerUser = async (userData) => {
   validateParams(userData, ['email', 'password']);

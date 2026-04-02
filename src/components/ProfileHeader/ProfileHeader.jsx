@@ -319,6 +319,7 @@ const ProfileHeader = ({
   }, []);
 
   const handleSave = async () => {
+    if (!isOwner) { flashError("No tenés permisos para editar este negocio"); return; }
     const t = (v) => (v || "").trim();
     const name  = t(draft.name);
     const desc  = t(draft.description);
@@ -398,6 +399,7 @@ const ProfileHeader = ({
   const sortedEvents = useMemo(() => posts.filter((p) => p.type === "event"), [posts]);
 
   const handleSubmitPost = async (data) => {
+    if (!isOwner) { flashError("No tenés permisos para publicar en este negocio"); return; }
     if (!businessId) { flashError("Creá el negocio primero"); return; }
     const id = typeof businessId === "string" ? parseInt(businessId, 10) : businessId;
     if (isNaN(id)) { flashError("ID de comercio inválido"); return; }
@@ -420,6 +422,7 @@ const ProfileHeader = ({
   };
 
   const handleDeletePost = async (postId) => {
+    if (!isOwner) { flashError("No tenés permisos para eliminar publicaciones de este negocio"); return; }
     if (!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
     setLoad("deletingPost", true);
     try {
