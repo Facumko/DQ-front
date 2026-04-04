@@ -6,19 +6,24 @@ import {
   uploadProfileImage, uploadCoverImage,
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
+  replaceCommerceSchedules,
+  scheduleFromBackend,
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, User,
-         Phone, Mail, Link2, Image, Clock, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
+         Phone, Mail, Link2, Image, Clock, Pencil, Trash2 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
+import ScheduleDisplay from "./components/ScheduleDisplay";
 import LocationPicker from "../LocationPicker/LocationPicker";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 
 // ─────────────────────────────────────────
 // MOCK DATA
 // ─────────────────────────────────────────
+const isDevelopment = import.meta.env.MODE === 'development';
+
 const MOCK_BUSINESS = {
   idCommerce: 0,
   name: "La Cantina del Sur",
@@ -66,6 +71,7 @@ const normalizeBusiness = (d) => ({
   profileImage: d?.profileImage?.url || d?.profileImage || null,
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
   location:     d?.location || null,
+  schedules:    d?.schedules || [],
 });
 
 const normalizePost = (p) => {
@@ -174,7 +180,6 @@ const ProfileHeader = ({
   const [posts,       setPosts]      = useState([]);
   const [activeTab,   setActiveTab]  = useState("posts");
   const [businessId,  setBusinessId] = useState(null);
-  const [showSchedule,setShowSchedule] = useState(false);
 
   const [businessData, setBusinessData] = useState({ name:"", email:"", phone:"", link:"", description:"", profileImage:null, coverImage:null, location:null });
   const [schedule,     setSchedule]     = useState(DEFAULT_SCHEDULE);
@@ -226,6 +231,11 @@ const ProfileHeader = ({
     if (externalData) {
       const d = normalizeBusiness(externalData);
       setBusinessData(d); setDraft(d);
+      if (d.schedules && d.schedules.length > 0) {
+        const loaded = scheduleFromBackend(d.schedules);
+        setSchedule(loaded);
+        setDraftSchedule(loaded);
+      }
       const id = externalData.idCommerce || externalData.id_business;
       setBusinessId(id);
       setLoading((p) => ({ ...p, business: false }));
@@ -252,6 +262,11 @@ const ProfileHeader = ({
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
         setBusinessData(d); setDraft(d);
+        if (d.schedules && d.schedules.length > 0) {
+          const loaded = scheduleFromBackend(d.schedules);
+          setSchedule(loaded);
+          setDraftSchedule(loaded);
+        }
         await loadPosts(biz.id_business);
       } else {
         const d = normalizeBusiness({ name: user.name ? `${user.name} ${user.lastname || ""}`.trim() : "" });
@@ -334,7 +349,8 @@ const ProfileHeader = ({
 
     setLoad("savingBusiness", true);
     try {
-      const payload = { name, description: desc, email, phone, link: t(draft.link), location: draft.location || null };
+      const cleanPhone = draft.phone.replace(/\D/g, "");
+      const payload = { name, description: desc, email, phone: cleanPhone, link: t(draft.link), location: draft.location || null };
       let currentBusinessId = businessId;
       if (businessId) {
         await updateBusiness(businessId, payload);
@@ -346,9 +362,30 @@ const ProfileHeader = ({
       if (pendingCover?.file)  await uploadImage("coverImage",   pendingCover.file);
       if (pendingAvatar?.file) await uploadImage("profileImage", pendingAvatar.file);
 
+      // Guardar horarios
+      const idToUse = businessId || currentBusinessId;
+      if (idToUse) {
+        try {
+          await replaceCommerceSchedules(idToUse, draftSchedule);
+          setSchedule(draftSchedule);
+          if (isDevelopment) console.log("✅ Horarios guardados");
+        } catch (scheduleError) {
+          console.warn("⚠️ Error guardando horarios:", scheduleError.message);
+          flashInfo("Datos guardados. Hubo un problema con los horarios, intentá de nuevo.");
+        }
+      }
+
       if (externalData) {
         const biz = await getBusinessById(currentBusinessId);
-        if (biz) { const d = normalizeBusiness(biz); setBusinessData(d); setDraft(d); }
+        if (biz) { 
+          const d = normalizeBusiness(biz); 
+          setBusinessData(d); setDraft(d);
+          if (d.schedules && d.schedules.length > 0) {
+            const loaded = scheduleFromBackend(d.schedules);
+            setSchedule(loaded);
+            setDraftSchedule(loaded);
+          }
+        }
       } else {
         await loadBusinessData();
       }
@@ -540,26 +577,7 @@ const ProfileHeader = ({
             )}
 
             {!isEditing && (
-              <div style={{ marginTop: 16 }}>
-                <button className={styles.scheduleToggleBtn} onClick={() => setShowSchedule((p) => !p)}>
-                  <Clock size={15}/> Horarios
-                  {showSchedule ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                </button>
-                {showSchedule && (
-                  <div className={styles.scheduleTable}>
-                    {Object.entries(schedule).map(([day, h]) => (
-                      <div key={day} className={styles.scheduleRow}>
-                        <span className={styles.scheduleDay}>{day}</span>
-                        <span className={`${styles.scheduleHours} ${h.cerrado ? styles.scheduleClosed : ""}`}>
-                          {h.cerrado ? "Cerrado"
-                            : h.deCorrido ? `${h.open} – ${h.close}`
-                            : `M: ${h.manana.open}–${h.manana.close}  T: ${h.tarde.open}–${h.tarde.close}`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ScheduleDisplay schedule={schedule} />
             )}
 
             {isEditing && (

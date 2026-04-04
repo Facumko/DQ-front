@@ -6,15 +6,26 @@ import { saveTokens } from "../../Api/Api";
 export default function OAuth2RedirectHandler() {
   const navigate = useNavigate();
   const { setUser, loadFavorites, loadBusinesses } = useContext(UserContext);
-  const processed = useRef(false); // evita doble ejecución en Strict Mode
+  const processed = useRef(false);
 
   useEffect(() => {
     if (processed.current) return;
     processed.current = true;
 
-    const params = new URLSearchParams(window.location.hash.substring(1));
+    console.log("🔐 OAuth2RedirectHandler montado");
+    console.log("📍 URL completa:", window.location.href);
+    console.log("🔑 Hash:", window.location.hash);
 
-    // Leer directamente los params hash que manda el backend
+    const hash = window.location.hash;
+    
+    if (!hash || hash === "#") {
+      console.error("❌ No hay hash en la URL");
+      navigate("/", { replace: true });
+      return;
+    }
+
+    const params = new URLSearchParams(hash.substring(1));
+
     const accessToken  = params.get("accessToken");
     const refreshToken = params.get("refreshToken");
     const idUser       = params.get("idUser");
@@ -22,17 +33,20 @@ export default function OAuth2RedirectHandler() {
     const lastname     = params.get("lastname");
     const email        = params.get("email");
 
+    console.log("✅ accessToken:", accessToken ? "existe" : "NULL");
+    console.log("✅ refreshToken:", refreshToken ? "existe" : "NULL");
+    console.log("✅ idUser:", idUser);
+    console.log("✅ email:", email);
+
     if (!accessToken || !refreshToken) {
-      console.error("OAuth2: faltan tokens en la URL");
+      console.error("❌ Faltan tokens en el hash");
       navigate("/", { replace: true });
       return;
     }
 
     try {
-      // 1. Guardar tokens (igual que login normal)
       saveTokens(accessToken, refreshToken);
 
-      // 2. Construir objeto de usuario
       const userData = {
         id_user:   idUser,
         email,
@@ -41,28 +55,28 @@ export default function OAuth2RedirectHandler() {
         lastLogin: new Date().toISOString(),
       };
 
-      // 3. Guardar en el contexto y localStorage
+      console.log("👤 userData:", userData);
+
       setUser?.(userData);
       localStorage.setItem("user", JSON.stringify(userData));
 
-      // 4. Cargar favoritos y negocios
       if (idUser) {
         Promise.all([
           loadFavorites?.(),
           loadBusinesses?.(),
-        ]).catch(() => {});
+        ]).catch((err) => console.warn("Error cargando favoritos/negocios:", err));
       }
 
-      // 5. Limpiar tokens de la URL por seguridad
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // 6. Redirigir
       const returnTo = sessionStorage.getItem("oauth2_return_to") || "/";
       sessionStorage.removeItem("oauth2_return_to");
+      
+      console.log("➡️ Redirigiendo a:", returnTo);
       navigate(returnTo, { replace: true });
 
     } catch (err) {
-      console.error("OAuth2RedirectHandler error:", err);
+      console.error("❌ Error en OAuth2RedirectHandler:", err);
       navigate("/", { replace: true });
     }
   }, [navigate, setUser, loadFavorites, loadBusinesses]);

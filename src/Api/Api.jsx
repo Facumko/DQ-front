@@ -43,6 +43,7 @@ const ENDPOINTS = {
   SAVED_POST_ADD:      (idPost)     => `/usuario/guardar/post/${idPost}`,
   SAVED_POST_REMOVE:   (idPost)     => `/usuario/eliminar/post/guardado/${idPost}`,
   SAVED_POSTS_GET:     '/usuario/traer/mis/posts/guardados',
+  REPLACE_SCHEDULES: (commerceId) => `/comercio/reemplazar/horarios/${commerceId}`,
 };
 
 let isRefreshing = false;
@@ -168,6 +169,120 @@ export const validatePasswordStrength = (password) => {
   if (score<=2) return { strength:'weak', message:'Contraseña débil', color:'#ff4444' };
   if (score<=3) return { strength:'medium', message:'Contraseña media', color:'#ffaa00' };
   return { strength:'strong', message:'Contraseña fuerte', color:'#00cc66' };
+};
+
+// Mapa de keys del frontend a DayOfWeek de Java
+const DAY_KEY_TO_JAVA = {
+  Lun: "MONDAY",
+  Mar: "TUESDAY",
+  Mie: "WEDNESDAY",
+  Jue: "THURSDAY",
+  Vie: "FRIDAY",
+  Sab: "SATURDAY",
+  Dom: "SUNDAY",
+};
+
+// Mapa inverso: DayOfWeek Java → key del frontend
+const JAVA_DAY_TO_KEY = {
+  MONDAY:    "Lun",
+  TUESDAY:   "Mar",
+  WEDNESDAY: "Mie",
+  THURSDAY:  "Jue",
+  FRIDAY:    "Vie",
+  SATURDAY:  "Sab",
+  SUNDAY:    "Dom",
+};
+
+/**
+ * Convierte el schedule del frontend (objeto por día) 
+ * al array de ScheduleDto que espera el backend.
+ * Los días con cerrado: true se omiten del array.
+ */
+export const scheduleToBackend = (schedule) => {
+  const result = [];
+  for (const [key, val] of Object.entries(schedule)) {
+    if (val.cerrado) continue; // días cerrados no se envían
+    const dto = {
+      day: DAY_KEY_TO_JAVA[key],
+      isContinuous: val.deCorrido || false,
+    };
+    if (val.deCorrido) {
+      // Turno corrido: open/close están en val.open y val.close directamente
+      dto.morningOpening   = val.open   || "08:00";
+      dto.morningClosing   = val.close  || "20:00";
+      dto.afternoonOpening = null;
+      dto.afternoonClosing = null;
+    } else {
+      dto.morningOpening   = val.manana?.open  || "08:00";
+      dto.morningClosing   = val.manana?.close || "12:00";
+      dto.afternoonOpening = val.tarde?.open   || "16:00";
+      dto.afternoonClosing = val.tarde?.close  || "21:00";
+    }
+    result.push(dto);
+  }
+  return result;
+};
+
+/**
+ * Convierte el array de ScheduleDto del backend
+ * al objeto por día que usa el frontend.
+ * Los días ausentes en el array se marcan como cerrado: true.
+ */
+export const scheduleFromBackend = (scheduleDtos, defaultSchedule) => {
+  // Partir del defaultSchedule con todos los días cerrados
+  const result = {};
+  const ALL_KEYS = ["Lun","Mar","Mie","Jue","Vie","Sab","Dom"];
+  
+  // Inicializar todos los días como cerrados
+  ALL_KEYS.forEach(key => {
+    result[key] = {
+      cerrado:    true,
+      deCorrido:  false,
+      manana:     { open: "08:00", close: "12:00" },
+      tarde:      { open: "16:00", close: "21:00" },
+    };
+  });
+
+  // Sobreescribir con los datos del backend
+  if (Array.isArray(scheduleDtos)) {
+    scheduleDtos.forEach(dto => {
+      const key = JAVA_DAY_TO_KEY[dto.day];
+      if (!key) return;
+      result[key] = {
+        cerrado:   false,
+        deCorrido: dto.isContinuous || false,
+        manana: {
+          open:  dto.morningOpening   || "08:00",
+          close: dto.morningClosing   || "12:00",
+        },
+        tarde: {
+          open:  dto.afternoonOpening || "16:00",
+          close: dto.afternoonClosing || "21:00",
+        },
+        // Para turno corrido, guardamos también open/close directo
+        ...(dto.isContinuous && {
+          open:  dto.morningOpening  || "08:00",
+          close: dto.morningClosing  || "20:00",
+        }),
+      };
+    });
+  }
+
+  return result;
+};
+
+/**
+ * Reemplaza todos los horarios de un comercio.
+ * Endpoint: PUT /comercio/reemplazar/horarios/{idCommerce}
+ * Body: List<ScheduleDto>
+ */
+export const replaceCommerceSchedules = async (commerceId, schedule) => {
+  validateParams({ commerceId, schedule }, ['commerceId', 'schedule']);
+  const dto = scheduleToBackend(schedule);
+  if (isDevelopment) {
+    console.log('📅 Enviando horarios al backend:', JSON.stringify(dto, null, 2));
+  }
+  return apiRequest('PUT', ENDPOINTS.REPLACE_SCHEDULES(commerceId), dto);
 };
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -327,8 +442,15 @@ export const registerUser = async (userData) => {
 };
 
 export const logoutUser = async () => {
-  try { const r = await apiRequest('POST', ENDPOINTS.LOGOUT); clearTokens(); return r; }
-  catch { clearTokens(); return { success: true }; }
+  try {
+    const { refreshToken } = getStoredTokens();
+    const r = await apiRequest('POST', ENDPOINTS.LOGOUT, { refreshToken });
+    clearTokens();
+    return r;
+  } catch {
+    clearTokens();
+    return { success: true };
+  }
 };
 
 // ============================================
@@ -391,6 +513,7 @@ export const getMyBusiness = async () => {
       branchOf: business.branchOf,
       profileImage: business.profileImage?.url || null,
       coverImage: business.coverImage?.url || null,
+      schedules: business.schedules || [],
     };
   } catch (error) {
     if (error.message.includes('404') || error.message.includes('no encontrado')) { if (isDevelopment) console.log("ℹ️ Sin negocio (404)"); return null; }
@@ -415,6 +538,7 @@ export const getBusinessById = async (businessId) => {
     branchOf: business.branchOf || null,
     profileImage: business.profileImage?.url || null,
     coverImage: business.coverImage?.url || null,
+    schedules: business.schedules || [],
   };
 };
 
@@ -428,7 +552,9 @@ export const createBusiness = async (businessData) => {
     phone: businessData.phone?.trim() || '', website: businessData.website?.trim() || '',
     instagram: businessData.instagram?.trim() || null, facebook: businessData.facebook?.trim() || null,
     whatsapp: businessData.whatsapp?.trim() || null, email: businessData.email?.trim() || '',
-    branchOf: businessData.branchOf || null,};
+    branchOf: businessData.branchOf || null,
+    schedules: businessData.schedules ? scheduleToBackend(businessData.schedules) : [],
+  };
   if (isDevelopment) console.log("📤 Creando negocio:", dataToSend);
   try {
     const response = await apiRequest('POST', ENDPOINTS.CREATE_BUSINESS, dataToSend);
@@ -451,9 +577,11 @@ export const updateBusiness = async (businessId, businessData) => {
   if (businessData.description !== undefined) dataToSend.description = businessData.description.trim();
   if (businessData.email !== undefined) dataToSend.email = businessData.email.trim();
   if (businessData.phone !== undefined) dataToSend.phone = businessData.phone.trim();
-  if (businessData.link !== undefined) dataToSend.link = businessData.link.trim();
+  if (businessData.link !== undefined) dataToSend.website = businessData.link.trim();
   if (businessData.branchOf !== undefined) dataToSend.branchOf = businessData.branchOf;
+  
   if (isDevelopment) console.log("📤 Actualizando negocio:", businessId, dataToSend);
+
   const response = await apiRequest('PUT', ENDPOINTS.UPDATE_BUSINESS(businessId), dataToSend);
   if (isDevelopment) console.log("📦 Respuesta update:", response);
   return {
@@ -702,4 +830,7 @@ export default {
   getFavoriteCommerces, addFavoriteCommerce, removeFavoriteCommerce,
   getSavedPosts, addSavedPost, removeSavedPost,
   generateUsername, capitalizeFirstLetter, validateEmail, validatePasswordStrength,
+  replaceCommerceSchedules,
+  scheduleToBackend,
+  scheduleFromBackend,
 };

@@ -227,7 +227,8 @@ export default function LoginModal({ onClose }) {
 
     // Usar ruta relativa para pasar por el proxy de Vite en local
     // Incluir device_id y device_name como query params requeridos por el backend
-    window.location.href = `/oauth2/authorization/${providerKey}?device_id=${encodeURIComponent(deviceId)}&device_name=${encodeURIComponent(deviceName)}`;
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.3:8080';
+    window.location.href = `/oauth2/authorization/${provider.toLowerCase()}`;
   };
 
   // ── Sub-componentes ───────────────────────────────────────────────────────
