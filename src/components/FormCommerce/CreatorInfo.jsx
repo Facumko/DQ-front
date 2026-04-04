@@ -2,7 +2,7 @@
 import { useState, useEffect, useContext } from "react"
 import { useNavigate } from "react-router-dom"
 import { UserContext } from "../../pages/UserContext"
-import { getUserById, updateUser } from "../../Api/Api"
+import { getMyUser, updateUser } from "../../Api/Api"
 import "./FormStep.css"
 
 function CreatorInfo({ data, onUpdate, onNext, onBack }) {
@@ -28,8 +28,8 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
 
       try {
         setIsLoading(true)
-        console.log("🔍 Cargando datos del usuario ID:", user.id_user)
-        const userData = await getUserById(user.id_user)
+        console.log("🔍 Cargando datos del usuario desde token")
+        const userData = await getMyUser()
         
         console.log("📋 Datos del usuario recibidos:", userData)
         
@@ -125,7 +125,7 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
 
     try {
       // Verificar si hay datos nuevos para actualizar
-      const userData = await getUserById(user.id_user)
+      const userData = await getMyUser()
       const updates = {}
       
       if (!userData.phone && formData.phone) updates.phone = formData.phone
@@ -133,7 +133,7 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
 
       if (Object.keys(updates).length > 0) {
         console.log("📝 Actualizando datos del usuario:", updates)
-        await updateUser(user.id_user, updates)
+        await updateUser(updates)
       }
 
       // Pasar al siguiente paso

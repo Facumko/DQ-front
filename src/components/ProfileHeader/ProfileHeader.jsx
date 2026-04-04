@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import { UserContext } from "../../pages/UserContext";
+import LoginModal from "../LoginForm/LoginModal";
 import {
-  getBusinessByUserId, getBusinessById, updateBusiness, createBusiness,
+  getMyBusiness, getBusinessById, updateBusiness, createBusiness,
   uploadProfileImage, uploadCoverImage,
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
@@ -156,7 +157,8 @@ const ProfileHeader = ({
   businessData: externalData = null,
   useMock        = false,
 }) => {
-  const { user } = useContext(UserContext);
+  // ── Context ──────────────────────────────────────────────────────────
+  const { user, favoriteCommerceIds, toggleFavoriteCommerce } = useContext(UserContext);
 
   const [loading,     setLoading]    = useState({ business: true, posts: false, profileImage: false, coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false });
   const [errorMsg,    setErrorMsg]   = useState("");
@@ -167,6 +169,7 @@ const ProfileHeader = ({
   const [showModal,   setShowModal]  = useState(false);
   const [modalType,   setModalType]  = useState("post");
   const [editingPost, setEditingPost]= useState(null);
+  const [showLogin,   setShowLogin]  = useState(false);
 
   const [posts,       setPosts]      = useState([]);
   const [activeTab,   setActiveTab]  = useState("posts");
@@ -178,16 +181,31 @@ const ProfileHeader = ({
   const [draft,        setDraft]        = useState(businessData);
   const [draftSchedule,setDraftSchedule]= useState(schedule);
 
-  // ── Estado inline de imágenes (reemplaza ImageCropModal) ──
-  // pendingCover / pendingAvatar: { file: File, previewUrl: string } | null
   const [pendingCover,  setPendingCover]  = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
-  // posición y zoom guardados para el submit
-  const [coverPos,  setCoverPos]  = useState({ posY: 50, zoom: 1 });
-  const [avatarPos, setAvatarPos] = useState({ x: 50, y: 50, zoom: 1 });
+  const [, setCoverPos]  = useState({ posY: 50, zoom: 1 });
+  const [, setAvatarPos] = useState({ x: 50, y: 50, zoom: 1 });
 
   const { errors, validate, clearErrors } = useFormValidation();
   const statusInfo = useBusinessStatus(schedule);
+
+  // ── ¿Es favorito este comercio? ──────────────────────────────────────
+  // businessId puede ser null hasta que cargue; fallback a false
+  const isFav = businessId ? (favoriteCommerceIds?.has(businessId) ?? false) : false;
+
+  // ── Toggle favorito ───────────────────────────────────────────────────
+  const handleToggleFav = useCallback(async () => {
+    if (!user) { setShowLogin(true); return; }
+    if (!businessId) return;
+    // Construimos el objeto mínimo que necesita toggleFavoriteCommerce
+    const commerce = {
+      idCommerce:   businessId,
+      id:           businessId,
+      name:         businessData.name,
+      profileImage: businessData.profileImage,
+    };
+    await toggleFavoriteCommerce(commerce);
+  }, [user, businessId, businessData, toggleFavoriteCommerce]);
 
   // ── Limpiar blob URLs ──
   useEffect(() => () => {
@@ -229,7 +247,7 @@ const ProfileHeader = ({
   const loadBusinessData = async () => {
     setLoad("business", true);
     try {
-      const biz = await getBusinessByUserId(user.id_user);
+      const biz = await getMyBusiness();
       if (biz) {
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
@@ -284,7 +302,6 @@ const ProfileHeader = ({
     setDraftSchedule(schedule);
     setIsEditing(false);
     setErrorMsg(""); setSuccessMsg("");
-    // Limpiar pendientes y revocar URLs
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
     if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
     setPendingCover(null);
@@ -302,6 +319,7 @@ const ProfileHeader = ({
   }, []);
 
   const handleSave = async () => {
+    if (!isOwner) { flashError("No tenés permisos para editar este negocio"); return; }
     const t = (v) => (v || "").trim();
     const name  = t(draft.name);
     const desc  = t(draft.description);
@@ -321,11 +339,10 @@ const ProfileHeader = ({
       if (businessId) {
         await updateBusiness(businessId, payload);
       } else {
-        const res = await createBusiness({ ...payload, id_user: user.id_user });
+        const res = await createBusiness(payload);
         currentBusinessId = res.id_business;
         setBusinessId(currentBusinessId);
       }
-      // Subir imágenes pendientes (con posición confirmada)
       if (pendingCover?.file)  await uploadImage("coverImage",   pendingCover.file);
       if (pendingAvatar?.file) await uploadImage("profileImage", pendingAvatar.file);
 
@@ -345,7 +362,6 @@ const ProfileHeader = ({
   };
 
   // ── Handlers inline de imágenes ──
-
   const handleCoverFileSelect = useCallback((file, previewUrl) => {
     if (pendingCover?.previewUrl) URL.revokeObjectURL(pendingCover.previewUrl);
     const url = previewUrl || URL.createObjectURL(file);
@@ -354,9 +370,7 @@ const ProfileHeader = ({
 
   const handleCoverConfirm = useCallback((posY, zoom) => {
     setCoverPos({ posY, zoom });
-    // Actualizar el draft con la previewUrl para que se vea en modo edición
     setDraft(p => ({ ...p, coverImage: pendingCover?.previewUrl || p.coverImage }));
-    // pendingCover sigue en estado para que se suba al guardar
   }, [pendingCover]);
 
   const handleCoverDiscard = useCallback(() => {
@@ -385,6 +399,7 @@ const ProfileHeader = ({
   const sortedEvents = useMemo(() => posts.filter((p) => p.type === "event"), [posts]);
 
   const handleSubmitPost = async (data) => {
+    if (!isOwner) { flashError("No tenés permisos para publicar en este negocio"); return; }
     if (!businessId) { flashError("Creá el negocio primero"); return; }
     const id = typeof businessId === "string" ? parseInt(businessId, 10) : businessId;
     if (isNaN(id)) { flashError("ID de comercio inválido"); return; }
@@ -407,6 +422,7 @@ const ProfileHeader = ({
   };
 
   const handleDeletePost = async (postId) => {
+    if (!isOwner) { flashError("No tenés permisos para eliminar publicaciones de este negocio"); return; }
     if (!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
     setLoad("deletingPost", true);
     try {
@@ -435,7 +451,6 @@ const ProfileHeader = ({
   );
 
   const isBusy = loading.savingBusiness || loading.profileImage || loading.coverImage;
-  const hasUnsavedImages = !!(pendingCover || pendingAvatar);
 
   return (
     <div className={styles.profilePage}>
@@ -452,7 +467,6 @@ const ProfileHeader = ({
       {/* ── Bloque de perfil ── */}
       <div className={styles.profileBlock}>
 
-        {/* ── PORTADA INLINE ── */}
         <CoverEditor
           currentImage={isEditing ? draft.coverImage : businessData.coverImage}
           isEditing={isEditing}
@@ -462,9 +476,7 @@ const ProfileHeader = ({
           onDiscard={handleCoverDiscard}
         />
 
-        {/* Avatar + botones */}
         <div className={styles.profileTop}>
-          {/* ── AVATAR INLINE ── */}
           <AvatarEditor
             currentImage={isEditing ? draft.profileImage : businessData.profileImage}
             isEditing={isEditing}
@@ -638,7 +650,22 @@ const ProfileHeader = ({
       {/* ── Barra de acciones ── */}
       <div className={styles.actionsBar}>
         <div className={styles.actionsLeft}>
-          {!isEditing && <button className={styles.btnFav}><Star size={16} strokeWidth={2}/> Favorito</button>}
+          {/* ── Botón Favorito — conectado al contexto ── */}
+          {!isEditing && (
+            <button
+              className={`${styles.btnFav} ${isFav ? styles.btnFavActive : ""}`}
+              onClick={handleToggleFav}
+              title={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
+            >
+              <Star
+                size={16}
+                strokeWidth={2}
+                fill={isFav ? "currentColor" : "none"}
+              />
+              {isFav ? "Guardado" : "Favorito"}
+            </button>
+          )}
+
           {!isEditing && businessData.link && (
             <a href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
                target="_blank" rel="noopener noreferrer" className={styles.btnSocialLink}>
@@ -745,6 +772,9 @@ const ProfileHeader = ({
         type={modalType}
         initialData={editingPost}
       />
+
+      {/* ── Modal login — se abre si intenta guardar favorito sin sesión ── */}
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
 
     </div>
   );

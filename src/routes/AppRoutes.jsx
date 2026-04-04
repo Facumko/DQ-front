@@ -25,6 +25,8 @@ import CheckoutPage from "../pages/checkout/CheckoutPage";
 import PagoExitoso from "../pages/checkout/PagoExitoso";
 import PagoFallido from "../pages/checkout/PagoFallido";
 import PagoPendiente from "../pages/checkout/PagoPendiente";
+// ── OAuth2 ────────────────────────────────────────────────────────────────────
+import OAuth2RedirectHandler from "../pages/auth/OAuth2RedirectHandler";
 
 const AppRoutes = () => {
   return (
@@ -57,6 +59,9 @@ const AppRoutes = () => {
             <Route path="/eventos" element={<Eventos />} />
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+            {/* ── OAuth2 callback — debe coincidir con app.oauth2.redirect-uri ── */}
+            <Route path="/oauth2/success" element={<OAuth2RedirectHandler />} />
 
             {/* Checkout y retornos de Mercado Pago */}
             <Route path="/checkout/:planId" element={<CheckoutPage />} />

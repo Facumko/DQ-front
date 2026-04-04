@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { getCategories } from "../../Api/Api";
 import styles from "./Categories.module.css";
 
 const defaultCategories = [
@@ -20,9 +20,9 @@ const Categories = ({ expanded, onClose }) => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await axios.get("http://192.168.1.3:8080/categoria/traer");
-        if (res.data && res.data.length > 0) {
-          setCategories(res.data);
+        const data = await getCategories();
+        if (Array.isArray(data) && data.length > 0) {
+          setCategories(data);
         }
       } catch (err) {
         console.warn("No se pudo conectar con la API, usando categorías por defecto.", err);
