@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-le
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getCategories } from "../Api/Api";
+import { getCategories, getCommercesByCategories } from "../Api/Api";
 
 // ─── Fix íconos Leaflet + Vite ────────────────────────────────────────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -147,7 +147,7 @@ export default function MapaPage() {
   const [businesses,  setBusinesses]  = useState([]);
   const [filtered,    setFiltered]    = useState([]);
   const [categories,  setCategories]  = useState([]);
-  const [selectedCat, setSelectedCat] = useState("todas");
+  const [selectedCats, setSelectedCats] = useState([]);
   const [search,      setSearch]      = useState("");
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState("");
@@ -232,13 +232,12 @@ export default function MapaPage() {
     setDeepLinkDone(true);
   }, [businesses, loading, deepLinkDone, searchParams]);
 
-  // ── Filtros ─────────────────────────────────────────────────────────────────
+  // ── Filtros (búsqueda + distancia, sin categoría) ───────────────────────────
   useEffect(() => {
+    if (selectedCats.length > 0) return; // deja que el otro effect maneje este caso
+
     let result = businesses;
-    if (selectedCat !== "todas")
-      result = result.filter(b =>
-        b.categories.some(c => c.toLowerCase() === selectedCat.toLowerCase())
-      );
+
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(b =>
@@ -247,12 +246,66 @@ export default function MapaPage() {
         b.address.toLowerCase().includes(q)
       );
     }
-    if (distanceFilter > 0 && userLocation)
+
+    if (distanceFilter > 0 && userLocation) {
       result = result.filter(b =>
         haversine(userLocation.lat, userLocation.lng, b.lat, b.lng) <= distanceFilter
       );
+    }
+
     setFiltered(result);
-  }, [businesses, selectedCat, search, distanceFilter, userLocation]);
+  }, [businesses, search, distanceFilter, userLocation, selectedCats]);
+
+  // ── Filtro por categorías (llama al backend) ────────────────────────────────
+  useEffect(() => {
+    if (selectedCats.length === 0) return;
+
+    const fetchByCategories = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await getCommercesByCategories(selectedCats);
+        const normalized = data
+          .map(normalizeBusiness)
+          .filter(b => b.lat !== null && b.lng !== null);
+
+        let result = normalized;
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          result = result.filter(b =>
+            b.name.toLowerCase().includes(q) ||
+            b.description.toLowerCase().includes(q) ||
+            b.address.toLowerCase().includes(q)
+          );
+        }
+        if (distanceFilter > 0 && userLocation) {
+          result = result.filter(b =>
+            haversine(userLocation.lat, userLocation.lng, b.lat, b.lng) <= distanceFilter
+          );
+        }
+        setFiltered(result);
+      } catch (err) {
+        setError("No se pudieron cargar los comercios por categoría.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchByCategories();
+  }, [selectedCats, search, distanceFilter, userLocation]);
+
+  // ── Toggle categoría ────────────────────────────────────────────────────────
+  const toggleCategory = useCallback((catId) => {
+    setSelectedCats(prev => {
+      const exists = prev.includes(catId);
+      return exists ? prev.filter(id => id !== catId) : [...prev, catId];
+    });
+  }, []);
+
+  const clearCategories = useCallback(() => {
+    setSelectedCats([]);
+    setFiltered(businesses);
+  }, [businesses]);
 
   // ── Seleccionar desde sidebar ───────────────────────────────────────────────
   const handleSelectBusiness = useCallback((biz) => {
@@ -369,18 +422,23 @@ export default function MapaPage() {
       {/* Filtros por categoría */}
       <div style={s.filtersBar}>
         <button
-          style={{ ...s.chip, ...(selectedCat === "todas" ? s.chipActive : {}) }}
-          onClick={() => setSelectedCat("todas")}
-        >Todas</button>
-        {categories.map(cat => (
-          <button
-            key={cat.idCategory || cat.name}
-            style={{ ...s.chip, ...(selectedCat === cat.name ? s.chipActive : {}) }}
-            onClick={() => setSelectedCat(cat.name)}
-          >
-            {getCategoryStyle([cat.name]).emoji} {cat.name}
-          </button>
-        ))}
+          style={{ ...s.chip, ...(selectedCats.length === 0 ? s.chipActive : {}) }}
+          onClick={clearCategories}
+        >
+          Todas
+        </button>
+        {categories.map(cat => {
+          const isSelected = selectedCats.includes(cat.idCategory);
+          return (
+            <button
+              key={cat.idCategory || cat.name}
+              style={{ ...s.chip, ...(isSelected ? s.chipActive : {}) }}
+              onClick={() => toggleCategory(cat.idCategory)}
+            >
+              {getCategoryStyle([cat.name]).emoji} {cat.name}
+            </button>
+          );
+        })}
       </div>
 
       {/* Body */}
@@ -402,8 +460,11 @@ export default function MapaPage() {
               <div style={s.center}>
                 <div style={{ fontSize: "2.2rem", marginBottom: 6 }}>🗺️</div>
                 <p style={s.muted}>No hay resultados</p>
-                {(selectedCat !== "todas" || search || distanceFilter > 0) && (
-                  <button style={s.resetBtn} onClick={() => { setSelectedCat("todas"); setSearch(""); setDistanceFilter(0); }}>
+                {(selectedCats.length > 0 || search || distanceFilter > 0) && (
+                  <button
+                    style={s.resetBtn}
+                    onClick={() => { clearCategories(); setSearch(""); setDistanceFilter(0); }}
+                  >
                     Limpiar filtros
                   </button>
                 )}
@@ -597,7 +658,7 @@ export default function MapaPage() {
           {!loading && (
             <div style={s.badge}>
               {filtered.length} comercio{filtered.length !== 1 ? "s" : ""}
-              {selectedCat !== "todas" ? ` · ${selectedCat}` : ""}
+              {selectedCats.length > 0 ? ` · ${selectedCats.length} categoría${selectedCats.length !== 1 ? "s" : ""}` : ""}
               {distanceFilter > 0 ? ` · ≤${distanceFilter}km` : ""}
             </div>
           )}

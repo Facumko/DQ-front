@@ -6,12 +6,12 @@ import {
   uploadProfileImage, uploadCoverImage,
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
-  replaceCommerceSchedules,
-  scheduleFromBackend,
+  replaceCommerceSchedules, scheduleFromBackend,
+  getCategories, addCommerceCategories, removeCommerceCategories,
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
-import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, User,
-         Phone, Mail, Link2, Image, Clock, Pencil, Trash2 } from "lucide-react";
+import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, 
+         Phone, Mail, Link2, Clock, Pencil, Trash2 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
@@ -19,46 +19,31 @@ import ScheduleDisplay from "./components/ScheduleDisplay";
 import LocationPicker from "../LocationPicker/LocationPicker";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 
-// ─────────────────────────────────────────
-// MOCK DATA
-// ─────────────────────────────────────────
 const isDevelopment = import.meta.env.MODE === 'development';
 
 const MOCK_BUSINESS = {
   idCommerce: 0,
   name: "La Cantina del Sur",
-  description: "Cocina casera y regional en el corazón de la ciudad. Menú del día, empanadas, locro y mucho más. ¡Te esperamos!",
+  description: "Cocina casera y regional en el corazón de la ciudad.",
   email: "lacantina@example.com",
   phone: "(362) 456-7890",
   link: "https://instagram.com/lacantina",
-  location: { lat: -26.7909, lng: -60.4437, address: "Av. San Martín 123, Presidencia Roque Sáenz Peña, Chaco" },
+  location: { lat: -26.7909, lng: -60.4437, address: "Av. San Martín 123" },
   profileImage: { url: "https://i.pravatar.cc/150?img=12" },
   coverImage: { url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&q=80" },
+  categories: [],
 };
 
 const MOCK_POSTS = [
   {
     idPost: 1,
-    description: "¡Mirá qué rico quedó el locro de hoy! 🫕 Pasate a almorzar, te esperamos con el menú completo hasta las 15 hs.",
+    description: "¡Mirá qué rico quedó el locro de hoy! 🫕",
     images: [{ url: "https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=600&q=80", imageOrder: 1, idImage: 1 }],
     type: "post",
     postedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
   },
-  {
-    idPost: 2,
-    description: "Nuevas empanadas de humita disponibles de jueves a domingo. ¡Docena a precio especial todo el mes! 🫔",
-    images: [
-      { url: "https://images.unsplash.com/photo-1574484284002-952d92456975?w=600&q=80", imageOrder: 1, idImage: 2 },
-      { url: "https://images.unsplash.com/photo-1565299507177-b0ac66763828?w=600&q=80", imageOrder: 2, idImage: 3 },
-    ],
-    type: "post",
-    postedAt: new Date(Date.now() - 26 * 3600000).toISOString(),
-  },
 ];
 
-// ─────────────────────────────────────────
-// UTILIDADES
-// ─────────────────────────────────────────
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const isValidPhone = (v) => v.replace(/\D/g, "").length >= 8;
 
@@ -72,6 +57,7 @@ const normalizeBusiness = (d) => ({
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
   location:     d?.location || null,
   schedules:    d?.schedules || [],
+  categories:   Array.isArray(d?.categories) ? d.categories : [],
 });
 
 const normalizePost = (p) => {
@@ -111,9 +97,6 @@ const DEFAULT_SCHEDULE = {
   Dom: { cerrado: true,  deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "22:00" } },
 };
 
-// ─────────────────────────────────────────
-// HOOK: validación
-// ─────────────────────────────────────────
 const useFormValidation = () => {
   const [errors, setErrors] = useState({});
   const validate = useCallback((field, value, rules) => {
@@ -129,9 +112,6 @@ const useFormValidation = () => {
   return { errors, validate, clearErrors };
 };
 
-// ─────────────────────────────────────────
-// HOOK: estado de horario
-// ─────────────────────────────────────────
 const useBusinessStatus = (schedule) => {
   const [status, setStatus] = useState({ label: "", type: "neutral" });
   useEffect(() => {
@@ -155,21 +135,20 @@ const useBusinessStatus = (schedule) => {
   return status;
 };
 
-// ═════════════════════════════════════════
-// COMPONENTE PRINCIPAL
-// ═════════════════════════════════════════
 const ProfileHeader = ({
   isOwner        = false,
   businessData: externalData = null,
   useMock        = false,
 }) => {
-  // ── Context ──────────────────────────────────────────────────────────
   const { user, favoriteCommerceIds, toggleFavoriteCommerce } = useContext(UserContext);
 
-  const [loading,     setLoading]    = useState({ business: true, posts: false, profileImage: false, coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false });
-  const [errorMsg,    setErrorMsg]   = useState("");
-  const [successMsg,  setSuccessMsg] = useState("");
-  const [infoMsg,     setInfoMsg]    = useState("");
+  const [loading, setLoading] = useState({
+    business: true, posts: false, profileImage: false,
+    coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false,
+  });
+  const [errorMsg,   setErrorMsg]   = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [infoMsg,    setInfoMsg]    = useState("");
 
   const [isEditing,   setIsEditing]  = useState(false);
   const [showModal,   setShowModal]  = useState(false);
@@ -177,14 +156,21 @@ const ProfileHeader = ({
   const [editingPost, setEditingPost]= useState(null);
   const [showLogin,   setShowLogin]  = useState(false);
 
-  const [posts,       setPosts]      = useState([]);
-  const [activeTab,   setActiveTab]  = useState("posts");
-  const [businessId,  setBusinessId] = useState(null);
+  const [posts,      setPosts]     = useState([]);
+  const [activeTab,  setActiveTab] = useState("posts");
+  const [businessId, setBusinessId]= useState(null);
 
-  const [businessData, setBusinessData] = useState({ name:"", email:"", phone:"", link:"", description:"", profileImage:null, coverImage:null, location:null });
-  const [schedule,     setSchedule]     = useState(DEFAULT_SCHEDULE);
-  const [draft,        setDraft]        = useState(businessData);
-  const [draftSchedule,setDraftSchedule]= useState(schedule);
+  const [businessData, setBusinessData] = useState({
+    name:"", email:"", phone:"", link:"", description:"",
+    profileImage:null, coverImage:null, location:null, categories:[],
+  });
+  const [schedule,      setSchedule]      = useState(DEFAULT_SCHEDULE);
+  const [draft,         setDraft]         = useState(businessData);
+  const [draftSchedule, setDraftSchedule] = useState(schedule);
+
+  // Categorías
+  const [allCategories,    setAllCategories]    = useState([]);
+  const [draftCategories,  setDraftCategories]  = useState([]);
 
   const [pendingCover,  setPendingCover]  = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
@@ -194,15 +180,11 @@ const ProfileHeader = ({
   const { errors, validate, clearErrors } = useFormValidation();
   const statusInfo = useBusinessStatus(schedule);
 
-  // ── ¿Es favorito este comercio? ──────────────────────────────────────
-  // businessId puede ser null hasta que cargue; fallback a false
   const isFav = businessId ? (favoriteCommerceIds?.has(businessId) ?? false) : false;
 
-  // ── Toggle favorito ───────────────────────────────────────────────────
   const handleToggleFav = useCallback(async () => {
     if (!user) { setShowLogin(true); return; }
     if (!businessId) return;
-    // Construimos el objeto mínimo que necesita toggleFavoriteCommerce
     const commerce = {
       idCommerce:   businessId,
       id:           businessId,
@@ -212,13 +194,18 @@ const ProfileHeader = ({
     await toggleFavoriteCommerce(commerce);
   }, [user, businessId, businessData, toggleFavoriteCommerce]);
 
-  // ── Limpiar blob URLs ──
   useEffect(() => () => {
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
     if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
   }, []);
 
-  // ── Cargar datos ──
+  // Cargar todas las categorías disponibles
+  useEffect(() => {
+    getCategories()
+      .then(cats => setAllCategories(Array.isArray(cats) ? cats : []))
+      .catch(() => setAllCategories([]));
+  }, []);
+
   useEffect(() => {
     if (useMock) {
       const d = normalizeBusiness(MOCK_BUSINESS);
@@ -231,10 +218,10 @@ const ProfileHeader = ({
     if (externalData) {
       const d = normalizeBusiness(externalData);
       setBusinessData(d); setDraft(d);
+      setDraftCategories(d.categories);
       if (d.schedules && d.schedules.length > 0) {
         const loaded = scheduleFromBackend(d.schedules);
-        setSchedule(loaded);
-        setDraftSchedule(loaded);
+        setSchedule(loaded); setDraftSchedule(loaded);
       }
       const id = externalData.idCommerce || externalData.id_business;
       setBusinessId(id);
@@ -246,14 +233,12 @@ const ProfileHeader = ({
     else setLoading((p) => ({ ...p, business: false }));
   }, [user?.id_user, externalData, useMock]);
 
-  // ── Mensajes ──
   const flash = (setter, msg, ms = 3500) => { setter(msg); setTimeout(() => setter(""), ms); };
   const flashError   = (m) => flash(setErrorMsg,   m, 5000);
   const flashSuccess = (m) => flash(setSuccessMsg, m);
   const flashInfo    = (m) => flash(setInfoMsg,    m);
   const setLoad = (key, val) => setLoading((p) => ({ ...p, [key]: val }));
 
-  // ── API ──
   const loadBusinessData = async () => {
     setLoad("business", true);
     try {
@@ -262,15 +247,16 @@ const ProfileHeader = ({
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
         setBusinessData(d); setDraft(d);
+        setDraftCategories(d.categories);
         if (d.schedules && d.schedules.length > 0) {
           const loaded = scheduleFromBackend(d.schedules);
-          setSchedule(loaded);
-          setDraftSchedule(loaded);
+          setSchedule(loaded); setDraftSchedule(loaded);
         }
         await loadPosts(biz.id_business);
       } else {
         const d = normalizeBusiness({ name: user.name ? `${user.name} ${user.lastname || ""}`.trim() : "" });
         setBusinessData(d); setDraft(d);
+        setDraftCategories([]);
       }
     } catch (err) { flashError(err.message || "Error al cargar el negocio"); }
     finally { setLoad("business", false); }
@@ -301,26 +287,25 @@ const ProfileHeader = ({
     finally { setLoad(type, false); }
   };
 
-  // ── Edición ──
   const handleEdit = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
+    setDraftCategories(businessData.categories);
     setIsEditing(true);
     setErrorMsg(""); setSuccessMsg("");
-    setPendingCover(null);
-    setPendingAvatar(null);
+    setPendingCover(null); setPendingAvatar(null);
     clearErrors();
   };
 
   const handleCancel = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
+    setDraftCategories(businessData.categories);
     setIsEditing(false);
     setErrorMsg(""); setSuccessMsg("");
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
     if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
-    setPendingCover(null);
-    setPendingAvatar(null);
+    setPendingCover(null); setPendingAvatar(null);
     clearErrors();
   };
 
@@ -332,6 +317,18 @@ const ProfileHeader = ({
     const fmt = raw.replace(/(\d{3})(\d{3})(\d{4})/, "($1) $2-$3");
     setDraft((p) => ({ ...p, phone: fmt }));
   }, []);
+
+  const toggleDraftCategory = useCallback((cat) => {
+    setDraftCategories(prev => {
+      const exists = prev.some(c => c.idCategory === cat.idCategory);
+      return exists
+        ? prev.filter(c => c.idCategory !== cat.idCategory)
+        : [...prev, cat];
+    });
+  }, []);
+
+  const isDraftCategorySelected = useCallback((cat) =>
+    draftCategories.some(c => c.idCategory === cat.idCategory), [draftCategories]);
 
   const handleSave = async () => {
     if (!isOwner) { flashError("No tenés permisos para editar este negocio"); return; }
@@ -350,7 +347,11 @@ const ProfileHeader = ({
     setLoad("savingBusiness", true);
     try {
       const cleanPhone = draft.phone.replace(/\D/g, "");
-      const payload = { name, description: desc, email, phone: cleanPhone, link: t(draft.link), location: draft.location || null };
+      const payload = {
+        name, description: desc, email, phone: cleanPhone,
+        link: t(draft.link), location: draft.location || null,
+      };
+
       let currentBusinessId = businessId;
       if (businessId) {
         await updateBusiness(businessId, payload);
@@ -359,6 +360,7 @@ const ProfileHeader = ({
         currentBusinessId = res.id_business;
         setBusinessId(currentBusinessId);
       }
+
       if (pendingCover?.file)  await uploadImage("coverImage",   pendingCover.file);
       if (pendingAvatar?.file) await uploadImage("profileImage", pendingAvatar.file);
 
@@ -368,37 +370,52 @@ const ProfileHeader = ({
         try {
           await replaceCommerceSchedules(idToUse, draftSchedule);
           setSchedule(draftSchedule);
-          if (isDevelopment) console.log("✅ Horarios guardados");
         } catch (scheduleError) {
           console.warn("⚠️ Error guardando horarios:", scheduleError.message);
           flashInfo("Datos guardados. Hubo un problema con los horarios, intentá de nuevo.");
         }
       }
 
+      // Sincronizar categorías
+      if (idToUse) {
+        const currentIds = businessData.categories.map(c => c.idCategory);
+        const draftIds   = draftCategories.map(c => c.idCategory);
+
+        const toAdd    = draftIds.filter(id => !currentIds.includes(id));
+        const toRemove = currentIds.filter(id => !draftIds.includes(id));
+
+        try {
+          if (toAdd.length > 0)    await addCommerceCategories(idToUse, toAdd);
+          if (toRemove.length > 0) await removeCommerceCategories(idToUse, toRemove);
+        } catch (catError) {
+          console.warn("⚠️ Error sincronizando categorías:", catError.message);
+          flashInfo("Datos guardados. Hubo un problema con las categorías, intentá de nuevo.");
+        }
+      }
+
+      // Recargar datos del negocio
       if (externalData) {
         const biz = await getBusinessById(currentBusinessId);
-        if (biz) { 
-          const d = normalizeBusiness(biz); 
+        if (biz) {
+          const d = normalizeBusiness(biz);
           setBusinessData(d); setDraft(d);
+          setDraftCategories(d.categories);
           if (d.schedules && d.schedules.length > 0) {
             const loaded = scheduleFromBackend(d.schedules);
-            setSchedule(loaded);
-            setDraftSchedule(loaded);
+            setSchedule(loaded); setDraftSchedule(loaded);
           }
         }
       } else {
         await loadBusinessData();
       }
-      setSchedule(draftSchedule);
-      setPendingCover(null);
-      setPendingAvatar(null);
+
+      setPendingCover(null); setPendingAvatar(null);
       setIsEditing(false);
       flashSuccess("✅ Datos guardados correctamente");
     } catch (err) { flashError(err.message || "Error al guardar"); }
     finally { setLoad("savingBusiness", false); }
   };
 
-  // ── Handlers inline de imágenes ──
   const handleCoverFileSelect = useCallback((file, previewUrl) => {
     if (pendingCover?.previewUrl) URL.revokeObjectURL(pendingCover.previewUrl);
     const url = previewUrl || URL.createObjectURL(file);
@@ -431,9 +448,10 @@ const ProfileHeader = ({
     setPendingAvatar(null);
   }, [pendingAvatar]);
 
-  // ── Posts ──
-  const sortedPosts  = useMemo(() => posts.filter((p) => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), [posts]);
-  const sortedEvents = useMemo(() => posts.filter((p) => p.type === "event"), [posts]);
+  const sortedPosts  = useMemo(() =>
+    posts.filter(p => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [posts]);
+  const sortedEvents = useMemo(() => posts.filter(p => p.type === "event"), [posts]);
 
   const handleSubmitPost = async (data) => {
     if (!isOwner) { flashError("No tenés permisos para publicar en este negocio"); return; }
@@ -459,7 +477,7 @@ const ProfileHeader = ({
   };
 
   const handleDeletePost = async (postId) => {
-    if (!isOwner) { flashError("No tenés permisos para eliminar publicaciones de este negocio"); return; }
+    if (!isOwner) { flashError("No tenés permisos para eliminar publicaciones"); return; }
     if (!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
     setLoad("deletingPost", true);
     try {
@@ -474,7 +492,6 @@ const ProfileHeader = ({
     setModalType(type); setEditingPost(post); setShowModal(true);
   };
 
-  // ── Helpers de status ──
   const statusDotClass  = { open: styles.statusDotOpen, closed: styles.statusDotClosed, neutral: styles.statusDotNeutral };
   const statusTextClass = { open: styles.statusTextOpen, closed: styles.statusTextClosed, neutral: styles.statusTextNeutral };
 
@@ -492,7 +509,6 @@ const ProfileHeader = ({
   return (
     <div className={styles.profilePage}>
 
-      {/* ── Banners ── */}
       <div className={styles.bannerStack}>
         {errorMsg   && <div className={`${styles.banner} ${styles.bannerError}`}><AlertCircle size={16}/>{errorMsg}</div>}
         {successMsg && <div className={`${styles.banner} ${styles.bannerSuccess}`}><Check size={16}/>{successMsg}</div>}
@@ -501,7 +517,6 @@ const ProfileHeader = ({
           <div className={`${styles.banner} ${styles.bannerInfo}`}><Loader size={16} className={styles.spinnerIcon}/>Subiendo imagen...</div>}
       </div>
 
-      {/* ── Bloque de perfil ── */}
       <div className={styles.profileBlock}>
 
         <CoverEditor
@@ -531,7 +546,9 @@ const ProfileHeader = ({
                 <>
                   <button className={styles.btnCancel} onClick={handleCancel} disabled={isBusy}>Cancelar</button>
                   <button className={styles.btnSave}   onClick={handleSave}   disabled={isBusy}>
-                    {loading.savingBusiness ? <><Loader size={14} className={styles.spinnerIcon}/> Guardando...</> : <><Check size={14}/> Guardar</>}
+                    {loading.savingBusiness
+                      ? <><Loader size={14} className={styles.spinnerIcon}/> Guardando...</>
+                      : <><Check size={14}/> Guardar</>}
                   </button>
                 </>
               )}
@@ -539,7 +556,6 @@ const ProfileHeader = ({
           )}
         </div>
 
-        {/* Nombre + estado */}
         <div className={styles.profileMeta}>
           {isEditing ? (
             <>
@@ -552,6 +568,18 @@ const ProfileHeader = ({
           ) : (
             <>
               <h1 className={styles.businessName}>{businessData.name || "Sin nombre"}</h1>
+
+              {/* Chips de categorías en modo vista */}
+              {businessData.categories.length > 0 && (
+                <div className={styles.categoryChipsView}>
+                  {businessData.categories.map(cat => (
+                    <span key={cat.idCategory} className={styles.categoryChipView}>
+                      {cat.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className={styles.statusRow}>
                 <span className={`${styles.statusDot} ${statusDotClass[statusInfo.type]}`}/>
                 <span className={`${styles.statusText} ${statusTextClass[statusInfo.type]}`}>{statusInfo.label}</span>
@@ -560,7 +588,6 @@ const ProfileHeader = ({
           )}
         </div>
 
-        {/* Grid info */}
         <div className={styles.infoGrid}>
           <div className={styles.infoCol}>
             <p className={styles.infoSectionTitle}>Sobre el negocio</p>
@@ -571,15 +598,35 @@ const ProfileHeader = ({
                   placeholder="Descripción del negocio *" maxLength={500} />
                 {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
                 <span className={styles.charCount}>{draft.description.length}/500</span>
+
+                {/* Editor de categorías en modo edición */}
+                <div className={styles.categoryEditorSection}>
+                  <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categorías</p>
+                  <div className={styles.categoryChipsEdit}>
+                    {allCategories.map(cat => (
+                      <button
+                        key={cat.idCategory}
+                        type="button"
+                        className={`${styles.categoryChipEdit} ${isDraftCategorySelected(cat) ? styles.categoryChipEditSelected : ""}`}
+                        onClick={() => toggleDraftCategory(cat)}
+                      >
+                        {isDraftCategorySelected(cat) && <span>✓ </span>}
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                  {draftCategories.length > 0 && (
+                    <p className={styles.categoryCount}>
+                      {draftCategories.length} categoría{draftCategories.length !== 1 ? "s" : ""} seleccionada{draftCategories.length !== 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
               </>
             ) : (
               <p className={styles.descriptionText}>{businessData.description || "Sin descripción"}</p>
             )}
 
-            {!isEditing && (
-              <ScheduleDisplay schedule={schedule} />
-            )}
-
+            {!isEditing && <ScheduleDisplay schedule={schedule} />}
             {isEditing && (
               <ScheduleEditor schedule={draftSchedule} onChange={(day, field, val) => {
                 setDraftSchedule((prev) => {
@@ -665,25 +712,18 @@ const ProfileHeader = ({
         </div>
       </div>
 
-      {/* ── Barra de acciones ── */}
       <div className={styles.actionsBar}>
         <div className={styles.actionsLeft}>
-          {/* ── Botón Favorito — conectado al contexto ── */}
           {!isEditing && (
             <button
               className={`${styles.btnFav} ${isFav ? styles.btnFavActive : ""}`}
               onClick={handleToggleFav}
               title={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
             >
-              <Star
-                size={16}
-                strokeWidth={2}
-                fill={isFav ? "currentColor" : "none"}
-              />
+              <Star size={16} strokeWidth={2} fill={isFav ? "currentColor" : "none"} />
               {isFav ? "Guardado" : "Favorito"}
             </button>
           )}
-
           {!isEditing && businessData.link && (
             <a href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
                target="_blank" rel="noopener noreferrer" className={styles.btnSocialLink}>
@@ -711,7 +751,6 @@ const ProfileHeader = ({
         )}
       </div>
 
-      {/* ── Tabs ── */}
       <div className={styles.tabsBar}>
         <button className={`${styles.tabBtn} ${activeTab === "posts" ? styles.tabBtnActive : ""}`} onClick={() => setActiveTab("posts")}>
           Publicaciones ({sortedPosts.length})
@@ -721,7 +760,6 @@ const ProfileHeader = ({
         </button>
       </div>
 
-      {/* ── Feed ── */}
       <div className={styles.feedWrapper}>
         {activeTab === "posts" && (
           loading.posts ? (
@@ -741,7 +779,7 @@ const ProfileHeader = ({
                   <span className={styles.postDate}>{timeAgo(post.createdAt)}</span>
                   {isOwner && (
                     <div className={styles.postActions}>
-                      <button className={styles.btnPostEdit}   onClick={() => openModal("post", post)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                      <button className={styles.btnPostEdit} onClick={() => openModal("post", post)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
                       <button className={styles.btnPostDelete} onClick={() => handleDeletePost(post.id)} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
                     </div>
                   )}
@@ -772,7 +810,7 @@ const ProfileHeader = ({
               {isOwner && (
                 <div className={styles.eventBody}>
                   <div className={styles.postActions}>
-                    <button className={styles.btnPostEdit}   onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                    <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
                     <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.id)} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
                   </div>
                 </div>
@@ -782,7 +820,6 @@ const ProfileHeader = ({
         )}
       </div>
 
-      {/* ── Modal publicación ── */}
       <CreatePostModal
         isOpen={showModal}
         onClose={() => { setShowModal(false); setEditingPost(null); }}
@@ -791,9 +828,7 @@ const ProfileHeader = ({
         initialData={editingPost}
       />
 
-      {/* ── Modal login — se abre si intenta guardar favorito sin sesión ── */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
-
     </div>
   );
 };

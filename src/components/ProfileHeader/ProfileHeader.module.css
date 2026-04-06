@@ -1083,3 +1083,71 @@
   color: #dc2626;
   font-weight: 600;
 }
+
+/* ── Categorías — vista ── */
+.categoryChipsView {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.categoryChipView {
+  padding: 4px 12px;
+  background: #fef2f4;
+  color: #B00020;
+  border: 1px solid #fecaca;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ── Categorías — edición ── */
+.categoryEditorSection {
+  margin-top: 8px;
+}
+
+.categoryChipsEdit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.categoryChipEdit {
+  padding: 6px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--white);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.categoryChipEdit:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-light);
+}
+
+.categoryChipEditSelected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.categoryChipEditSelected:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  color: #fff;
+}
+
+.categoryCount {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--brand);
+  font-weight: 600;
+}

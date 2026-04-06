@@ -43,7 +43,10 @@ const ENDPOINTS = {
   SAVED_POST_ADD:      (idPost)     => `/usuario/guardar/post/${idPost}`,
   SAVED_POST_REMOVE:   (idPost)     => `/usuario/eliminar/post/guardado/${idPost}`,
   SAVED_POSTS_GET:     '/usuario/traer/mis/posts/guardados',
-  REPLACE_SCHEDULES: (commerceId) => `/comercio/reemplazar/horarios/${commerceId}`,
+  REPLACE_SCHEDULES: (commerceId) => `/comercio/reemplazar/horarios/${commerceId}`, 
+  ADD_CATEGORIES_TO_COMMERCE:    (commerceId) => `/comercio/agregar/categorias/${commerceId}`,
+  REMOVE_CATEGORIES_FROM_COMMERCE: (commerceId) => `/comercio/eliminar/categorias/${commerceId}`,
+  GET_COMMERCES_BY_CATEGORIES:   '/comercio/traer/por/categorias',
 };
 
 let isRefreshing = false;
@@ -463,7 +466,8 @@ export const getMyUser  = async () => {
 
 export const updateUser = async (userData) => { 
   validateParams({userData},['userData']); 
-  return apiRequest('PUT', ENDPOINTS.UPDATE_USER, userData); 
+  await apiRequest('PUT', ENDPOINTS.UPDATE_USER, userData);
+  return apiRequest('GET', ENDPOINTS.GET_USER);
 };
 
 export const deleteUser = async () => {
@@ -808,7 +812,38 @@ export const getMainFeed = async (page = 0, size = 10) => {
   const response = await apiRequest('GET', `${ENDPOINTS.MAIN_FEED}?page=${page}&size=${size}`);
   return Array.isArray(response) ? response : [];
 };
+// ============================================
+// CATEGORIAS
+// ============================================
+export const addCommerceCategories = async (commerceId, categoryIds) => {
+  validateParams({ commerceId, categoryIds }, ['commerceId', 'categoryIds']);
+  if (!Array.isArray(categoryIds) || categoryIds.length === 0) throw new Error('Debés seleccionar al menos una categoría');
+  return apiRequest('POST', ENDPOINTS.ADD_CATEGORIES_TO_COMMERCE(commerceId), categoryIds);
+};
 
+export const removeCommerceCategories = async (commerceId, categoryIds) => {
+  validateParams({ commerceId, categoryIds }, ['commerceId', 'categoryIds']);
+  if (!Array.isArray(categoryIds) || categoryIds.length === 0) throw new Error('Debés seleccionar al menos una categoría');
+  const queryParams = categoryIds.map(id => `categoryIds=${id}`).join('&');
+  try {
+    const { accessToken } = getStoredTokens();
+    const response = await axios.delete(
+      `${API_URL}${ENDPOINTS.REMOVE_CATEGORIES_FROM_COMMERCE(commerceId)}?${queryParams}`,
+      { headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) }, timeout: TIMEOUT }
+    );
+    return response.data;
+  } catch (error) { throw handleApiError(error, 'removeCommerceCategories'); }
+};
+
+export const getCommercesByCategories = async (categoryIds) => {
+  validateParams({ categoryIds }, ['categoryIds']);
+  if (!Array.isArray(categoryIds) || categoryIds.length === 0) throw new Error('Seleccioná al menos una categoría');
+  const queryParams = categoryIds.map(id => `categoryIds=${id}`).join('&');
+  try {
+    const response = await apiRequest('GET', `${ENDPOINTS.GET_COMMERCES_BY_CATEGORIES}?${queryParams}`);
+    return Array.isArray(response) ? response : [];
+  } catch (error) { if (isDevelopment) console.error('Error filtrando por categorías:', error); throw error; }
+};
 // ============================================
 // EXPORTACIÓN
 // ============================================
@@ -832,5 +867,5 @@ export default {
   generateUsername, capitalizeFirstLetter, validateEmail, validatePasswordStrength,
   replaceCommerceSchedules,
   scheduleToBackend,
-  scheduleFromBackend,
+  scheduleFromBackend, addCommerceCategories, removeCommerceCategories, getCommercesByCategories,
 };

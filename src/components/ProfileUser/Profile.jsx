@@ -209,10 +209,19 @@ export default function Profile() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, originalData, isFormValid, showToast]);
 
+  // En doSave, filtrar campos que el backend no acepta
   const doSave = useCallback(async (data) => {
     setLoading(true);
+
+    // Campos que acepta UserDto (única fuente de verdad del contrato)
+    const ALLOWED_FIELDS = ['name', 'lastname', 'email', 'recoveryEmail', 'phone', 'password'];
+
+    const filteredData = Object.fromEntries(
+      Object.entries(data).filter(([key]) => ALLOWED_FIELDS.includes(key))
+    );
+
     try {
-      const updated = await updateUser(data);
+      const updated = await updateUser(filteredData); // ahora devuelve UserDto fresco
       if (updateUserContext) updateUserContext(updated);
       await loadUserData();
       setIsEditing(false);
