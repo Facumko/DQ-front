@@ -7,6 +7,56 @@
   margin: 0 auto;
 }
 
+/* ===== CHIPS DE CATEGORÍA ===== */
+.categoryChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.chip:hover {
+  border-color: #B00020;
+  color: #B00020;
+}
+
+.chipActive {
+  background: #B00020;
+  border-color: #B00020;
+  color: #fff;
+}
+
+.chipActive:hover {
+  background: #8a0018;
+  border-color: #8a0018;
+  color: #fff;
+}
+
+.chipClear {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #6b7280;
+}
+
+.chipClear:hover {
+  background: #fef2f2;
+  border-color: #B00020;
+  color: #B00020;
+}
+
 /* ===== HEADER ===== */
 .header {
   text-align: center;
@@ -14,6 +64,13 @@
 }
 
 .header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 0.5rem;
+}
+
+.title {
   font-size: 2rem;
   font-weight: 600;
   color: var(--gray-900);
@@ -31,7 +88,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: 40vh;
   gap: 1rem;
 }
 
@@ -93,6 +150,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .backButton:hover {
@@ -127,6 +185,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  font-family: inherit;
 }
 
 .loadMoreButton:hover:not(:disabled) {
@@ -146,7 +205,8 @@
     padding: 1rem 0.5rem;
   }
 
-  .header h1 {
+  .header h1,
+  .title {
     font-size: 1.5rem;
   }
 
@@ -157,6 +217,15 @@
 
   .noResults {
     padding: 2rem 1rem;
+  }
+
+  .categoryChips {
+    gap: 6px;
+  }
+
+  .chip {
+    font-size: 0.76rem;
+    padding: 5px 11px;
   }
 }
 

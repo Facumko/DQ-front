@@ -19,6 +19,12 @@ const SearchResultCard = ({ commerce }) => {
   const status  = getStatus();
   const initial = commerce.name?.charAt(0).toUpperCase() || "?";
 
+  // Categoría a mostrar (filtrar valores internos no útiles)
+  const HIDDEN = ["private", "PUBLIC", "PRIVATE", "public"];
+  const categoryName = commerce.categories?.find(
+    (c) => c.name && !HIDDEN.includes(c.name)
+  )?.name || null;
+
   const handleClick = () => navigate(`/negocios/${id}`);
 
   const handleFav = (e) => {
@@ -54,6 +60,12 @@ const SearchResultCard = ({ commerce }) => {
 
       <div className={styles.info}>
         <h3 className={styles.name}>{commerce.name}</h3>
+
+        {/* Badge de categoría */}
+        {categoryName && (
+          <span className={styles.categoryBadge}>{categoryName}</span>
+        )}
+
         {status.label && (
           <div className={styles.status}>
             <Clock size={14} />

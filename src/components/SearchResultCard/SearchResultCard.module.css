@@ -73,10 +73,10 @@
 /* Info del comercio */
 .info {
   padding: var(--spacing-md);
-  padding-top: 50px; /* ESPACIO EXTRA PARA EL CÍRCULO */
+  padding-top: 50px;
   text-align: center;
   position: relative;
-  z-index: 3; /* ASEGURAR QUE ESTÉ ENCIMA DEL FONDO */
+  z-index: 3;
 }
 
 .name {
@@ -84,6 +84,19 @@
   font-weight: 600;
   color: var(--gray-900);
   margin: 0 0 var(--spacing-xs);
+}
+
+/* Badge de categoría */
+.categoryBadge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #B00020;
+  background: #fef2f4;
+  border: 1px solid #fecaca;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 8px;
 }
 
 .status {
@@ -108,17 +121,18 @@
   .card {
     padding-top: 100px;
   }
-  
+
   .profileCircle {
     width: 60px;
     height: 60px;
     top: 35px;
   }
-  
+
   .name {
     font-size: 1.1rem;
   }
 }
+
 /* ── Favorito ── */
 .favBtn {
   position: absolute;

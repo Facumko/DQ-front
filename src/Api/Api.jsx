@@ -545,6 +545,8 @@ export const getMyBusiness = async () => {
       coverImage:   business.coverImage?.url   || null,
       schedules:    business.schedules || [],
       address:      business.address   || null, // ← faltaba
+      categories: Array.isArray(business.categories) ? business.categories : [],  
+      
     };
   } catch (error) {
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
@@ -578,6 +580,7 @@ export const getBusinessById = async (businessId) => {
     coverImage:   business.coverImage?.url   || null,
     schedules:    business.schedules    || [],
     address:      business.address      || null, // ← faltaba
+    categories: Array.isArray(business.categories) ? business.categories : [],
   };
 };
 

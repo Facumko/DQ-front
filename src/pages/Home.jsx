@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
 import LoginModal from "../components/LoginForm/LoginModal";
 import styles from "./Home.module.css";
-import { getMainFeed } from "../Api/Api";
+import { getMainFeed, getCategories } from "../Api/Api";
 import { UserContext } from "./UserContext";
 import {
   Calendar,
@@ -94,54 +94,43 @@ const MOCK_DATA = {
     },
   ],
 
-  categories: [
+  // Categorías mock con iconos y estilos — se usan como fallback visual
+  categoryStyles: [
     {
-      id: "events",
-      title: "¿Qué pasa esta semana?",
-      description: "Eventos destacados",
       icon: Calendar,
       gradient: "gradientBlue",
       image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&q=80",
+      description: "Eventos destacados",
     },
     {
-      id: "restaurants",
-      title: "¿Dónde cenar esta noche?",
-      description: "Restaurantes y cafés",
       icon: Utensils,
       gradient: "gradientOrange",
       image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",
+      description: "Restaurantes y cafés",
     },
     {
-      id: "deals",
-      title: "Ofertas destacadas",
-      description: "Descuentos especiales",
       icon: Tag,
       gradient: "gradientGreen",
       image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80",
+      description: "Descuentos especiales",
     },
     {
-      id: "new",
-      title: "¿Qué hay de nuevo cerca?",
-      description: "Nuevos negocios",
       icon: Store,
       gradient: "gradientPurple",
       image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80",
+      description: "Nuevos negocios",
     },
     {
-      id: "urgent",
-      title: "Servicios urgentes",
-      description: "Técnicos y delivery",
       icon: Wrench,
       gradient: "gradientRed",
       image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80",
+      description: "Técnicos y delivery",
     },
     {
-      id: "trending",
-      title: "Lo más popular",
-      description: "Tendencias actuales",
       icon: TrendingUp,
       gradient: "gradientPink",
       image: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=400&q=80",
+      description: "Tendencias actuales",
     },
   ],
 
@@ -269,10 +258,8 @@ const DirectorySpotlight = ({ slides }) => {
 const Home = () => {
   const navigate = useNavigate();
 
-  // ── Context ───────────────────────────────────────────────────────────
   const { user, savedPostIds, toggleSavedPost } = useContext(UserContext);
 
-  // ── UI state ──────────────────────────────────────────────────────────
   const [currentSlide, setCurrentSlide]           = useState(0);
   const [posts, setPosts]                         = useState([]);
   const [feedPage, setFeedPage]                   = useState(0);
@@ -281,9 +268,17 @@ const Home = () => {
   const [feedHasMore, setFeedHasMore]             = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState({});
   const [showLogin, setShowLogin]                 = useState(false);
+  const [apiCategories, setApiCategories]         = useState([]);
   const sectionsRef = useRef([]);
 
   const FEED_SIZE = 10;
+
+  // ── Cargar categorías reales ──────────────────────────────────────────
+  useEffect(() => {
+    getCategories()
+      .then((cats) => setApiCategories(Array.isArray(cats) ? cats : []))
+      .catch(() => {});
+  }, []);
 
   // ── Helpers ───────────────────────────────────────────────────────────
   const formatTimeAgo = (dateStr) => {
@@ -309,7 +304,6 @@ const Home = () => {
     }
   };
 
-  // Si no hay sesión → abre login en lugar de guardar silenciosamente
   const handleToggleSave = async (post) => {
     if (!user) { setShowLogin(true); return; }
     await toggleSavedPost(post);
@@ -320,7 +314,7 @@ const Home = () => {
     const d = p.data || p;
     return {
       id:           d.idPost       || d.id,
-      idPost:       d.idPost       || d.id,   // necesario para toggleSavedPost
+      idPost:       d.idPost       || d.id,
       businessName: d.commerceName || d.nameCommerce || d.businessName || d.commerce?.name || "Sin nombre",
       businessId:   d.commerceId   || d.idCommerce   || d.businessId   || d.commerce?.idCommerce,
       businessLogo: p.commerceProfileImageUrl || d.commerceProfileImage || d.profileImageCommerce || d.commerce?.profileImage?.url || null,
@@ -382,6 +376,11 @@ const Home = () => {
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) + 1) % total }));
   const prevImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) - 1 + total) % total }));
+
+  // ── Navegar a search con categoría ───────────────────────────────────
+  const handleCategoryClick = (catId) => {
+    navigate(`/search?categoryIds=${catId}`);
+  };
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
@@ -472,19 +471,55 @@ const Home = () => {
 
         <div className={styles.categoriesLayout}>
           <div className={styles.categoriesGrid}>
-            {MOCK_DATA.categories.map((category) => {
-              const IconComponent = category.icon;
+            {(apiCategories.length > 0 ? apiCategories : []).map((cat, i) => {
+              // Usamos los estilos mock en orden cíclico
+              const style = MOCK_DATA.categoryStyles[i % MOCK_DATA.categoryStyles.length];
+              const IconComponent = style.icon;
               return (
-                <div key={category.id} className={styles.categoryCard}>
+                <div
+                  key={cat.idCategory}
+                  className={styles.categoryCard}
+                  onClick={() => handleCategoryClick(cat.idCategory)}
+                  style={{ cursor: "pointer" }}
+                >
                   <div className={styles.categoryImageContainer}>
-                    <img src={category.image} alt={category.title} className={styles.categoryImage} onError={handleImageError} />
-                    <div className={`${styles.categoryOverlay} ${styles[category.gradient]}`}>
+                    <img
+                      src={style.image}
+                      alt={cat.name}
+                      className={styles.categoryImage}
+                      onError={handleImageError}
+                    />
+                    <div className={`${styles.categoryOverlay} ${styles[style.gradient]}`}>
                       <IconComponent size={64} className={styles.categoryIcon} />
                     </div>
                   </div>
                   <div className={styles.categoryContent}>
-                    <h3 className={styles.categoryTitle}>{category.title}</h3>
-                    <p className={styles.categoryDescription}>{category.description}</p>
+                    <h3 className={styles.categoryTitle}>{cat.name}</h3>
+                    <p className={styles.categoryDescription}>{style.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Fallback si no cargaron las categorías de la API */}
+            {apiCategories.length === 0 && MOCK_DATA.categoryStyles.map((style, i) => {
+              const IconComponent = style.icon;
+              return (
+                <div
+                  key={i}
+                  className={styles.categoryCard}
+                  onClick={() => navigate("/search?q=")}
+                  style={{ cursor: "pointer" }}
+                >
+                  <div className={styles.categoryImageContainer}>
+                    <img src={style.image} alt="" className={styles.categoryImage} onError={handleImageError} />
+                    <div className={`${styles.categoryOverlay} ${styles[style.gradient]}`}>
+                      <IconComponent size={64} className={styles.categoryIcon} />
+                    </div>
+                  </div>
+                  <div className={styles.categoryContent}>
+                    <h3 className={styles.categoryTitle}>{style.description}</h3>
+                    <p className={styles.categoryDescription}>Explorá negocios</p>
                   </div>
                 </div>
               );
@@ -531,7 +566,6 @@ const Home = () => {
 
           {posts.map((post) => {
             const currentIndex = currentImageIndex[post.id] || 0;
-            // Estado leído del contexto global — sincronizado con backend
             const isSaved = savedPostIds?.has(post.id) ?? false;
 
             return (
@@ -621,7 +655,6 @@ const Home = () => {
 
       <FloatingChat />
 
-      {/* Modal login — se abre si el usuario intenta guardar sin sesión */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
