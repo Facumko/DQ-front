@@ -491,6 +491,30 @@ export const uploadImage = async (imageData) => { validateParams({imageData},['i
 // NEGOCIOS
 // ============================================
 
+// ── Normaliza string de Nominatim → ≤100 chars ──────────────────────────────
+const normalizeAddressString = (address) => {
+  if (!address) return null;
+  const parts = address.split(",").map(p => p.trim()).filter(Boolean);
+  const meaningful = parts.slice(0, 3).join(", ");
+  return meaningful.substring(0, 100);
+};
+
+// ── Construye AddressDto ─────────────────────────────────────────────────────
+const buildAddressDto = (location) => {
+  if (!location?.lat || !location?.lng) return null;
+  const addressStr = normalizeAddressString(location.address);
+  return {
+    idAddress: location.idAddress ?? null,
+    address:   addressStr,
+    street:    addressStr,
+    district:  null,
+    location:  null,
+    lat:       location.lat,
+    lng:       location.lng,
+  };
+};
+
+
 export const getAllCommerces = async () => {
   try {
     if (isDevelopment) console.log('📦 Trayendo todos los comercios...');
@@ -504,26 +528,32 @@ export const getAllCommerces = async () => {
 };
 
 export const getMyBusiness = async () => {
-  // Backend now uses authenticated user context (token) to resolve the business.
-  // No userId can be trusted from client input (IDOR mitigation).
   try {
     const response = await apiRequest('GET', ENDPOINTS.GET_MY_BUSINESSES);
     const business = Array.isArray(response) ? response[0] : response;
     if (!business) return null;
     return {
-      id_business: business.idCommerce, id_user: business.idOwner,
-      name: business.name, description: business.description,
-      email: business.email, phone: business.phone, link: business.link,
-      branchOf: business.branchOf,
+      id_business:  business.idCommerce,
+      id_user:      business.idOwner,
+      name:         business.name,
+      description:  business.description,
+      email:        business.email,
+      phone:        business.phone,
+      link:         business.link,
+      branchOf:     business.branchOf,
       profileImage: business.profileImage?.url || null,
-      coverImage: business.coverImage?.url || null,
-      schedules: business.schedules || [],
+      coverImage:   business.coverImage?.url   || null,
+      schedules:    business.schedules || [],
+      address:      business.address   || null, // ← faltaba
     };
   } catch (error) {
-    if (error.message.includes('404') || error.message.includes('no encontrado')) { if (isDevelopment) console.log("ℹ️ Sin negocio (404)"); return null; }
+    if (error.message.includes('404') || error.message.includes('no encontrado')) {
+      if (isDevelopment) console.log("ℹ️ Sin negocio (404)");
+      return null;
+    }
     throw error;
   }
-};
+};  
 
 // Mantener alias para compatibilidad de código legado
 export const getBusinessByUserId = getMyBusiness;
@@ -534,15 +564,20 @@ export const getBusinessById = async (businessId) => {
   const response = await apiRequest('GET', ENDPOINTS.GET_BUSINESS(businessId));
   const business = Array.isArray(response) ? response[0] : response;
   if (!business) throw new Error('Negocio no encontrado');
-  if (isDevelopment) { console.log("🖼️ Datos del negocio completo:", business); }
+  if (isDevelopment) console.log("🖼️ Datos del negocio completo:", business);
   return {
-    id_business: business.idCommerce, id_user: business.idOwner,
-    name: business.name || '', description: business.description || '',
-    email: business.email || '', phone: business.phone || '', link: business.link || '',
-    branchOf: business.branchOf || null,
+    id_business:  business.idCommerce,
+    id_user:      business.idOwner,
+    name:         business.name         || '',
+    description:  business.description  || '',
+    email:        business.email        || '',
+    phone:        business.phone        || '',
+    link:         business.link         || '',
+    branchOf:     business.branchOf     || null,
     profileImage: business.profileImage?.url || null,
-    coverImage: business.coverImage?.url || null,
-    schedules: business.schedules || [],
+    coverImage:   business.coverImage?.url   || null,
+    schedules:    business.schedules    || [],
+    address:      business.address      || null, // ← faltaba
   };
 };
 
@@ -550,54 +585,83 @@ export const createBusiness = async (businessData) => {
   validateParams({ businessData }, ['businessData']);
   if (!businessData.name?.trim()) throw new Error('El nombre es obligatorio');
   if (!businessData.description?.trim()) throw new Error('La descripción es obligatoria');
-  // El backend obtiene el usuario auth desde el token. No confiamos en un idOwner enviado por cliente.
+
   const dataToSend = {
-    name: businessData.name.trim(), description: businessData.description.trim(),
-    phone: businessData.phone?.trim() || '', website: businessData.website?.trim() || '',
-    instagram: businessData.instagram?.trim() || null, facebook: businessData.facebook?.trim() || null,
-    whatsapp: businessData.whatsapp?.trim() || null, email: businessData.email?.trim() || '',
-    branchOf: businessData.branchOf || null,
-    schedules: businessData.schedules ? scheduleToBackend(businessData.schedules) : [],
+    name:        businessData.name.trim(),
+    description: businessData.description.trim(),
+    phone:       businessData.phone?.trim()     || '',
+    website:     businessData.website?.trim()   || '',
+    instagram:   businessData.instagram?.trim() || null,
+    facebook:    businessData.facebook?.trim()  || null,
+    whatsapp:    businessData.whatsapp?.trim()  || null,
+    email:       businessData.email?.trim()     || '',
+    branchOf:    businessData.branchOf          || null,
+    schedules:   businessData.schedules ? scheduleToBackend(businessData.schedules) : [],
+    address:     buildAddressDto(businessData.location),
   };
-  if (isDevelopment) console.log("📤 Creando negocio:", dataToSend);
+
+  if (isDevelopment) {
+    console.log("📤 Creando negocio:", dataToSend);
+    console.log("📍 AddressDto enviado:", dataToSend.address);
+  }
+
   try {
     const response = await apiRequest('POST', ENDPOINTS.CREATE_BUSINESS, dataToSend);
     if (isDevelopment) console.log("📦 Respuesta:", response);
     return {
-      id_business: response.idCommerce, id_user: response.idOwner,
-      name: response.name, description: response.description,
-      email: response.email, phone: response.phone, website: response.website,
-      profileImage: response.profileImage?.url || null, coverImage: response.coverImage?.url || null,
+      id_business:  response.idCommerce,
+      id_user:      response.idOwner,
+      name:         response.name,
+      description:  response.description,
+      email:        response.email,
+      phone:        response.phone,
+      website:      response.website,
+      profileImage: response.profileImage?.url || null,
+      coverImage:   response.coverImage?.url   || null,
     };
-  } catch (error) { console.error("❌ Error en createBusiness:", error); throw error; }
+  } catch (error) {
+    console.error("❌ Error en createBusiness:", error);
+    throw error;
+  }
 };
 
 export const updateBusiness = async (businessId, businessData) => {
   validateParams({ businessId, businessData }, ['businessId', 'businessData']);
-  if (businessData.name !== undefined && businessData.name.trim() === '') throw new Error('El nombre no puede estar vacío');
-  if (businessData.description !== undefined && businessData.description.trim() === '') throw new Error('La descripción no puede estar vacía');
+  if (businessData.name !== undefined && businessData.name.trim() === '')
+    throw new Error('El nombre no puede estar vacío');
+  if (businessData.description !== undefined && businessData.description.trim() === '')
+    throw new Error('La descripción no puede estar vacía');
+
   const dataToSend = {};
-  if (businessData.name !== undefined) dataToSend.name = businessData.name.trim();
+  if (businessData.name        !== undefined) dataToSend.name        = businessData.name.trim();
   if (businessData.description !== undefined) dataToSend.description = businessData.description.trim();
-  if (businessData.email !== undefined) dataToSend.email = businessData.email.trim();
-  if (businessData.phone !== undefined) dataToSend.phone = businessData.phone.trim();
-  if (businessData.link !== undefined) dataToSend.website = businessData.link.trim();
-  if (businessData.branchOf !== undefined) dataToSend.branchOf = businessData.branchOf;
-  
-  if (isDevelopment) console.log("📤 Actualizando negocio:", businessId, dataToSend);
+  if (businessData.email       !== undefined) dataToSend.email       = businessData.email.trim();
+  if (businessData.phone       !== undefined) dataToSend.phone       = businessData.phone.replace(/\D/g, '');
+  if (businessData.link        !== undefined) dataToSend.website     = businessData.link.trim();
+  if (businessData.branchOf    !== undefined) dataToSend.branchOf    = businessData.branchOf;
+  if (businessData.location    !== undefined) dataToSend.address     = buildAddressDto(businessData.location);
+
+  if (isDevelopment) {
+    console.log("📤 Actualizando negocio:", businessId, dataToSend);
+    console.log("📍 AddressDto enviado:", dataToSend.address);
+  }
 
   const response = await apiRequest('PUT', ENDPOINTS.UPDATE_BUSINESS(businessId), dataToSend);
   if (isDevelopment) console.log("📦 Respuesta update:", response);
+
   return {
-    id_business: response.idCommerce, id_user: response.idOwner,
-    name: response.name, description: response.description,
-    email: response.email, phone: response.phone, link: response.link,
-    branchOf: response.branchOf,
+    id_business:  response.idCommerce,
+    id_user:      response.idOwner,
+    name:         response.name,
+    description:  response.description,
+    email:        response.email,
+    phone:        response.phone,
+    link:         response.link,
+    branchOf:     response.branchOf,
     profileImage: response.profileImage?.url || null,
-    coverImage: response.coverImage?.url || null,
+    coverImage:   response.coverImage?.url   || null,
   };
 };
-
 // ============================================
 // IMÁGENES DE COMERCIO
 // ============================================

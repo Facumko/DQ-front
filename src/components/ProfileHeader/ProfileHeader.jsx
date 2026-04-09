@@ -55,9 +55,19 @@ const normalizeBusiness = (d) => ({
   description:  d?.description || "",
   profileImage: d?.profileImage?.url || d?.profileImage || null,
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
-  location:     d?.location || null,
   schedules:    d?.schedules || [],
-  categories:   Array.isArray(d?.categories) ? d.categories : [],
+  categories:   Array.isArray(d?.categories) ? d.categories : [], // ← faltaba
+
+
+  // ── Convertir AddressDto del back → formato LocationPicker ──────────
+  location: d?.address?.lat && d?.address?.lng
+    ? {
+        idAddress: d.address.idAddress || null,
+        lat:       parseFloat(d.address.lat),
+        lng:       parseFloat(d.address.lng),
+        address:   d.address.address || d.address.street || "",
+      }
+    : null,
 });
 
 const normalizePost = (p) => {
