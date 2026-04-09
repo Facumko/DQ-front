@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useContext } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getCommercesByCategories } from "../Api/Api";
+import { UserContext } from "./UserContext";
 
 // ─── Fix íconos Leaflet + Vite ────────────────────────────────────────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -143,6 +144,7 @@ const normalizeBusiness = (b) => ({
 export default function MapaPage() {
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, favoriteCommerceIds, toggleFavoriteCommerce } = useContext(UserContext);
 
   const [businesses,  setBusinesses]  = useState([]);
   const [filtered,    setFiltered]    = useState([]);
@@ -630,6 +632,19 @@ export default function MapaPage() {
                         {/* Acciones */}
                         <div style={{ display: "flex", gap: 6 }}>
                           <button
+                            style={{
+                              ...s.popupActionBtn,
+                              ...(favoriteCommerceIds?.has(biz.id) ? { background: "#fff0f0", borderColor: "#B00020", color: "#B00020" } : {}),
+                            }}
+                            onClick={() => {
+                              if (!user) { showToast("Iniciá sesión para guardar favoritos"); return; }
+                              toggleFavoriteCommerce({ idCommerce: biz.id, id: biz.id, name: biz.name, profileImage: biz.profileImage });
+                            }}
+                            title={favoriteCommerceIds?.has(biz.id) ? "Quitar de favoritos" : "Guardar en favoritos"}
+                          >
+                            {favoriteCommerceIds?.has(biz.id) ? "★" : "☆"}
+                          </button>
+                          <button
                             style={s.popupActionBtn}
                             onClick={() => handleShare(biz)}
                             title="Copiar link"
@@ -747,7 +762,7 @@ const s = {
     cursor: "pointer", whiteSpace: "nowrap",
     transition: "all 0.15s", fontFamily: "inherit",
   },
-  chipActive: { background: "#B00020", borderColor: "#B00020", color: "#fff" },
+  chipActive: { background: "#B00020", border: "1.5px solid #B00020", color: "#fff" },
   body: { display: "flex", flex: 1, overflow: "hidden", position: "relative" },
   sidebar: {
     background: "#fff", borderRight: "1.5px solid #e5e7eb",
