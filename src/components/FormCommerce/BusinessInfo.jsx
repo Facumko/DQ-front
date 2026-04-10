@@ -3,20 +3,20 @@ import { useState, useEffect } from "react"
 import { getCategories } from "../../Api/Api"
 import LocationPicker from "../../components/LocationPicker/LocationPicker"
 import "./FormStep.css"
+import "./CategoryChips.css"
 
 function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   const [formData, setFormData] = useState({
     businessName:        data?.businessName        || "",
     businessDescription: data?.businessDescription || "",
-    category:            data?.category            || "",
-    categoryId:          data?.categoryId          || null,
+    selectedCategories:  data?.selectedCategories  || [],
     businessAddress:     data?.businessAddress     || "",
     businessPhone:       data?.businessPhone       || "",
     instagram:           data?.instagram           || "",
     facebook:            data?.facebook            || "",
     website:             data?.website             || "",
     email:               data?.email               || "",
-    location:            data?.location            || null, // { lat, lng, address }
+    location:            data?.location            || null,
   })
 
   const [categories, setCategories] = useState([])
@@ -24,7 +24,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   const [isValid,    setIsValid]    = useState(false)
   const [isLoading,  setIsLoading]  = useState(true)
 
-  /* ---------- CARGA DE CATEGORÍAS ---------- */
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -48,7 +47,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     loadCategories()
   }, [])
 
-  /* ---------- HELPERS ---------- */
   const formatPhone = (raw) => {
     const digits = raw.replace(/\D/g, "").slice(0, 10)
     if (digits.length === 10)
@@ -57,63 +55,46 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   }
 
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-
   const isValidUrl = (str) => {
     if (!str) return true
     try { new URL(str); return true } catch { return false }
   }
-
   const cleanBusinessName = (str) =>
     str.replace(/[^A-Za-z0-9\s&()/'.-]/g, "").slice(0, 50)
 
-  /* ---------- VALIDACIÓN ---------- */
   useEffect(() => {
-    const { businessName, businessDescription, category, email, instagram, facebook, website } = formData
+    const { businessName, businessDescription, email, instagram, facebook, website } = formData
     const newErrors = {}
-
-    if (email     && !isValidEmail(email))     newErrors.email     = "Formato de correo inválido"
-    if (instagram && !isValidUrl(instagram))   newErrors.instagram = "URL no válida"
-    if (facebook  && !isValidUrl(facebook))    newErrors.facebook  = "URL no válida"
-    if (website   && !isValidUrl(website))     newErrors.website   = "URL no válida"
-
+    if (email     && !isValidEmail(email))   newErrors.email     = "Formato de correo inválido"
+    if (instagram && !isValidUrl(instagram)) newErrors.instagram = "URL no válida"
+    if (facebook  && !isValidUrl(facebook))  newErrors.facebook  = "URL no válida"
+    if (website   && !isValidUrl(website))   newErrors.website   = "URL no válida"
     setErrors(newErrors)
-
     const hasError = Object.values(newErrors).some(Boolean)
     setIsValid(
       businessName.trim().length >= 3 &&
       businessDescription.trim().length >= 10 &&
       businessDescription.trim().length <= 300 &&
-      category !== "" &&
       !hasError
     )
   }, [formData])
 
-  /* ---------- HANDLERS ---------- */
+  useEffect(() => {
+    if (typeof onUpdate === 'function') onUpdate(formData)
+  }, [formData, onUpdate])
+
   const handleChange = (e) => {
     const { name, value } = e.target
     let cleaned = value
-
     if (name === "businessName")        cleaned = cleanBusinessName(value)
     if (name === "businessDescription") cleaned = value.slice(0, 300)
     if (name === "businessAddress")     cleaned = value.slice(0, 80)
     if (name === "businessPhone")       cleaned = formatPhone(value)
     if (name === "email")               cleaned = value.slice(0, 60)
     if (["instagram", "facebook", "website"].includes(name)) cleaned = value.slice(0, 120)
-
-    if (name === "category") {
-      const selectedCat = categories.find(cat => cat.name === value)
-      setFormData(prev => ({
-        ...prev,
-        category:   value,
-        categoryId: selectedCat ? Number(selectedCat.idCategory) : null,
-      }))
-    } else {
-      setFormData(prev => ({ ...prev, [name]: cleaned }))
-    }
+    setFormData(prev => ({ ...prev, [name]: cleaned }))
   }
 
-  // Cuando el LocationPicker devuelve una ubicación, la guardamos y
-  // también actualizamos businessAddress con la dirección legible
   const handleLocationChange = (loc) => {
     setFormData(prev => ({
       ...prev,
@@ -122,12 +103,18 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     }))
   }
 
-  // ── Sincronizar con FormCommerce ──────────────────────────────────────────
-  // onUpdate viene envuelto en useCallback desde FormCommerce,
-  // así que es seguro incluirlo en las dependencias sin causar loops
-  useEffect(() => {
-    if (typeof onUpdate === 'function') onUpdate(formData)
-  }, [formData, onUpdate])
+  const toggleCategory = (cat) => {
+    setFormData(prev => {
+      const already = prev.selectedCategories.some(c => c.idCategory === cat.idCategory)
+      const updated = already
+        ? prev.selectedCategories.filter(c => c.idCategory !== cat.idCategory)
+        : [...prev.selectedCategories, cat]
+      return { ...prev, selectedCategories: updated }
+    })
+  }
+
+  const isCategorySelected = (cat) =>
+    formData.selectedCategories.some(c => c.idCategory === cat.idCategory)
 
   const handleNext = () => {
     if (!isValid) {
@@ -137,7 +124,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     onNext()
   }
 
-  /* ---------- RENDER ---------- */
   if (isLoading) {
     return (
       <div className="form-step fade-in">
@@ -154,7 +140,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
 
       <div className="form-grid">
 
-        {/* Nombre */}
         <div className="form-group full-width">
           <label htmlFor="businessName">Nombre del Negocio *</label>
           <input
@@ -169,7 +154,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           <small className="field-note">Mínimo 3 caracteres</small>
         </div>
 
-        {/* Descripción */}
         <div className="form-group full-width">
           <label htmlFor="businessDescription">Descripción * (10–300 caracteres)</label>
           <textarea
@@ -184,30 +168,41 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           <div className="char-counter">{formData.businessDescription.length}/300</div>
         </div>
 
-        {/* Categoría */}
+        {/* Categorías — chips multi-selección */}
         <div className="form-group full-width">
-          <label htmlFor="category">Categoría *</label>
-          <select
-            id="category"
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-          >
-            <option value="">Seleccioná una categoría</option>
-            {categories.map((cat) => (
-              <option key={cat.idCategory} value={cat.name}>{cat.name}</option>
+          <label>
+            Categorías
+            <span className="category-recommended-badge">Recomendado</span>
+          </label>
+          <p className="field-note category-hint">
+            Seleccioná las categorías que mejor describan tu negocio. Podés elegir más de una.
+          </p>
+          <div className="category-chips-wrap">
+            {categories.map(cat => (
+              <button
+                key={cat.idCategory}
+                type="button"
+                className={`category-chip ${isCategorySelected(cat) ? "category-chip--selected" : ""}`}
+                onClick={() => toggleCategory(cat)}
+              >
+                {isCategorySelected(cat) && <span className="category-chip-check">✓</span>}
+                {cat.name}
+              </button>
             ))}
-          </select>
+          </div>
+          {formData.selectedCategories.length > 0 && (
+            <p className="category-selected-count">
+              {formData.selectedCategories.length} categoría{formData.selectedCategories.length !== 1 ? "s" : ""} seleccionada{formData.selectedCategories.length !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
 
-        {/* Nota campos opcionales */}
         <div className="optional-section full-width">
           <p className="optional-note">
             💡 Los campos opcionales pueden completarse más tarde desde tu perfil de negocio
           </p>
         </div>
 
-        {/* Mapa de ubicación */}
         <div className="form-group full-width">
           <LocationPicker
             label="Ubicación del negocio"
@@ -216,7 +211,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           />
         </div>
 
-        {/* Teléfono */}
         <div className="form-group">
           <label htmlFor="businessPhone">Teléfono del Negocio</label>
           <input
@@ -231,7 +225,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           />
         </div>
 
-        {/* Email */}
         <div className="form-group">
           <label htmlFor="email">Correo Electrónico del Negocio</label>
           <input
@@ -246,7 +239,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           {errors.email && <small className="error-message">{errors.email}</small>}
         </div>
 
-        {/* Instagram */}
         <div className="form-group">
           <label htmlFor="instagram">Instagram (opcional)</label>
           <input
@@ -261,7 +253,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           {errors.instagram && <small className="error-message">{errors.instagram}</small>}
         </div>
 
-        {/* Facebook */}
         <div className="form-group">
           <label htmlFor="facebook">Facebook (opcional)</label>
           <input
@@ -276,7 +267,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           {errors.facebook && <small className="error-message">{errors.facebook}</small>}
         </div>
 
-        {/* Sitio web */}
         <div className="form-group">
           <label htmlFor="website">Sitio Web (opcional)</label>
           <input
@@ -293,7 +283,6 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
 
       </div>
 
-      {/* Botones */}
       <div className="form-actions">
         <button className="btn btn-secondary" onClick={onBack}>Atrás</button>
         <button className="btn btn-primary" onClick={handleNext} disabled={!isValid}>

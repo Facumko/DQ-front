@@ -1,58 +1,52 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import { UserContext } from "../../pages/UserContext";
+import LoginModal from "../LoginForm/LoginModal";
 import {
-  getBusinessByUserId, getBusinessById, updateBusiness, createBusiness,
+  getMyBusiness, getBusinessById, updateBusiness, createBusiness,
   uploadProfileImage, uploadCoverImage,
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
+  replaceCommerceSchedules, scheduleFromBackend,
+  getCategories, addCommerceCategories, removeCommerceCategories,
+  createEvent, updateEvent, deleteEvent,
+  addImagesToEvent, deleteImagesFromEvent,
+  toLocalDateTime,
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
-import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, User,
-         Phone, Mail, Link2, Image, Clock, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
+import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, 
+         Phone, Mail, Link2, Clock, Pencil, Trash2 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
+import ScheduleDisplay from "./components/ScheduleDisplay";
 import LocationPicker from "../LocationPicker/LocationPicker";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 
-// ─────────────────────────────────────────
-// MOCK DATA
-// ─────────────────────────────────────────
+const isDevelopment = import.meta.env.MODE === 'development';
+
 const MOCK_BUSINESS = {
   idCommerce: 0,
   name: "La Cantina del Sur",
-  description: "Cocina casera y regional en el corazón de la ciudad. Menú del día, empanadas, locro y mucho más. ¡Te esperamos!",
+  description: "Cocina casera y regional en el corazón de la ciudad.",
   email: "lacantina@example.com",
   phone: "(362) 456-7890",
   link: "https://instagram.com/lacantina",
-  location: { lat: -26.7909, lng: -60.4437, address: "Av. San Martín 123, Presidencia Roque Sáenz Peña, Chaco" },
+  location: { lat: -26.7909, lng: -60.4437, address: "Av. San Martín 123" },
   profileImage: { url: "https://i.pravatar.cc/150?img=12" },
   coverImage: { url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&q=80" },
+  categories: [],
 };
 
 const MOCK_POSTS = [
   {
     idPost: 1,
-    description: "¡Mirá qué rico quedó el locro de hoy! 🫕 Pasate a almorzar, te esperamos con el menú completo hasta las 15 hs.",
+    description: "¡Mirá qué rico quedó el locro de hoy! 🫕",
     images: [{ url: "https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=600&q=80", imageOrder: 1, idImage: 1 }],
     type: "post",
     postedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
   },
-  {
-    idPost: 2,
-    description: "Nuevas empanadas de humita disponibles de jueves a domingo. ¡Docena a precio especial todo el mes! 🫔",
-    images: [
-      { url: "https://images.unsplash.com/photo-1574484284002-952d92456975?w=600&q=80", imageOrder: 1, idImage: 2 },
-      { url: "https://images.unsplash.com/photo-1565299507177-b0ac66763828?w=600&q=80", imageOrder: 2, idImage: 3 },
-    ],
-    type: "post",
-    postedAt: new Date(Date.now() - 26 * 3600000).toISOString(),
-  },
 ];
 
-// ─────────────────────────────────────────
-// UTILIDADES
-// ─────────────────────────────────────────
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const isValidPhone = (v) => v.replace(/\D/g, "").length >= 8;
 
@@ -64,7 +58,19 @@ const normalizeBusiness = (d) => ({
   description:  d?.description || "",
   profileImage: d?.profileImage?.url || d?.profileImage || null,
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
-  location:     d?.location || null,
+  schedules:    d?.schedules || [],
+  categories:   Array.isArray(d?.categories) ? d.categories : [], // ← faltaba
+
+
+  // ── Convertir AddressDto del back → formato LocationPicker ──────────
+  location: d?.address?.lat && d?.address?.lng
+    ? {
+        idAddress: d.address.idAddress || null,
+        lat:       parseFloat(d.address.lat),
+        lng:       parseFloat(d.address.lng),
+        address:   d.address.address || d.address.street || "",
+      }
+    : null,
 });
 
 const normalizePost = (p) => {
@@ -104,9 +110,6 @@ const DEFAULT_SCHEDULE = {
   Dom: { cerrado: true,  deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "22:00" } },
 };
 
-// ─────────────────────────────────────────
-// HOOK: validación
-// ─────────────────────────────────────────
 const useFormValidation = () => {
   const [errors, setErrors] = useState({});
   const validate = useCallback((field, value, rules) => {
@@ -122,9 +125,6 @@ const useFormValidation = () => {
   return { errors, validate, clearErrors };
 };
 
-// ─────────────────────────────────────────
-// HOOK: estado de horario
-// ─────────────────────────────────────────
 const useBusinessStatus = (schedule) => {
   const [status, setStatus] = useState({ label: "", type: "neutral" });
   useEffect(() => {
@@ -148,54 +148,77 @@ const useBusinessStatus = (schedule) => {
   return status;
 };
 
-// ═════════════════════════════════════════
-// COMPONENTE PRINCIPAL
-// ═════════════════════════════════════════
 const ProfileHeader = ({
   isOwner        = false,
   businessData: externalData = null,
   useMock        = false,
 }) => {
-  const { user } = useContext(UserContext);
+  const { user, favoriteCommerceIds, toggleFavoriteCommerce } = useContext(UserContext);
 
-  const [loading,     setLoading]    = useState({ business: true, posts: false, profileImage: false, coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false });
-  const [errorMsg,    setErrorMsg]   = useState("");
-  const [successMsg,  setSuccessMsg] = useState("");
-  const [infoMsg,     setInfoMsg]    = useState("");
+  const [loading, setLoading] = useState({
+    business: true, posts: false, profileImage: false,
+    coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false,
+  });
+  const [errorMsg,   setErrorMsg]   = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [infoMsg,    setInfoMsg]    = useState("");
 
   const [isEditing,   setIsEditing]  = useState(false);
   const [showModal,   setShowModal]  = useState(false);
   const [modalType,   setModalType]  = useState("post");
   const [editingPost, setEditingPost]= useState(null);
+  const [showLogin,   setShowLogin]  = useState(false);
 
-  const [posts,       setPosts]      = useState([]);
-  const [activeTab,   setActiveTab]  = useState("posts");
-  const [businessId,  setBusinessId] = useState(null);
-  const [showSchedule,setShowSchedule] = useState(false);
+  const [posts,      setPosts]     = useState([]);
+  const [activeTab,  setActiveTab] = useState("posts");
+  const [businessId, setBusinessId]= useState(null);
 
-  const [businessData, setBusinessData] = useState({ name:"", email:"", phone:"", link:"", description:"", profileImage:null, coverImage:null, location:null });
-  const [schedule,     setSchedule]     = useState(DEFAULT_SCHEDULE);
-  const [draft,        setDraft]        = useState(businessData);
-  const [draftSchedule,setDraftSchedule]= useState(schedule);
+  const [businessData, setBusinessData] = useState({
+    name:"", email:"", phone:"", link:"", description:"",
+    profileImage:null, coverImage:null, location:null, categories:[],
+  });
+  const [schedule,      setSchedule]      = useState(DEFAULT_SCHEDULE);
+  const [draft,         setDraft]         = useState(businessData);
+  const [draftSchedule, setDraftSchedule] = useState(schedule);
 
-  // ── Estado inline de imágenes (reemplaza ImageCropModal) ──
-  // pendingCover / pendingAvatar: { file: File, previewUrl: string } | null
+  // Categorías
+  const [allCategories,    setAllCategories]    = useState([]);
+  const [draftCategories,  setDraftCategories]  = useState([]);
+
   const [pendingCover,  setPendingCover]  = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
-  // posición y zoom guardados para el submit
-  const [coverPos,  setCoverPos]  = useState({ posY: 50, zoom: 1 });
-  const [avatarPos, setAvatarPos] = useState({ x: 50, y: 50, zoom: 1 });
+  const [, setCoverPos]  = useState({ posY: 50, zoom: 1 });
+  const [, setAvatarPos] = useState({ x: 50, y: 50, zoom: 1 });
 
   const { errors, validate, clearErrors } = useFormValidation();
   const statusInfo = useBusinessStatus(schedule);
 
-  // ── Limpiar blob URLs ──
+  const isFav = businessId ? (favoriteCommerceIds?.has(businessId) ?? false) : false;
+
+  const handleToggleFav = useCallback(async () => {
+    if (!user) { setShowLogin(true); return; }
+    if (!businessId) return;
+    const commerce = {
+      idCommerce:   businessId,
+      id:           businessId,
+      name:         businessData.name,
+      profileImage: businessData.profileImage,
+    };
+    await toggleFavoriteCommerce(commerce);
+  }, [user, businessId, businessData, toggleFavoriteCommerce]);
+
   useEffect(() => () => {
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
     if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
   }, []);
 
-  // ── Cargar datos ──
+  // Cargar todas las categorías disponibles
+  useEffect(() => {
+    getCategories()
+      .then(cats => setAllCategories(Array.isArray(cats) ? cats : []))
+      .catch(() => setAllCategories([]));
+  }, []);
+
   useEffect(() => {
     if (useMock) {
       const d = normalizeBusiness(MOCK_BUSINESS);
@@ -208,6 +231,11 @@ const ProfileHeader = ({
     if (externalData) {
       const d = normalizeBusiness(externalData);
       setBusinessData(d); setDraft(d);
+      setDraftCategories(d.categories);
+      if (d.schedules && d.schedules.length > 0) {
+        const loaded = scheduleFromBackend(d.schedules);
+        setSchedule(loaded); setDraftSchedule(loaded);
+      }
       const id = externalData.idCommerce || externalData.id_business;
       setBusinessId(id);
       setLoading((p) => ({ ...p, business: false }));
@@ -218,26 +246,30 @@ const ProfileHeader = ({
     else setLoading((p) => ({ ...p, business: false }));
   }, [user?.id_user, externalData, useMock]);
 
-  // ── Mensajes ──
   const flash = (setter, msg, ms = 3500) => { setter(msg); setTimeout(() => setter(""), ms); };
   const flashError   = (m) => flash(setErrorMsg,   m, 5000);
   const flashSuccess = (m) => flash(setSuccessMsg, m);
   const flashInfo    = (m) => flash(setInfoMsg,    m);
   const setLoad = (key, val) => setLoading((p) => ({ ...p, [key]: val }));
 
-  // ── API ──
   const loadBusinessData = async () => {
     setLoad("business", true);
     try {
-      const biz = await getBusinessByUserId(user.id_user);
+      const biz = await getMyBusiness();
       if (biz) {
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
         setBusinessData(d); setDraft(d);
+        setDraftCategories(d.categories);
+        if (d.schedules && d.schedules.length > 0) {
+          const loaded = scheduleFromBackend(d.schedules);
+          setSchedule(loaded); setDraftSchedule(loaded);
+        }
         await loadPosts(biz.id_business);
       } else {
         const d = normalizeBusiness({ name: user.name ? `${user.name} ${user.lastname || ""}`.trim() : "" });
         setBusinessData(d); setDraft(d);
+        setDraftCategories([]);
       }
     } catch (err) { flashError(err.message || "Error al cargar el negocio"); }
     finally { setLoad("business", false); }
@@ -268,27 +300,25 @@ const ProfileHeader = ({
     finally { setLoad(type, false); }
   };
 
-  // ── Edición ──
   const handleEdit = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
+    setDraftCategories(businessData.categories);
     setIsEditing(true);
     setErrorMsg(""); setSuccessMsg("");
-    setPendingCover(null);
-    setPendingAvatar(null);
+    setPendingCover(null); setPendingAvatar(null);
     clearErrors();
   };
 
   const handleCancel = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
+    setDraftCategories(businessData.categories);
     setIsEditing(false);
     setErrorMsg(""); setSuccessMsg("");
-    // Limpiar pendientes y revocar URLs
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
     if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
-    setPendingCover(null);
-    setPendingAvatar(null);
+    setPendingCover(null); setPendingAvatar(null);
     clearErrors();
   };
 
@@ -301,7 +331,20 @@ const ProfileHeader = ({
     setDraft((p) => ({ ...p, phone: fmt }));
   }, []);
 
+  const toggleDraftCategory = useCallback((cat) => {
+    setDraftCategories(prev => {
+      const exists = prev.some(c => c.idCategory === cat.idCategory);
+      return exists
+        ? prev.filter(c => c.idCategory !== cat.idCategory)
+        : [...prev, cat];
+    });
+  }, []);
+
+  const isDraftCategorySelected = useCallback((cat) =>
+    draftCategories.some(c => c.idCategory === cat.idCategory), [draftCategories]);
+
   const handleSave = async () => {
+    if (!isOwner) { flashError("No tenés permisos para editar este negocio"); return; }
     const t = (v) => (v || "").trim();
     const name  = t(draft.name);
     const desc  = t(draft.description);
@@ -316,35 +359,75 @@ const ProfileHeader = ({
 
     setLoad("savingBusiness", true);
     try {
-      const payload = { name, description: desc, email, phone, link: t(draft.link), location: draft.location || null };
+      const cleanPhone = draft.phone.replace(/\D/g, "");
+      const payload = {
+        name, description: desc, email, phone: cleanPhone,
+        link: t(draft.link), location: draft.location || null,
+      };
+
       let currentBusinessId = businessId;
       if (businessId) {
         await updateBusiness(businessId, payload);
       } else {
-        const res = await createBusiness({ ...payload, id_user: user.id_user });
+        const res = await createBusiness(payload);
         currentBusinessId = res.id_business;
         setBusinessId(currentBusinessId);
       }
-      // Subir imágenes pendientes (con posición confirmada)
+
       if (pendingCover?.file)  await uploadImage("coverImage",   pendingCover.file);
       if (pendingAvatar?.file) await uploadImage("profileImage", pendingAvatar.file);
 
+      // Guardar horarios
+      const idToUse = businessId || currentBusinessId;
+      if (idToUse) {
+        try {
+          await replaceCommerceSchedules(idToUse, draftSchedule);
+          setSchedule(draftSchedule);
+        } catch (scheduleError) {
+          console.warn("⚠️ Error guardando horarios:", scheduleError.message);
+          flashInfo("Datos guardados. Hubo un problema con los horarios, intentá de nuevo.");
+        }
+      }
+
+      // Sincronizar categorías
+      if (idToUse) {
+        const currentIds = businessData.categories.map(c => c.idCategory);
+        const draftIds   = draftCategories.map(c => c.idCategory);
+
+        const toAdd    = draftIds.filter(id => !currentIds.includes(id));
+        const toRemove = currentIds.filter(id => !draftIds.includes(id));
+
+        try {
+          if (toAdd.length > 0)    await addCommerceCategories(idToUse, toAdd);
+          if (toRemove.length > 0) await removeCommerceCategories(idToUse, toRemove);
+        } catch (catError) {
+          console.warn("⚠️ Error sincronizando categorías:", catError.message);
+          flashInfo("Datos guardados. Hubo un problema con las categorías, intentá de nuevo.");
+        }
+      }
+
+      // Recargar datos del negocio
       if (externalData) {
         const biz = await getBusinessById(currentBusinessId);
-        if (biz) { const d = normalizeBusiness(biz); setBusinessData(d); setDraft(d); }
+        if (biz) {
+          const d = normalizeBusiness(biz);
+          setBusinessData(d); setDraft(d);
+          setDraftCategories(d.categories);
+          if (d.schedules && d.schedules.length > 0) {
+            const loaded = scheduleFromBackend(d.schedules);
+            setSchedule(loaded); setDraftSchedule(loaded);
+          }
+        }
       } else {
         await loadBusinessData();
       }
-      setSchedule(draftSchedule);
-      setPendingCover(null);
-      setPendingAvatar(null);
+
+      setPendingCover(null); setPendingAvatar(null);
       setIsEditing(false);
       flashSuccess("✅ Datos guardados correctamente");
     } catch (err) { flashError(err.message || "Error al guardar"); }
     finally { setLoad("savingBusiness", false); }
   };
-
-  // ── Handlers inline de imágenes ──
 
   const handleCoverFileSelect = useCallback((file, previewUrl) => {
     if (pendingCover?.previewUrl) URL.revokeObjectURL(pendingCover.previewUrl);
@@ -354,9 +437,7 @@ const ProfileHeader = ({
 
   const handleCoverConfirm = useCallback((posY, zoom) => {
     setCoverPos({ posY, zoom });
-    // Actualizar el draft con la previewUrl para que se vea en modo edición
     setDraft(p => ({ ...p, coverImage: pendingCover?.previewUrl || p.coverImage }));
-    // pendingCover sigue en estado para que se suba al guardar
   }, [pendingCover]);
 
   const handleCoverDiscard = useCallback(() => {
@@ -380,48 +461,79 @@ const ProfileHeader = ({
     setPendingAvatar(null);
   }, [pendingAvatar]);
 
-  // ── Posts ──
-  const sortedPosts  = useMemo(() => posts.filter((p) => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), [posts]);
-  const sortedEvents = useMemo(() => posts.filter((p) => p.type === "event"), [posts]);
+  const sortedPosts  = useMemo(() =>
+    posts.filter(p => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [posts]);
+  const sortedEvents = useMemo(() => posts.filter(p => p.type === "event"), [posts]);
 
   const handleSubmitPost = async (data) => {
+    if (!isOwner) { flashError("No tenés permisos"); return; }
     if (!businessId) { flashError("Creá el negocio primero"); return; }
     const id = typeof businessId === "string" ? parseInt(businessId, 10) : businessId;
     if (isNaN(id)) { flashError("ID de comercio inválido"); return; }
+
     setLoad("creatingPost", true);
     try {
-      if (editingPost) {
-        await updatePostText(editingPost.id, data.text, id);
-        if (data.imagesToDelete?.length) await deleteImagesFromPost(editingPost.id, data.imagesToDelete);
-        if (data.imageFiles?.length)     await addImagesToPost(editingPost.id, data.imageFiles);
-        flashSuccess("✅ Publicación actualizada");
+      if (modalType === "event") {
+        // ── EVENTO ──
+        const eventDto = {
+          title:           data.title || data.text,
+          description:     data.text,
+          startDate:       toLocalDateTime(data.date, data.time),
+          endDate:         toLocalDateTime(data.endDate || data.date, data.endTime || data.time),
+          idCommerceOwner: id,
+          address:         null,
+        };
+
+        if (editingPost) {
+          await updateEvent(editingPost.id, eventDto);
+          if (data.imagesToDelete?.length) await deleteImagesFromEvent(editingPost.id, data.imagesToDelete);
+          if (data.imageFiles?.length) await addImagesToEvent(editingPost.id, data.imageFiles);
+          flashSuccess("✅ Evento actualizado");
+        } else {
+          if (!data.imageFiles?.length) { flashError("Subí al menos una imagen"); return; }
+          await createEvent(eventDto, data.imageFiles);
+          flashSuccess("✅ Evento creado");
+        }
       } else {
-        if (!data.imageFiles?.length) { flashError("Subí al menos una imagen"); return; }
-        await createPost(data.text, id, data.imageFiles);
-        flashSuccess("✅ Publicación creada");
+        // ── POST (lógica existente sin cambios) ──
+        if (editingPost) {
+          await updatePostText(editingPost.id, data.text, id);
+          if (data.imagesToDelete?.length) await deleteImagesFromPost(editingPost.id, data.imagesToDelete);
+          if (data.imageFiles?.length) await addImagesToPost(editingPost.id, data.imageFiles);
+          flashSuccess("✅ Publicación actualizada");
+        } else {
+          if (!data.imageFiles?.length) { flashError("Subí al menos una imagen"); return; }
+          await createPost(data.text, id, data.imageFiles);
+          flashSuccess("✅ Publicación creada");
+        }
       }
       await loadPosts(id);
       setShowModal(false);
-    } catch (err) { flashError(err.message || "Error al guardar la publicación"); }
+    } catch (err) { flashError(err.message || "Error al guardar"); }
     finally { setLoad("creatingPost", false); setEditingPost(null); }
   };
-
-  const handleDeletePost = async (postId) => {
-    if (!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
+  const handleDeletePost = async (postId, type = "post") => {
+    if (!isOwner) { flashError("No tenés permisos"); return; }
+    if (!window.confirm("¿Eliminar? Esta acción no se puede deshacer.")) return;
     setLoad("deletingPost", true);
     try {
-      await deletePost(postId);
+      if (type === "event") {
+        await deleteEvent(postId);
+      } else {
+        await deletePost(postId);
+      }
       setPosts((p) => p.filter((x) => x.id !== postId));
-      flashSuccess("✅ Publicación eliminada");
+      flashSuccess("✅ Eliminado");
     } catch (err) { flashError(err.message || "Error al eliminar"); }
     finally { setLoad("deletingPost", false); }
   };
+  
 
   const openModal = (type, post = null) => {
     setModalType(type); setEditingPost(post); setShowModal(true);
   };
 
-  // ── Helpers de status ──
   const statusDotClass  = { open: styles.statusDotOpen, closed: styles.statusDotClosed, neutral: styles.statusDotNeutral };
   const statusTextClass = { open: styles.statusTextOpen, closed: styles.statusTextClosed, neutral: styles.statusTextNeutral };
 
@@ -435,12 +547,10 @@ const ProfileHeader = ({
   );
 
   const isBusy = loading.savingBusiness || loading.profileImage || loading.coverImage;
-  const hasUnsavedImages = !!(pendingCover || pendingAvatar);
 
   return (
     <div className={styles.profilePage}>
 
-      {/* ── Banners ── */}
       <div className={styles.bannerStack}>
         {errorMsg   && <div className={`${styles.banner} ${styles.bannerError}`}><AlertCircle size={16}/>{errorMsg}</div>}
         {successMsg && <div className={`${styles.banner} ${styles.bannerSuccess}`}><Check size={16}/>{successMsg}</div>}
@@ -449,10 +559,8 @@ const ProfileHeader = ({
           <div className={`${styles.banner} ${styles.bannerInfo}`}><Loader size={16} className={styles.spinnerIcon}/>Subiendo imagen...</div>}
       </div>
 
-      {/* ── Bloque de perfil ── */}
       <div className={styles.profileBlock}>
 
-        {/* ── PORTADA INLINE ── */}
         <CoverEditor
           currentImage={isEditing ? draft.coverImage : businessData.coverImage}
           isEditing={isEditing}
@@ -462,9 +570,7 @@ const ProfileHeader = ({
           onDiscard={handleCoverDiscard}
         />
 
-        {/* Avatar + botones */}
         <div className={styles.profileTop}>
-          {/* ── AVATAR INLINE ── */}
           <AvatarEditor
             currentImage={isEditing ? draft.profileImage : businessData.profileImage}
             isEditing={isEditing}
@@ -482,7 +588,9 @@ const ProfileHeader = ({
                 <>
                   <button className={styles.btnCancel} onClick={handleCancel} disabled={isBusy}>Cancelar</button>
                   <button className={styles.btnSave}   onClick={handleSave}   disabled={isBusy}>
-                    {loading.savingBusiness ? <><Loader size={14} className={styles.spinnerIcon}/> Guardando...</> : <><Check size={14}/> Guardar</>}
+                    {loading.savingBusiness
+                      ? <><Loader size={14} className={styles.spinnerIcon}/> Guardando...</>
+                      : <><Check size={14}/> Guardar</>}
                   </button>
                 </>
               )}
@@ -490,7 +598,6 @@ const ProfileHeader = ({
           )}
         </div>
 
-        {/* Nombre + estado */}
         <div className={styles.profileMeta}>
           {isEditing ? (
             <>
@@ -503,6 +610,18 @@ const ProfileHeader = ({
           ) : (
             <>
               <h1 className={styles.businessName}>{businessData.name || "Sin nombre"}</h1>
+
+              {/* Chips de categorías en modo vista */}
+              {businessData.categories.length > 0 && (
+                <div className={styles.categoryChipsView}>
+                  {businessData.categories.map(cat => (
+                    <span key={cat.idCategory} className={styles.categoryChipView}>
+                      {cat.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className={styles.statusRow}>
                 <span className={`${styles.statusDot} ${statusDotClass[statusInfo.type]}`}/>
                 <span className={`${styles.statusText} ${statusTextClass[statusInfo.type]}`}>{statusInfo.label}</span>
@@ -511,7 +630,6 @@ const ProfileHeader = ({
           )}
         </div>
 
-        {/* Grid info */}
         <div className={styles.infoGrid}>
           <div className={styles.infoCol}>
             <p className={styles.infoSectionTitle}>Sobre el negocio</p>
@@ -522,34 +640,35 @@ const ProfileHeader = ({
                   placeholder="Descripción del negocio *" maxLength={500} />
                 {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
                 <span className={styles.charCount}>{draft.description.length}/500</span>
+
+                {/* Editor de categorías en modo edición */}
+                <div className={styles.categoryEditorSection}>
+                  <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categorías</p>
+                  <div className={styles.categoryChipsEdit}>
+                    {allCategories.map(cat => (
+                      <button
+                        key={cat.idCategory}
+                        type="button"
+                        className={`${styles.categoryChipEdit} ${isDraftCategorySelected(cat) ? styles.categoryChipEditSelected : ""}`}
+                        onClick={() => toggleDraftCategory(cat)}
+                      >
+                        {isDraftCategorySelected(cat) && <span>✓ </span>}
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                  {draftCategories.length > 0 && (
+                    <p className={styles.categoryCount}>
+                      {draftCategories.length} categoría{draftCategories.length !== 1 ? "s" : ""} seleccionada{draftCategories.length !== 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
               </>
             ) : (
               <p className={styles.descriptionText}>{businessData.description || "Sin descripción"}</p>
             )}
 
-            {!isEditing && (
-              <div style={{ marginTop: 16 }}>
-                <button className={styles.scheduleToggleBtn} onClick={() => setShowSchedule((p) => !p)}>
-                  <Clock size={15}/> Horarios
-                  {showSchedule ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                </button>
-                {showSchedule && (
-                  <div className={styles.scheduleTable}>
-                    {Object.entries(schedule).map(([day, h]) => (
-                      <div key={day} className={styles.scheduleRow}>
-                        <span className={styles.scheduleDay}>{day}</span>
-                        <span className={`${styles.scheduleHours} ${h.cerrado ? styles.scheduleClosed : ""}`}>
-                          {h.cerrado ? "Cerrado"
-                            : h.deCorrido ? `${h.open} – ${h.close}`
-                            : `M: ${h.manana.open}–${h.manana.close}  T: ${h.tarde.open}–${h.tarde.close}`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
+            {!isEditing && <ScheduleDisplay schedule={schedule} />}
             {isEditing && (
               <ScheduleEditor schedule={draftSchedule} onChange={(day, field, val) => {
                 setDraftSchedule((prev) => {
@@ -635,10 +754,18 @@ const ProfileHeader = ({
         </div>
       </div>
 
-      {/* ── Barra de acciones ── */}
       <div className={styles.actionsBar}>
         <div className={styles.actionsLeft}>
-          {!isEditing && <button className={styles.btnFav}><Star size={16} strokeWidth={2}/> Favorito</button>}
+          {!isEditing && (
+            <button
+              className={`${styles.btnFav} ${isFav ? styles.btnFavActive : ""}`}
+              onClick={handleToggleFav}
+              title={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
+            >
+              <Star size={16} strokeWidth={2} fill={isFav ? "currentColor" : "none"} />
+              {isFav ? "Guardado" : "Favorito"}
+            </button>
+          )}
           {!isEditing && businessData.link && (
             <a href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
                target="_blank" rel="noopener noreferrer" className={styles.btnSocialLink}>
@@ -666,7 +793,6 @@ const ProfileHeader = ({
         )}
       </div>
 
-      {/* ── Tabs ── */}
       <div className={styles.tabsBar}>
         <button className={`${styles.tabBtn} ${activeTab === "posts" ? styles.tabBtnActive : ""}`} onClick={() => setActiveTab("posts")}>
           Publicaciones ({sortedPosts.length})
@@ -676,7 +802,6 @@ const ProfileHeader = ({
         </button>
       </div>
 
-      {/* ── Feed ── */}
       <div className={styles.feedWrapper}>
         {activeTab === "posts" && (
           loading.posts ? (
@@ -696,7 +821,7 @@ const ProfileHeader = ({
                   <span className={styles.postDate}>{timeAgo(post.createdAt)}</span>
                   {isOwner && (
                     <div className={styles.postActions}>
-                      <button className={styles.btnPostEdit}   onClick={() => openModal("post", post)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                      <button className={styles.btnPostEdit} onClick={() => openModal("post", post)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
                       <button className={styles.btnPostDelete} onClick={() => handleDeletePost(post.id)} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
                     </div>
                   )}
@@ -727,8 +852,8 @@ const ProfileHeader = ({
               {isOwner && (
                 <div className={styles.eventBody}>
                   <div className={styles.postActions}>
-                    <button className={styles.btnPostEdit}   onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
-                    <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.id)} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
+                    <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                    <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.id, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
                   </div>
                 </div>
               )}
@@ -737,7 +862,6 @@ const ProfileHeader = ({
         )}
       </div>
 
-      {/* ── Modal publicación ── */}
       <CreatePostModal
         isOpen={showModal}
         onClose={() => { setShowModal(false); setEditingPost(null); }}
@@ -746,6 +870,7 @@ const ProfileHeader = ({
         initialData={editingPost}
       />
 
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 };

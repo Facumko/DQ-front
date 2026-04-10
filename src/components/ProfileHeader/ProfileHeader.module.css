@@ -824,3 +824,330 @@
   .btnEdit, .btnSave, .btnCancel { font-size: 0.82rem; padding: 7px 12px; }
   .tabBtn { padding: 8px 14px; font-size: 0.82rem; }
 }
+
+/* ══════════════════════════════════════════
+   SCHEDULE EDITOR - NEW DESIGN
+══════════════════════════════════════════ */
+.scheduleEditor {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 16px;
+}
+
+.scheduleHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.scheduleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.dayCard {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: border-color var(--transition);
+}
+
+.dayCard:hover {
+  border-color: var(--brand);
+}
+
+.dayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dayName {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.toggleSwitch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.toggleOff {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.toggleOff:hover {
+  background: #fee2e2;
+}
+
+.toggleOn {
+  color: #059669;
+  background: #f0fdf4;
+}
+
+.toggleOn:hover {
+  background: #dcfce7;
+}
+
+.dayControls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modeToggle {
+  display: flex;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.modeBtn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.modeActive {
+  background: var(--brand);
+  color: white;
+}
+
+.timeInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeGroup label {
+  min-width: 45px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.timeInput {
+  padding: 6px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--text);
+  transition: border-color var(--transition);
+  width: 80px;
+}
+
+.timeInput:focus {
+  border-color: var(--brand);
+  outline: none;
+}
+
+.timeSep {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.shiftGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shiftLabel {
+  min-width: 55px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ══════════════════════════════════════════
+   SCHEDULE DISPLAY - NEW DESIGN
+══════════════════════════════════════════ */
+.scheduleDisplay {
+  margin-top: 16px;
+}
+
+.scheduleStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.scheduleStatus.open {
+  color: #059669;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.scheduleStatus.closed {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.scheduleToggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--brand);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 6px 0;
+  transition: color var(--transition);
+}
+
+.scheduleToggle:hover {
+  color: var(--brand-dark);
+}
+
+.scheduleTable {
+  margin-top: 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.scheduleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.scheduleRow:last-child {
+  border-bottom: none;
+}
+
+.scheduleDay {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 40px;
+}
+
+.scheduleHours {
+  color: var(--muted);
+  text-align: right;
+}
+
+.scheduleClosed {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ── Categorías — vista ── */
+.categoryChipsView {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.categoryChipView {
+  padding: 4px 12px;
+  background: #fef2f4;
+  color: #B00020;
+  border: 1px solid #fecaca;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ── Categorías — edición ── */
+.categoryEditorSection {
+  margin-top: 8px;
+}
+
+.categoryChipsEdit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.categoryChipEdit {
+  padding: 6px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--white);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.categoryChipEdit:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-light);
+}
+
+.categoryChipEditSelected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.categoryChipEditSelected:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  color: #fff;
+}
+
+.categoryCount {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--brand);
+  font-weight: 600;
+}

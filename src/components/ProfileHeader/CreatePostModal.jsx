@@ -5,6 +5,9 @@ import { X, Calendar, Image, MapPin, Clock, User, Trash2, AlertCircle } from "lu
 const MAX_IMAGES = 10;
 
 const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null }) => {
+  const [endDate,  setEndDate]  = useState("");
+  const [endTime,  setEndTime]  = useState("");
+  const [title,    setTitle]    = useState("");
   const [text, setText] = useState("");
   const [previewUrls, setPreviewUrls] = useState([]); // URLs para preview
   const [imageFiles, setImageFiles] = useState([]); // Archivos nuevos
@@ -38,6 +41,9 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       setTaggedBusiness("");
       setActiveIndex(0);
       setHasUnsavedChanges(false);
+      setEndDate("");
+       setEndTime("");
+        setTitle("");
     }
   }, [isOpen]);
 
@@ -191,7 +197,7 @@ const handleSubmit = (e) => {
       date, 
       time, 
       location, 
-      taggedBusiness 
+      taggedBusiness,endDate, endTime, title,
     }),
   };
 
@@ -356,34 +362,31 @@ const handleSubmit = (e) => {
           {/* Campos de evento */}
           {type === "event" && (
             <>
+              <label>
+                Título del evento
+                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Nombre del evento" required />
+              </label>
+
               <div className={styles.row}>
-                <label>
-                  <Calendar size={16} />
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                <label><Calendar size={16}/> Inicio
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
                 </label>
-                <label>
-                  <Clock size={16} />
-                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+                <label><Clock size={16}/> Hora inicio
+                  <input type="time" value={time} onChange={e => setTime(e.target.value)} required />
                 </label>
               </div>
-              <label>
-                <MapPin size={16} />
-                <input 
-                  type="text" 
-                  placeholder="Lugar del evento" 
-                  value={location} 
-                  onChange={(e) => setLocation(e.target.value)} 
-                  required 
-                />
-              </label>
-              <label>
-                <User size={16} />
-                <input 
-                  type="text" 
-                  placeholder="Etiquetar otro comercio (opcional)" 
-                  value={taggedBusiness} 
-                  onChange={(e) => setTaggedBusiness(e.target.value)} 
-                />
+
+              <div className={styles.row}>
+                <label><Calendar size={16}/> Fin
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+                </label>
+                <label><Clock size={16}/> Hora fin
+                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required />
+                </label>
+              </div>
+
+              <label><MapPin size={16}/>
+                <input type="text" placeholder="Lugar del evento" value={location} onChange={e => setLocation(e.target.value)} required />
               </label>
             </>
           )}

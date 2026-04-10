@@ -1,75 +1,162 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { searchCommerces } from "../Api/Api";
+import {
+  searchCommerces,
+  getAllCommerces,
+  getRecentCommerces,
+  getCategories,
+  getCommercesByCategories,
+} from "../Api/Api";
 import SearchResultCard from "../components/SearchResultCard/SearchResultCard";
 import { Loader, SearchX } from "lucide-react";
 import styles from "./SearchPage.module.css";
 
+const LIMIT = 12;
+
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const query = searchParams.get("q") || "";
+
+  const query = searchParams.get("q");
+  const categoryIdsParam = searchParams.get("categoryIds");
+  const isAgregados = searchParams.get("agregados") === "true";
+  const isAllMode = !isAgregados && query !== null && query.trim() === "";
+  const isSearchMode = !isAgregados && query !== null && query.trim() !== "";
 
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const limit = 10;
+  const [hasMore, setHasMore] = useState(false);
+  const offsetRef = useRef(0);
 
-  const loadResults = useCallback(async (isLoadMore = false) => {
-    if (!query.trim()) {
-      setLoading(false);
-      return;
-    }
-
-    if (isLoadMore) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-      setOffset(0);
-      setHasMore(true);
-    }
-
-    try {
-      const currentOffset = isLoadMore ? offset : 0;
-      const newResults = await searchCommerces(query.trim(), limit, currentOffset);
-
-      if (isLoadMore) {
-        setResults(prev => [...prev, ...newResults]);
-        setHasMore(newResults.length === limit);
-        setOffset(prev => prev + limit);
-      } else {
-        setResults(newResults);
-        setHasMore(newResults.length === limit);
-        setOffset(limit);
-      }
-    } catch (err) {
-      setError(err.message || "Error al buscar negocios");
-      if (!isLoadMore) setResults([]);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [query, offset, limit]);
+  // Categorías
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(() =>
+    categoryIdsParam ? [Number(categoryIdsParam)] : []
+  );
 
   useEffect(() => {
-    loadResults(false);
-  }, [query]);
+    getCategories()
+      .then(setCategories)
+      .catch(() => {});
+  }, []);
+
+  const load = useCallback(
+    async (isLoadMore = false) => {
+      if (!isLoadMore) {
+        setLoading(true);
+        setError("");
+        setResults([]);
+        setHasMore(false);
+        offsetRef.current = 0;
+      } else {
+        setLoadingMore(true);
+      }
+
+      try {
+        if (isAgregados) {
+          const data = await getRecentCommerces();
+          setResults(Array.isArray(data) ? data.slice(0, 50) : []);
+          setHasMore(false);
+        } else if (isAllMode && selectedCategoryIds.length === 0) {
+          const all = await getAllCommerces();
+          setResults(all);
+          setHasMore(false);
+        } else if (selectedCategoryIds.length > 0) {
+          // Filtrar por categorías, opcionalmente combinar con texto
+          let newResults = await getCommercesByCategories(selectedCategoryIds);
+          if (query?.trim()) {
+            const q = query.toLowerCase();
+            newResults = newResults.filter(
+              (c) =>
+                c.name?.toLowerCase().includes(q) ||
+                c.description?.toLowerCase().includes(q)
+            );
+          }
+          setResults(Array.isArray(newResults) ? newResults : []);
+          setHasMore(false);
+        } else if (isSearchMode) {
+          const currentOffset = isLoadMore ? offsetRef.current : 0;
+          const newResults = await searchCommerces(
+            query.trim(),
+            LIMIT,
+            currentOffset
+          );
+          offsetRef.current = currentOffset + LIMIT;
+          setHasMore(newResults.length === LIMIT);
+          if (isLoadMore) {
+            setResults((prev) => [...prev, ...newResults]);
+          } else {
+            setResults(newResults);
+          }
+        }
+      } catch (err) {
+        setError(err.message || "Error al cargar negocios");
+        if (!isLoadMore) setResults([]);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [query, isAgregados, isAllMode, isSearchMode, selectedCategoryIds]
+  );
+
+  useEffect(() => {
+    load(false);
+  }, [query, isAgregados, selectedCategoryIds]);
 
   const handleLoadMore = () => {
-    if (hasMore && !loadingMore) {
-      loadResults(true);
-    }
+    if (hasMore && !loadingMore) load(true);
+  };
+
+  const toggleCategory = (id) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  // Título dinámico
+  const getTitle = () => {
+    if (isAgregados) return "Agregados recientemente";
+    if (selectedCategoryIds.length > 0 && !query?.trim())
+      return "Negocios por categoría";
+    if (selectedCategoryIds.length > 0 && query?.trim())
+      return `"${query}" en categorías seleccionadas`;
+    if (isAllMode) return "Todos los negocios";
+    return `Resultados para "${query}"`;
   };
 
   if (loading) {
     return (
       <div className={styles.container}>
+        {/* Chips de categoría visibles aunque esté cargando */}
+        {categories.length > 0 && (
+          <div className={styles.categoryChips}>
+            {categories.map((cat) => (
+              <button
+                key={cat.idCategory}
+                className={`${styles.chip} ${
+                  selectedCategoryIds.includes(cat.idCategory)
+                    ? styles.chipActive
+                    : ""
+                }`}
+                onClick={() => toggleCategory(cat.idCategory)}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div className={styles.loadingContainer}>
-          <Loader size={48} className={styles.spinner} />
-          <p>Buscando negocios...</p>
+          <Loader size={40} className={styles.spinner} />
+          <p>
+            {isAgregados
+              ? "Cargando novedades..."
+              : isAllMode
+              ? "Cargando negocios..."
+              : "Buscando..."}
+          </p>
         </div>
       </div>
     );
@@ -77,38 +164,90 @@ const SearchPage = () => {
 
   return (
     <div className={styles.container}>
+      {/* Chips de categoría */}
+      {categories.length > 0 && (
+        <div className={styles.categoryChips}>
+          {selectedCategoryIds.length > 0 && (
+            <button
+              className={`${styles.chip} ${styles.chipClear}`}
+              onClick={() => setSelectedCategoryIds([])}
+            >
+              ✕ Limpiar filtros
+            </button>
+          )}
+          {categories.map((cat) => (
+            <button
+              key={cat.idCategory}
+              className={`${styles.chip} ${
+                selectedCategoryIds.includes(cat.idCategory)
+                  ? styles.chipActive
+                  : ""
+              }`}
+              onClick={() => toggleCategory(cat.idCategory)}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className={styles.header}>
-        <h1>Resultados de búsqueda</h1>
-        <p className={styles.queryText}>
-          "{query}" - {results.length} resultado{results.length !== 1 ? 's' : ''}
-        </p>
+        <div>
+          <h1 className={styles.title}>{getTitle()}</h1>
+          {results.length > 0 && (
+            <p className={styles.queryText}>
+              {results.length} negocio{results.length !== 1 ? "s" : ""}
+              {isAgregados
+                ? " nuevos en los últimos 30 días"
+                : isAllMode
+                ? " en Sáenz Peña"
+                : ` encontrado${results.length !== 1 ? "s" : ""}`}
+            </p>
+          )}
+        </div>
       </div>
 
       {error && (
         <div className={styles.errorBanner}>
-          <SearchX size={20} />
-          {error}
+          <SearchX size={18} />
+          <span>{error}</span>
         </div>
       )}
 
-      {results.length === 0 && !error ? (
+      {results.length === 0 && !error && (
         <div className={styles.noResults}>
-          <SearchX size={64} />
-          <h3>No se encontraron negocios</h3>
-          <p>Intentá con otra búsqueda o revisá la ortografía</p>
-          <button 
+          <SearchX size={56} strokeWidth={1.5} />
+          <h3>
+            {isAgregados
+              ? "No hay negocios nuevos este mes"
+              : isAllMode
+              ? "Todavía no hay negocios registrados"
+              : selectedCategoryIds.length > 0
+              ? "No hay negocios en estas categorías"
+              : "No se encontraron negocios"}
+          </h3>
+          <p>
+            {isAgregados
+              ? "Volvé pronto, ¡cada día se suman más!"
+              : selectedCategoryIds.length > 0
+              ? "Probá con otras categorías o limpiá los filtros"
+              : "Probá con otro término o revisá la ortografía"}
+          </p>
+          <button
             className={styles.backButton}
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
           >
             Volver al inicio
           </button>
         </div>
-      ) : (
+      )}
+
+      {results.length > 0 && (
         <>
           <div className={styles.resultsGrid}>
             {results.map((commerce) => (
-              <SearchResultCard 
-                key={commerce.idCommerce} 
+              <SearchResultCard
+                key={commerce.idCommerce}
                 commerce={commerce}
               />
             ))}
@@ -116,18 +255,17 @@ const SearchPage = () => {
 
           {hasMore && (
             <div className={styles.loadMoreContainer}>
-              <button 
+              <button
                 className={styles.loadMoreButton}
                 onClick={handleLoadMore}
                 disabled={loadingMore}
               >
                 {loadingMore ? (
                   <>
-                    <Loader size={20} className={styles.spinner} />
-                    Cargando...
+                    <Loader size={16} className={styles.spinner} /> Cargando...
                   </>
                 ) : (
-                  'Cargar más resultados'
+                  "Ver más resultados"
                 )}
               </button>
             </div>
