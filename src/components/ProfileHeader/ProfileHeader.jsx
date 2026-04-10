@@ -8,6 +8,9 @@ import {
   addImagesToPost, deleteImagesFromPost,
   replaceCommerceSchedules, scheduleFromBackend,
   getCategories, addCommerceCategories, removeCommerceCategories,
+  createEvent, updateEvent, deleteEvent,
+  addImagesToEvent, deleteImagesFromEvent,
+  toLocalDateTime,
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, 
@@ -464,39 +467,68 @@ const ProfileHeader = ({
   const sortedEvents = useMemo(() => posts.filter(p => p.type === "event"), [posts]);
 
   const handleSubmitPost = async (data) => {
-    if (!isOwner) { flashError("No tenés permisos para publicar en este negocio"); return; }
+    if (!isOwner) { flashError("No tenés permisos"); return; }
     if (!businessId) { flashError("Creá el negocio primero"); return; }
     const id = typeof businessId === "string" ? parseInt(businessId, 10) : businessId;
     if (isNaN(id)) { flashError("ID de comercio inválido"); return; }
+
     setLoad("creatingPost", true);
     try {
-      if (editingPost) {
-        await updatePostText(editingPost.id, data.text, id);
-        if (data.imagesToDelete?.length) await deleteImagesFromPost(editingPost.id, data.imagesToDelete);
-        if (data.imageFiles?.length)     await addImagesToPost(editingPost.id, data.imageFiles);
-        flashSuccess("✅ Publicación actualizada");
+      if (modalType === "event") {
+        // ── EVENTO ──
+        const eventDto = {
+          title:           data.title || data.text,
+          description:     data.text,
+          startDate:       toLocalDateTime(data.date, data.time),
+          endDate:         toLocalDateTime(data.endDate || data.date, data.endTime || data.time),
+          idCommerceOwner: id,
+          address:         null,
+        };
+
+        if (editingPost) {
+          await updateEvent(editingPost.id, eventDto);
+          if (data.imagesToDelete?.length) await deleteImagesFromEvent(editingPost.id, data.imagesToDelete);
+          if (data.imageFiles?.length) await addImagesToEvent(editingPost.id, data.imageFiles);
+          flashSuccess("✅ Evento actualizado");
+        } else {
+          if (!data.imageFiles?.length) { flashError("Subí al menos una imagen"); return; }
+          await createEvent(eventDto, data.imageFiles);
+          flashSuccess("✅ Evento creado");
+        }
       } else {
-        if (!data.imageFiles?.length) { flashError("Subí al menos una imagen"); return; }
-        await createPost(data.text, id, data.imageFiles);
-        flashSuccess("✅ Publicación creada");
+        // ── POST (lógica existente sin cambios) ──
+        if (editingPost) {
+          await updatePostText(editingPost.id, data.text, id);
+          if (data.imagesToDelete?.length) await deleteImagesFromPost(editingPost.id, data.imagesToDelete);
+          if (data.imageFiles?.length) await addImagesToPost(editingPost.id, data.imageFiles);
+          flashSuccess("✅ Publicación actualizada");
+        } else {
+          if (!data.imageFiles?.length) { flashError("Subí al menos una imagen"); return; }
+          await createPost(data.text, id, data.imageFiles);
+          flashSuccess("✅ Publicación creada");
+        }
       }
       await loadPosts(id);
       setShowModal(false);
-    } catch (err) { flashError(err.message || "Error al guardar la publicación"); }
+    } catch (err) { flashError(err.message || "Error al guardar"); }
     finally { setLoad("creatingPost", false); setEditingPost(null); }
   };
-
-  const handleDeletePost = async (postId) => {
-    if (!isOwner) { flashError("No tenés permisos para eliminar publicaciones"); return; }
-    if (!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
+  const handleDeletePost = async (postId, type = "post") => {
+    if (!isOwner) { flashError("No tenés permisos"); return; }
+    if (!window.confirm("¿Eliminar? Esta acción no se puede deshacer.")) return;
     setLoad("deletingPost", true);
     try {
-      await deletePost(postId);
+      if (type === "event") {
+        await deleteEvent(postId);
+      } else {
+        await deletePost(postId);
+      }
       setPosts((p) => p.filter((x) => x.id !== postId));
-      flashSuccess("✅ Publicación eliminada");
+      flashSuccess("✅ Eliminado");
     } catch (err) { flashError(err.message || "Error al eliminar"); }
     finally { setLoad("deletingPost", false); }
   };
+  
 
   const openModal = (type, post = null) => {
     setModalType(type); setEditingPost(post); setShowModal(true);
@@ -821,7 +853,7 @@ const ProfileHeader = ({
                 <div className={styles.eventBody}>
                   <div className={styles.postActions}>
                     <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
-                    <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.id)} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
+                    <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.id, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
                   </div>
                 </div>
               )}

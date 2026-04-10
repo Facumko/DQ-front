@@ -37,6 +37,14 @@ const ENDPOINTS = {
   MAIN_FEED: '/main/feed',
   FOR_YOU_FEED: '/foryou/feed',
   // Favoritos - ACTUALIZADOS
+  // Eventos
+  CREATE_EVENT: '/evento/guardar',
+  GET_ALL_EVENTS: '/evento/traer',
+  GET_EVENT_BY_ID: (id) => `/evento/traer/${id}`,
+  UPDATE_EVENT: (id) => `/evento/editar/${id}`,
+  DELETE_EVENT: (id) => `/evento/eliminar/${id}`,
+  ADD_IMAGES_TO_EVENT: (id) => `/evento/agregar/imagenes/${id}`,
+  DELETE_IMAGES_FROM_EVENT: (id) => `/evento/eliminar/imagenes/${id}`,
   FAV_COMMERCE_ADD:    (idCommerce) => `/usuario/agregar/comercio/fav/${idCommerce}`,
   FAV_COMMERCE_REMOVE: (idCommerce) => `/usuario/eliminar/comercio/fav/${idCommerce}`,
   FAV_COMMERCES_GET:   '/usuario/traer/mis/comercios/fav',
@@ -382,7 +390,12 @@ const apiRequest = async (method, endpoint, data=null, retries=MAX_RETRIES) => {
 // ============================================
 // AUTH
 // ============================================
-
+// Convierte date "2026-04-10" + time "20:00" → "2026-04-10T20:00:00"
+export const toLocalDateTime = (date, time) => {
+  if (!date) throw new Error('La fecha es obligatoria');
+  const t = time || '00:00';
+  return `${date}T${t}:00`;
+};
 export const loginUser = async (email, password) => {
   validateParams({ email, password }, ['email', 'password']);
   if (!validateEmail(email)) throw new Error('Por favor ingresa un email válido');
@@ -911,6 +924,87 @@ export const getCommercesByCategories = async (categoryIds) => {
     return Array.isArray(response) ? response : [];
   } catch (error) { if (isDevelopment) console.error('Error filtrando por categorías:', error); throw error; }
 };
+
+// ============================================
+// EVENTOS
+// ============================================
+
+export const createEvent = async (eventData, imageFiles = []) => {
+  validateParams({ eventData }, ['eventData']);
+  if (!imageFiles?.length) throw new Error('Debes subir al menos una imagen');
+
+  const formData = new FormData();
+  formData.append('title',            eventData.title);
+  formData.append('description',      eventData.description);
+  formData.append('startDate',        eventData.startDate);   // formato ISO: "2026-04-10T20:00:00"
+  formData.append('endDate',          eventData.endDate);
+  formData.append('idCommerceOwner',  eventData.idCommerceOwner);
+  if (eventData.address) formData.append('address', JSON.stringify(eventData.address));
+  imageFiles.forEach(f => formData.append('images', f));
+
+  try {
+    const { accessToken } = getStoredTokens();
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.CREATE_EVENT}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        },
+        timeout: 60000
+      }
+    );
+    return response.data;
+  } catch (error) { throw handleApiError(error, 'createEvent'); }
+};
+
+export const getAllEvents = async () => apiRequest('GET', ENDPOINTS.GET_ALL_EVENTS);
+
+export const getEventById = async (id) => {
+  validateParams({ id }, ['id']);
+  return apiRequest('GET', ENDPOINTS.GET_EVENT_BY_ID(id));
+};
+
+export const updateEvent = async (id, eventDto) => {
+  validateParams({ id, eventDto }, ['id', 'eventDto']);
+  return apiRequest('PUT', ENDPOINTS.UPDATE_EVENT(id), eventDto);
+};
+
+export const deleteEvent = async (id) => {
+  validateParams({ id }, ['id']);
+  return apiRequest('DELETE', ENDPOINTS.DELETE_EVENT(id));
+};
+
+export const addImagesToEvent = async (id, imageFiles) => {
+  validateParams({ id, imageFiles }, ['id', 'imageFiles']);
+  if (!Array.isArray(imageFiles) || imageFiles.length === 0) throw new Error('Al menos una imagen');
+  const formData = new FormData();
+  imageFiles.forEach(f => formData.append('images', f));
+  try {
+    const response = await axios.post(
+      `${API_URL}${ENDPOINTS.ADD_IMAGES_TO_EVENT(id)}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data', 'ngrok-skip-browser-warning': 'true' }, timeout: 60000 }
+    );
+    return response.data;
+  } catch (error) { throw handleApiError(error, 'addImagesToEvent'); }
+};
+
+export const deleteImagesFromEvent = async (id, imageIds) => {
+  validateParams({ id, imageIds }, ['id', 'imageIds']);
+  if (!Array.isArray(imageIds) || imageIds.length === 0) throw new Error('Al menos un ID');
+  const queryParams = imageIds.map(imgId => `eventIds=${imgId}`).join('&');
+  try {
+    const { accessToken } = getStoredTokens();
+    const response = await axios.delete(
+      `${API_URL}${ENDPOINTS.DELETE_IMAGES_FROM_EVENT(id)}?${queryParams}`,
+      { headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) }, timeout: TIMEOUT }
+    );
+    return response.data;
+  } catch (error) { throw handleApiError(error, 'deleteImagesFromEvent'); }
+};
 // ============================================
 // EXPORTACIÓN
 // ============================================
@@ -935,4 +1029,5 @@ export default {
   replaceCommerceSchedules,
   scheduleToBackend,
   scheduleFromBackend, addCommerceCategories, removeCommerceCategories, getCommercesByCategories,
+  createEvent, getAllEvents, getEventById, updateEvent, deleteEvent, addImagesToEvent, deleteImagesFromEvent, toLocalDateTime 
 };
