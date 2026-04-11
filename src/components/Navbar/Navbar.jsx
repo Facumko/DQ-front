@@ -46,11 +46,17 @@ const Navbar = () => {
   const [showSuggestions, setShowSuggestions]       = useState(false);
   const searchTimeoutRef = useRef(null);
 
-  // Cerrar sugerencias al cambiar de ruta
+  // Sincronizar input con URL cuando estamos en /search
   useEffect(() => {
-    setShowSuggestions(false);
-    setSearchText("");
-  }, [location.pathname]);
+    if (location.pathname === "/search") {
+      const params = new URLSearchParams(location.search);
+      setSearchText(params.get("q") || "");
+      setShowSuggestions(false);
+    } else {
+      setShowSuggestions(false);
+      setSearchText("");
+    }
+  }, [location.pathname, location.search]);
 
   // Cerrar menú usuario al clickear afuera
   useEffect(() => {
@@ -94,6 +100,16 @@ const Navbar = () => {
 
   const handleSearchChange = useCallback((text) => {
     setSearchText(text);
+
+    // Si estamos en /search, actualizar URL en tiempo real sin dropdown
+    if (location.pathname === "/search") {
+      navigate(`/search?q=${encodeURIComponent(text.trim())}`, { replace: true });
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    // En otras páginas, mostrar dropdown de sugerencias
     if (text.trim().length === 0) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -113,13 +129,12 @@ const Navbar = () => {
         setLoadingSuggestions(false);
       }
     }, 300);
-  }, []);
+  }, [navigate, location.pathname]);
 
   const handleSearch = useCallback(() => {
     if (!searchText.trim()) return;
     navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
     setShowSuggestions(false);
-    setSearchText("");
   }, [searchText, navigate]);
 
   const handleKeyPress = useCallback(
@@ -184,10 +199,9 @@ const Navbar = () => {
             onKeyPress={handleKeyPress}
           />
 
-          {/* Sugerencias */}
-          {(showSuggestions || loadingSuggestions) && (
+          {/* Sugerencias — solo fuera de /search */}
+          {location.pathname !== "/search" && (showSuggestions || loadingSuggestions) && (
             <div className={styles.suggestions}>
-
               {loadingSuggestions && (
                 <div className={styles.loadingItem}>
                   <span className={styles.loadingDot} />
@@ -195,13 +209,11 @@ const Navbar = () => {
                   <span className={styles.loadingDot} />
                 </div>
               )}
-
               {!loadingSuggestions && showSuggestions && suggestions.length === 0 && (
                 <div className={styles.noResults}>
                   Sin resultados para "{searchText}"
                 </div>
               )}
-
               {!loadingSuggestions && suggestions.map((commerce, idx) => (
                 <div key={commerce.idCommerce}>
                   <div
@@ -232,7 +244,6 @@ const Navbar = () => {
                   {idx < suggestions.length - 1 && <div className={styles.suggestionDivider} />}
                 </div>
               ))}
-
             </div>
           )}
         </div>

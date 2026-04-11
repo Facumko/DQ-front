@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import {
   searchCommerces,
   getAllCommerces,
@@ -16,8 +16,10 @@ const LIMIT = 12;
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const query = searchParams.get("q");
+  // Leer query desde location para reaccionar a replace:true
+  const query = new URLSearchParams(location.search).get("q");
   const categoryIdsParam = searchParams.get("categoryIds");
   const isAgregados = searchParams.get("agregados") === "true";
   const isAllMode = !isAgregados && query !== null && query.trim() === "";
@@ -30,7 +32,6 @@ const SearchPage = () => {
   const [hasMore, setHasMore] = useState(false);
   const offsetRef = useRef(0);
 
-  // Categorías
   const [categories, setCategories] = useState([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(() =>
     categoryIdsParam ? [Number(categoryIdsParam)] : []
@@ -64,7 +65,6 @@ const SearchPage = () => {
           setResults(all);
           setHasMore(false);
         } else if (selectedCategoryIds.length > 0) {
-          // Filtrar por categorías, opcionalmente combinar con texto
           let newResults = await getCommercesByCategories(selectedCategoryIds);
           if (query?.trim()) {
             const q = query.toLowerCase();
@@ -116,13 +116,10 @@ const SearchPage = () => {
     );
   };
 
-  // Título dinámico
   const getTitle = () => {
     if (isAgregados) return "Agregados recientemente";
-    if (selectedCategoryIds.length > 0 && !query?.trim())
-      return "Negocios por categoría";
-    if (selectedCategoryIds.length > 0 && query?.trim())
-      return `"${query}" en categorías seleccionadas`;
+    if (selectedCategoryIds.length > 0 && !query?.trim()) return "Negocios por categoría";
+    if (selectedCategoryIds.length > 0 && query?.trim()) return `"${query}" en categorías seleccionadas`;
     if (isAllMode) return "Todos los negocios";
     return `Resultados para "${query}"`;
   };
@@ -130,17 +127,12 @@ const SearchPage = () => {
   if (loading) {
     return (
       <div className={styles.container}>
-        {/* Chips de categoría visibles aunque esté cargando */}
         {categories.length > 0 && (
           <div className={styles.categoryChips}>
             {categories.map((cat) => (
               <button
                 key={cat.idCategory}
-                className={`${styles.chip} ${
-                  selectedCategoryIds.includes(cat.idCategory)
-                    ? styles.chipActive
-                    : ""
-                }`}
+                className={`${styles.chip} ${selectedCategoryIds.includes(cat.idCategory) ? styles.chipActive : ""}`}
                 onClick={() => toggleCategory(cat.idCategory)}
               >
                 {cat.name}
@@ -151,11 +143,7 @@ const SearchPage = () => {
         <div className={styles.loadingContainer}>
           <Loader size={40} className={styles.spinner} />
           <p>
-            {isAgregados
-              ? "Cargando novedades..."
-              : isAllMode
-              ? "Cargando negocios..."
-              : "Buscando..."}
+            {isAgregados ? "Cargando novedades..." : isAllMode ? "Cargando negocios..." : "Buscando..."}
           </p>
         </div>
       </div>
@@ -164,7 +152,6 @@ const SearchPage = () => {
 
   return (
     <div className={styles.container}>
-      {/* Chips de categoría */}
       {categories.length > 0 && (
         <div className={styles.categoryChips}>
           {selectedCategoryIds.length > 0 && (
@@ -178,11 +165,7 @@ const SearchPage = () => {
           {categories.map((cat) => (
             <button
               key={cat.idCategory}
-              className={`${styles.chip} ${
-                selectedCategoryIds.includes(cat.idCategory)
-                  ? styles.chipActive
-                  : ""
-              }`}
+              className={`${styles.chip} ${selectedCategoryIds.includes(cat.idCategory) ? styles.chipActive : ""}`}
               onClick={() => toggleCategory(cat.idCategory)}
             >
               {cat.name}
@@ -197,11 +180,7 @@ const SearchPage = () => {
           {results.length > 0 && (
             <p className={styles.queryText}>
               {results.length} negocio{results.length !== 1 ? "s" : ""}
-              {isAgregados
-                ? " nuevos en los últimos 30 días"
-                : isAllMode
-                ? " en Sáenz Peña"
-                : ` encontrado${results.length !== 1 ? "s" : ""}`}
+              {isAgregados ? " nuevos en los últimos 30 días" : isAllMode ? " en Sáenz Peña" : ` encontrado${results.length !== 1 ? "s" : ""}`}
             </p>
           )}
         </div>
@@ -218,25 +197,17 @@ const SearchPage = () => {
         <div className={styles.noResults}>
           <SearchX size={56} strokeWidth={1.5} />
           <h3>
-            {isAgregados
-              ? "No hay negocios nuevos este mes"
-              : isAllMode
-              ? "Todavía no hay negocios registrados"
-              : selectedCategoryIds.length > 0
-              ? "No hay negocios en estas categorías"
+            {isAgregados ? "No hay negocios nuevos este mes"
+              : isAllMode ? "Todavía no hay negocios registrados"
+              : selectedCategoryIds.length > 0 ? "No hay negocios en estas categorías"
               : "No se encontraron negocios"}
           </h3>
           <p>
-            {isAgregados
-              ? "Volvé pronto, ¡cada día se suman más!"
-              : selectedCategoryIds.length > 0
-              ? "Probá con otras categorías o limpiá los filtros"
+            {isAgregados ? "Volvé pronto, ¡cada día se suman más!"
+              : selectedCategoryIds.length > 0 ? "Probá con otras categorías o limpiá los filtros"
               : "Probá con otro término o revisá la ortografía"}
           </p>
-          <button
-            className={styles.backButton}
-            onClick={() => navigate("/")}
-          >
+          <button className={styles.backButton} onClick={() => navigate("/")}>
             Volver al inicio
           </button>
         </div>
@@ -246,10 +217,7 @@ const SearchPage = () => {
         <>
           <div className={styles.resultsGrid}>
             {results.map((commerce) => (
-              <SearchResultCard
-                key={commerce.idCommerce}
-                commerce={commerce}
-              />
+              <SearchResultCard key={commerce.idCommerce} commerce={commerce} />
             ))}
           </div>
 
@@ -261,9 +229,7 @@ const SearchPage = () => {
                 disabled={loadingMore}
               >
                 {loadingMore ? (
-                  <>
-                    <Loader size={16} className={styles.spinner} /> Cargando...
-                  </>
+                  <><Loader size={16} className={styles.spinner} /> Cargando...</>
                 ) : (
                   "Ver más resultados"
                 )}

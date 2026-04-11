@@ -43,6 +43,7 @@ const ENDPOINTS = {
   GET_EVENT_BY_ID: (id) => `/evento/traer/${id}`,
   UPDATE_EVENT: (id) => `/evento/editar/${id}`,
   DELETE_EVENT: (id) => `/evento/eliminar/${id}`,
+  GET_EVENTS_BY_COMMERCE: (id) => `/evento/traer/comercio/${id}`,
   ADD_IMAGES_TO_EVENT: (id) => `/evento/agregar/imagenes/${id}`,
   DELETE_IMAGES_FROM_EVENT: (id) => `/evento/eliminar/imagenes/${id}`,
   FAV_COMMERCE_ADD:    (idCommerce) => `/usuario/agregar/comercio/fav/${idCommerce}`,
@@ -1004,6 +1005,17 @@ export const deleteImagesFromEvent = async (id, imageIds) => {
     );
     return response.data;
   } catch (error) { throw handleApiError(error, 'deleteImagesFromEvent'); }
+};
+
+export const getEventsByCommerce = async (commerceId) => {
+  validateParams({ commerceId }, ['commerceId']);
+  try {
+    const response = await apiRequest('GET', `/evento/traer/comercio/${commerceId}`);
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    if (error.message?.includes('404')) return [];
+    throw error;
+  }
 };
 // ============================================
 // EXPORTACIÓN

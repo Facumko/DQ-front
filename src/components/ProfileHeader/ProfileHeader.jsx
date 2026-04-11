@@ -10,7 +10,7 @@ import {
   getCategories, addCommerceCategories, removeCommerceCategories,
   createEvent, updateEvent, deleteEvent,
   addImagesToEvent, deleteImagesFromEvent,
-  toLocalDateTime,
+  toLocalDateTime, getEventsByCommerce 
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, 
@@ -172,6 +172,7 @@ const ProfileHeader = ({
   const [posts,      setPosts]     = useState([]);
   const [activeTab,  setActiveTab] = useState("posts");
   const [businessId, setBusinessId]= useState(null);
+  const [events, setEvents] = useState([]);
 
   const [businessData, setBusinessData] = useState({
     name:"", email:"", phone:"", link:"", description:"",
@@ -279,9 +280,13 @@ const ProfileHeader = ({
     if (!id) return;
     setLoad("posts", true);
     try {
-      const raw = await getPostsByCommerce(id);
-      setPosts(Array.isArray(raw) ? raw.map(normalizePost) : []);
-    } catch { setPosts([]); }
+      const [rawPosts, rawEvents] = await Promise.all([
+        getPostsByCommerce(id),
+        getEventsByCommerce(id),
+      ]);
+      setPosts(Array.isArray(rawPosts) ? rawPosts.map(normalizePost) : []);
+      setEvents(Array.isArray(rawEvents) ? rawEvents : []);
+    } catch { setPosts([]); setEvents([]); }
     finally { setLoad("posts", false); }
   };
 
@@ -464,8 +469,9 @@ const ProfileHeader = ({
   const sortedPosts  = useMemo(() =>
     posts.filter(p => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
     [posts]);
-  const sortedEvents = useMemo(() => posts.filter(p => p.type === "event"), [posts]);
-
+  const sortedEvents = useMemo(() =>
+    [...events].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)),
+    [events]);
   const handleSubmitPost = async (data) => {
     if (!isOwner) { flashError("No tenés permisos"); return; }
     if (!businessId) { flashError("Creá el negocio primero"); return; }
@@ -830,37 +836,36 @@ const ProfileHeader = ({
             </div>
           ))
         )}
-
-        {activeTab === "events" && (
-          sortedEvents.length === 0 ? (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>📅</div>
-              <p className={styles.emptyTitle}>Sin eventos aún</p>
-              <p className={styles.emptyDesc}>{isOwner ? "¡Creá el primer evento!" : "Este negocio no tiene eventos todavía."}</p>
-            </div>
-          ) : sortedEvents.map((ev) => (
-            <div key={ev.id} className={styles.eventCard}>
-              {ev.images?.length > 0 && <PostGallery images={ev.images} showThumbnails={true}/>}
-              <div className={styles.eventHeader}>
-                <h3 className={styles.eventTitle}>{ev.text}</h3>
-                <div className={styles.eventMeta}>
-                  {ev.date     && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.date}</span>}
-                  {ev.time     && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.time}</span>}
-                  {ev.location && <span className={styles.eventMetaItem}><ArrowRight size={13}/>{ev.location}</span>}
+            {activeTab === "events" && (
+              sortedEvents.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyIcon}>📅</div>
+                  <p className={styles.emptyTitle}>Sin eventos aún</p>
+                  <p className={styles.emptyDesc}>{isOwner ? "¡Creá el primer evento!" : "Este negocio no tiene eventos todavía."}</p>
                 </div>
-              </div>
-              {isOwner && (
-                <div className={styles.eventBody}>
-                  <div className={styles.postActions}>
-                    <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
-                    <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.id, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
+              ) : sortedEvents.map((ev) => (
+                <div key={ev.idEvent} className={styles.eventCard}>
+                  {ev.images?.length > 0 && <PostGallery images={ev.images.map(i => i.url || i)} showThumbnails={true}/>}
+                  <div className={styles.eventHeader}>
+                    <h3 className={styles.eventTitle}>{ev.title}</h3>
+                    <div className={styles.eventMeta}>
+                      {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[0]}</span>}
+                      {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[1]?.slice(0,5)}</span>}
+                    </div>
+                    {ev.description && <p className={styles.descriptionText} style={{padding: "0 18px 10px"}}>{ev.description}</p>}
                   </div>
+                  {isOwner && (
+                    <div className={styles.eventBody}>
+                      <div className={styles.postActions}>
+                        <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                        <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.idEvent, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))
+            )}
             </div>
-          ))
-        )}
-      </div>
 
       <CreatePostModal
         isOpen={showModal}
