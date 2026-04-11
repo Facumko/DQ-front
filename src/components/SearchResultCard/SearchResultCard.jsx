@@ -61,11 +61,6 @@ const SearchResultCard = ({ commerce }) => {
       <div className={styles.info}>
         <h3 className={styles.name}>{commerce.name}</h3>
 
-        {/* Badge de categoría */}
-        {categoryName && (
-          <span className={styles.categoryBadge}>{categoryName}</span>
-        )}
-
         {status.label && (
           <div className={styles.status}>
             <Clock size={14} />

@@ -527,3 +527,17 @@
   .loginButton span { display: none; }
   .loginButton { padding: 8px 10px; }
 }
+
+.suggestionDivider {
+  height: 1px;
+  background: #f3f4f6;
+  margin: 0 12px;
+}
+
+.noResults {
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  color: #9ca3af;
+  text-align: center;
+  font-style: italic;
+}
