@@ -1,72 +1,78 @@
-import React from "react";
+import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { UserContext } from "../../pages/UserContext";
 import styles from "./SearchResultCard.module.css";
-import { MapPin, Clock } from "lucide-react";
+import { Clock, Star } from "lucide-react";
 
 const SearchResultCard = ({ commerce }) => {
   const navigate = useNavigate();
+  const { user, favoriteCommerceIds, toggleFavoriteCommerce } = useContext(UserContext);
 
-  // Status de horario (simplificado)
+  const id    = commerce.idCommerce;
+  const isFav = favoriteCommerceIds?.has(id) ?? false;
+
   const getStatus = () => {
-    if (!commerce.schedules || commerce.schedules.length === 0) {
-      return { isOpen: false, label: "Horario no disponible" };
-    }
-    // Por ahora retornamos neutral, después se puede mejorar
-    return { isOpen: false, label: "Ver horarios" };
+    if (!commerce.schedules?.length) return { label: "Horario no disponible" };
+    return { label: "Ver horarios" };
   };
 
-  const status = getStatus();
+  const status  = getStatus();
+  const initial = commerce.name?.charAt(0).toUpperCase() || "?";
 
-  // Placeholder de imagen
-  const getInitial = () => {
-    return commerce.name?.charAt(0).toUpperCase() || "?";
-  };
+  // Categoría a mostrar (filtrar valores internos no útiles)
+  const HIDDEN = ["private", "PUBLIC", "PRIVATE", "public"];
 
-  const handleClick = () => {
-    navigate(`/negocios/${commerce.idCommerce}`);
+  const handleClick = () => navigate(`/negocios/${id}`);
+
+  const handleFav = (e) => {
+    e.stopPropagation();
+    if (!user) { navigate("/login"); return; }
+    toggleFavoriteCommerce(commerce);
   };
 
   return (
     <div className={styles.card} onClick={handleClick}>
-      {/* Portada de fondo */}
+
       <div className={styles.coverBackground}>
-        {commerce.coverImage?.url ? (
-          <img src={commerce.coverImage.url} alt="" />
-        ) : (
-          <div className={styles.coverPlaceholder} />
-        )}
+        {commerce.coverImage?.url
+          ? <img src={commerce.coverImage.url} alt="" />
+          : <div className={styles.coverPlaceholder} />
+        }
       </div>
 
-      {/* Perfil circular */}
+      <button
+        className={`${styles.favBtn} ${isFav ? styles.favBtnActive : ""}`}
+        onClick={handleFav}
+        title={isFav ? "Quitar de favoritos" : "Guardar en favoritos"}
+      >
+        <Star size={16} fill={isFav ? "currentColor" : "none"} strokeWidth={2} />
+      </button>
+
       <div className={styles.profileCircle}>
-        {commerce.profileImage?.url ? (
-          <img src={commerce.profileImage.url} alt={commerce.name} />
-        ) : (
-          <div className={styles.profilePlaceholder}>
-            {getInitial()}
-          </div>
-        )}
+        {commerce.profileImage?.url
+          ? <img src={commerce.profileImage.url} alt={commerce.name} />
+          : <div className={styles.profilePlaceholder}>{initial}</div>
+        }
       </div>
 
-      {/* Info del comercio */}
       <div className={styles.info}>
         <h3 className={styles.name}>{commerce.name}</h3>
-        
+
         {status.label && (
           <div className={styles.status}>
             <Clock size={14} />
             <span>{status.label}</span>
           </div>
         )}
-
         {commerce.description && (
           <p className={styles.description}>
-            {commerce.description.length > 100 
-              ? `${commerce.description.substring(0, 100)}...` 
+            {commerce.description.length > 100
+              ? `${commerce.description.substring(0, 100)}...`
               : commerce.description}
           </p>
         )}
       </div>
+
     </div>
   );
 };

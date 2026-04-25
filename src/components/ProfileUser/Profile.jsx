@@ -1,803 +1,635 @@
 import React, { useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { UserContext } from "../../pages/UserContext";
-import { getUserById, updateUser } from "../../Api/Api";
+import { getMyUser, updateUser } from "../../Api/Api";
 import styles from "./Profile.module.css";
-import { 
-  User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle, 
-  Loader, Eye, EyeOff, RefreshCw, Shield, Info 
+import {
+  User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle,
+  Loader, Eye, EyeOff, RefreshCw, Shield, AtSign, RotateCcw, Info
 } from "lucide-react";
 
-const Profile = () => {
-  const { user, updateUserContext, logout } = useContext(UserContext);
-  const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(""); // VUELTO: Mensaje de error inline
-  const [success, setSuccess] = useState(""); // VUELTO: Mensaje de éxito inline
+/* ─────────────────────────────────────────
+   Reglas de validación por campo
+───────────────────────────────────────── */
+const RULES = {
+  name: {
+    max: 45,
+    validate: (v) => {
+      if (!v) return null;
+      if (v.length < 2)                                   return "Mínimo 2 caracteres";
+      if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(v))       return "Solo se permiten letras";
+      return null;
+    },
+  },
+  lastname: {
+    max: 45,
+    validate: (v) => {
+      if (!v) return null;
+      if (v.length < 2)                                   return "Mínimo 2 caracteres";
+      if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(v))       return "Solo se permiten letras";
+      return null;
+    },
+  },
+  username: {
+    max: 25,
+    validate: (v) => {
+      if (!v) return null;
+      if (v.length < 3)                                   return "Mínimo 3 caracteres";
+      if (!/^[a-zA-Z0-9_.-]+$/.test(v))                  return "Solo letras, números, punto, guión o _";
+      return null;
+    },
+  },
+  email: {
+    max: 100,
+    required: true,
+    validate: (v) => {
+      if (!v)                                             return "El email es obligatorio";
+      if (!/^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v))
+                                                          return "Formato inválido (ej: vos@ejemplo.com)";
+      return null;
+    },
+  },
+  recoveryEmail: {
+    max: 100,
+    validate: (v, all) => {
+      if (!v) return null;
+      if (!/^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v))
+                                                          return "Formato inválido (ej: recuperacion@ejemplo.com)";
+      if (all && v.trim() === all.email?.trim())          return "Debe ser diferente al email principal";
+      return null;
+    },
+  },
+  phone: {
+    max: 20,
+    validate: (v) => {
+      if (!v) return null;
+      const digits = v.replace(/\D/g, "");
+      if (digits.length < 7)                              return "Mínimo 7 dígitos";
+      if (digits.length > 15)                             return "Máximo 15 dígitos";
+      return null;
+    },
+  },
+  password: {
+    max: 100,
+    validate: (v) => {
+      if (!v) return null;
+      if (v.length < 8)                                   return "Mínimo 8 caracteres";
+      return null;
+    },
+    strength: (v) => {
+      if (!v || v.length < 8) return { level: "weak",   label: "Muy débil" };
+      const n = [/[A-Z]/.test(v), /[a-z]/.test(v), /\d/.test(v),
+                 /[!@#$%^&*_+\-=[\]{};':",.<>/?]/.test(v), v.length >= 12]
+                .filter(Boolean).length;
+      if (n >= 4) return { level: "strong", label: "Fuerte" };
+      if (n >= 2) return { level: "medium", label: "Media"  };
+      return         { level: "weak",   label: "Débil"  };
+    },
+  },
+};
+
+/* ─────────────────────────────────────────
+   Componente
+───────────────────────────────────────── */
+export default function Profile() {
+  const { user, updateUserContext } = useContext(UserContext);
+
+  const [isEditing,   setIsEditing]   = useState(false);
+  const [loading,     setLoading]     = useState(false);
   const [loadingData, setLoadingData] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
+  const [toast,       setToast]       = useState(null);
 
-  // Estados de datos
   const [originalData, setOriginalData] = useState(null);
-  const [formData, setFormData] = useState({
-    username: "",
-    name: "",
-    lastname: "",
-    email: "",
-    recoveryEmail: "",
-    phone: "",
-    password: ""
+  const [formData,     setFormData]     = useState({
+    username: "", name: "", lastname: "",
+    email: "", recoveryEmail: "", phone: "", password: "",
   });
+  const [touched,   setTouched]   = useState({});
+  const [pwVisible, setPwVisible] = useState(false);
 
-  // Estado de validación
-  const [validationStatus, setValidationStatus] = useState({});
-  const [fieldErrors, setFieldErrors] = useState({});
-  
-  // Estado contraseña
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
-  const [passwordVisibility, setPasswordVisibility] = useState({
-    current: false,
-    new: false,
-    confirm: false
-  });
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: ""
-  });
+  const [showPwSection, setShowPwSection] = useState(false);
+  const [pwData,        setPwData]        = useState({ current: "", next: "", confirm: "" });
+  const [pwVis,         setPwVis]         = useState({ current: false, next: false, confirm: false });
 
-  // Modal
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [pendingChanges, setPendingChanges] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
 
-  // ============================================
-  // VALIDACIONES
-  // ============================================
-
-  const VALIDATIONS = useMemo(() => ({
-    email: {
-      min: 5,
-      max: 100,
-      pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-      message: 'Email inválido (ej: usuario@ejemplo.com)',
-      required: true
-    },
-    recoveryEmail: {
-      min: 5,
-      max: 100,
-      pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-      message: 'Formato de email inválido',
-      required: false,
-      customValidation: (value, allData) => {
-        if (value && value === allData.email) {
-          return 'Debe ser diferente al email principal';
-        }
-        return null;
-      }
-    },
-    username: {
-      min: 3,
-      max: 25,
-      pattern: /^[a-zA-Z0-9_-]+$/,
-      message: '3-25 caracteres (letras, números, _ y -)',
-      required: false
-    },
-    name: {
-      min: 2,
-      max: 45,
-      pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/,
-      message: '2-45 caracteres (solo letras)',
-      required: false
-    },
-    lastname: {
-      min: 2,
-      max: 45,
-      pattern: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/,
-      message: '2-45 caracteres (solo letras)',
-      required: false
-    },
-    phone: {
-      min: 10,
-      max: 10,
-      pattern: /^[\d\s+()-]+$/,
-      message: '10 caracteres (ej: (364) 4123456)',
-      required: false
-    },
-    password: {
-      min: 8,
-      max: 100,
-      message: 'Mínimo 8 caracteres',
-      required: false,
-      validateStrength: (value) => {
-        if (!value) return null;
-        const hasUpper = /[A-Z]/.test(value);
-        const hasLower = /[a-z]/.test(value);
-        const hasNumber = /\d/.test(value);
-        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(value);
-        
-        if (value.length < 8) return { level: 'weak', message: 'Muy débil: mínimo 8 caracteres' };
-        if (hasUpper && hasLower && hasNumber && hasSpecial && value.length >= 12) {
-          return { level: 'strong', message: 'Muy fuerte' };
-        }
-        if ((hasUpper || hasLower) && hasNumber && value.length >= 8) {
-          return { level: 'medium', message: 'Media' };
-        }
-        return { level: 'weak', message: 'Débil: usa mayúsculas, números y símbolos' };
-      }
-    }
-  }), []);
-
-  // Validar campo individual
-  const validateField = useCallback((fieldName, value, allFormData) => {
-    const rules = VALIDATIONS[fieldName];
-    if (!rules) return { isValid: true, error: null, status: 'valid' };
-
-    const trimmedValue = value?.trim() || '';
-    let error = null;
-    
-    // Campo obligatorio
-    if (rules.required && trimmedValue === '') {
-      error = `El campo es requerido`;
-    }
-    
-    // Validación personalizada
-    if (!error && rules.customValidation && allFormData) {
-      error = rules.customValidation(trimmedValue, allFormData);
-    }
-    
-    // Longitud mínima
-    if (!error && rules.min && trimmedValue.length < rules.min) {
-      error = `Mínimo ${rules.min} caracteres`;
-    }
-    
-    // Longitud máxima (ya no debería pasar por el truncado, pero lo mantenemos)
-    if (!error && rules.max && trimmedValue.length > rules.max) {
-      error = `Máximo ${rules.max} caracteres`;
-    }
-    
-    // Patrón
-    if (!error && rules.pattern && trimmedValue && !rules.pattern.test(trimmedValue)) {
-      error = rules.message;
-    }
-
-    // Fortaleza contraseña
-    let strength = null;
-    if (!error && rules.validateStrength && trimmedValue) {
-      strength = rules.validateStrength(trimmedValue);
-    }
-
-    return {
-      isValid: !error,
-      error,
-      status: error ? 'error' : trimmedValue ? 'success' : 'idle',
-      strength
-    };
-  }, [VALIDATIONS]);
-
-  // Validar todos los campos
-  const validateAllFields = useCallback((data) => {
-    const results = {};
-    let isValid = true;
-
-    Object.keys(data).forEach(key => {
-      if (key === 'password' && !data[key]) return;
-      const result = validateField(key, data[key], data);
-      results[key] = result;
-      if (!result.isValid) isValid = false;
-    });
-
-    return { results, isValid };
-  }, [validateField]);
-
-  // ============================================
-  // CARGAR DATOS
-  // ============================================
-
-  const showNotification = useCallback((message, type = 'error') => {
-    // VUELTO: Usar el sistema de notificación inline original
-    if (type === 'success') {
-      setSuccess(message);
-      setError(""); // Limpiar error si hay éxito
-      setTimeout(() => setSuccess(""), 4000);
-    } else {
-      setError(message);
-      setSuccess(""); // Limpiar éxito si hay error
-      setTimeout(() => setError(""), 4000);
-    }
+  /* ── Toast ── */
+  const showToast = useCallback((msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4500);
   }, []);
 
-  const loadUserData = useCallback(async (isRetry = false) => {
-    if (!user?.id_user) {
-      setLoadingData(false);
-      setError("No hay usuario autenticado");
-      return;
-    }
-
+  /* ── Cargar datos ── */
+  const loadUserData = useCallback(async () => {
+    if (!user?.id_user) { setLoadingData(false); return; }
     setLoadingData(true);
-    setError(""); // Limpiar errores al cargar
-
     try {
-      const userData = await getUserById(user.id_user);
-      
-      if (!userData.email) throw new Error("Datos incompletos del servidor");
-
-      const normalized = {
-        username: userData.username || "",
-        name: userData.name || "",
-        lastname: userData.lastname || "",
-        email: userData.email || "",
-        recoveryEmail: userData.recovery_email || "",
-        phone: userData.phone || ""
+      const d = await getMyUser();
+      const norm = {
+        username:      d.username       || "",
+        name:          d.name           || "",
+        lastname:      d.lastname       || "",
+        email:         d.email          || "",
+        recoveryEmail: d.recovery_email || "",
+        phone:         d.phone          || "",
       };
-
-      setOriginalData(normalized);
-      setFormData({ ...normalized, password: "" });
-      if (isRetry) setRetryCount(0);
-      
-    } catch (err) {
-      console.error("Error al cargar:", err);
-      setError("Error al cargar datos. Intenta nuevamente.");
+      setOriginalData(norm);
+      setFormData({ ...norm, password: "" });
+    } catch {
+      showToast("No se pudo cargar tu información. Intentá de nuevo.", "error");
     } finally {
       setLoadingData(false);
     }
-  }, [user?.id_user]);
+  }, [user?.id_user, showToast]);
 
-  useEffect(() => {
-    loadUserData();
-  }, [loadUserData]);
+  useEffect(() => { loadUserData(); }, [loadUserData]);
 
-  // ============================================
-  // MANEJO DE INPUTS
-  // ============================================
-
-  // NUEVO: Función para truncar automáticamente al máximo
-  const truncateValue = (fieldName, value) => {
-    const rules = VALIDATIONS[fieldName];
-    if (!rules || !value) return value;
-    
-    // Si el valor excede el máximo, truncarlo
-    if (rules.max && value.length > rules.max) {
-      return value.substring(0, rules.max);
-    }
-    return value;
-  };
-
-  const handleInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    
-    // NUEVO: Truncar automáticamente si excede el máximo
-    const truncatedValue = truncateValue(name, value);
-    
-    setFormData(prev => {
-      const newData = { ...prev, [name]: truncatedValue };
-      
-      // Validar con debounce
-      setTimeout(() => {
-        const result = validateField(name, truncatedValue, newData);
-        setValidationStatus(prev => ({ ...prev, [name]: result }));
-        setFieldErrors(prev => ({ ...prev, [name]: result.error }));
-      }, 300);
-
-      return newData;
+  /* ── Errores en tiempo real ── */
+  const errors = useMemo(() => {
+    const e = {};
+    Object.keys(RULES).forEach((k) => {
+      if (k === "password" && !formData.password) return;
+      const err = RULES[k].validate?.(formData[k]?.trim?.() ?? formData[k], formData);
+      if (err) e[k] = err;
     });
+    return e;
+  }, [formData]);
 
-    // Limpiar mensajes al editar
-    if (error) setError("");
-    if (success) setSuccess("");
-  }, [validateField, error, success]);
-
-  const handleUndoField = useCallback((fieldName) => {
-    setFormData(prev => ({ ...prev, [fieldName]: originalData[fieldName] }));
-    setValidationStatus(prev => ({ ...prev, [fieldName]: { isValid: true, error: null, status: 'idle' } }));
-    setFieldErrors(prev => ({ ...prev, [fieldName]: null }));
-  }, [originalData]);
-
-  // ============================================
-  // GUARDAR CAMBIOS
-  // ============================================
+  const isFormValid = useMemo(() => Object.keys(errors).length === 0, [errors]);
 
   const hasUnsavedChanges = useMemo(() => {
     if (!originalData) return false;
-    return Object.keys(originalData).some(key => 
-      formData[key] !== originalData[key]
-    ) || (formData.password && formData.password.trim() !== "");
+    return Object.keys(originalData).some((k) => formData[k] !== originalData[k])
+      || !!formData.password?.trim();
   }, [formData, originalData]);
 
-  const handleSave = useCallback(async () => {
-    if (!originalData) return;
-
-    // Validar todos los campos
-    const validation = validateAllFields(formData);
-    setValidationStatus(validation.results);
-    
-    if (!validation.isValid) {
-      setError("Corrige los errores antes de guardar");
-      return;
-    }
-
-    // Preparar datos modificados
-    const dataToSend = {};
-    let hasChanges = false;
-
-    Object.keys(originalData).forEach(key => {
-      const newValue = formData[key]?.trim();
-      if (newValue !== originalData[key] && newValue) {
-        dataToSend[key] = newValue;
-        hasChanges = true;
-      }
-    });
-
-    if (formData.password?.trim()) {
-      dataToSend.password = formData.password;
-      hasChanges = true;
-    }
-
-    if (!hasChanges) {
-      setError("No hay cambios para guardar");
-      return;
-    }
-
-    // Confirmación especial para email
-    if (dataToSend.email) {
-      setPendingChanges(dataToSend);
-      setShowConfirmModal(true);
-      return;
-    }
-
-    await saveChanges(dataToSend);
-  }, [formData, originalData, validateAllFields]);
-
-  const saveChanges = useCallback(async (dataToSend) => {
-    setLoading(true);
-    try {
-      const updatedUser = await updateUser(user.id_user, dataToSend);
-      
-      if (updateUserContext) updateUserContext(updatedUser);
-      
-      await loadUserData();
-      setIsEditing(false);
-      setFormData(prev => ({ ...prev, password: "" }));
-      setValidationStatus({});
-      setSuccess("✅ Datos actualizados correctamente"); // VUELTO: Mensaje inline
-      
-    } catch (err) {
-      console.error("Error al actualizar:", err);
-      setError("Error al guardar. Intenta nuevamente.");
-    } finally {
-      setLoading(false);
-    }
-  }, [user.id_user, updateUserContext, loadUserData]);
-
-  const confirmSave = useCallback(() => {
-    setShowConfirmModal(false);
-    saveChanges(pendingChanges);
-    setPendingChanges(null);
-  }, [pendingChanges, saveChanges]);
-
-  const cancelSave = useCallback(() => {
-    setShowConfirmModal(false);
-    setPendingChanges(null);
+  /* ── Handlers de inputs ── */
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    const max = RULES[name]?.max;
+    setFormData((p) => ({ ...p, [name]: max ? value.slice(0, max) : value }));
+    setTouched((p) => ({ ...p, [name]: true }));
   }, []);
+
+  const handleBlur = useCallback((e) => {
+    setTouched((p) => ({ ...p, [e.target.name]: true }));
+  }, []);
+
+  const handleUndoField = useCallback((name) => {
+    setFormData((p) => ({ ...p, [name]: originalData[name] }));
+    setTouched((p) => ({ ...p, [name]: false }));
+  }, [originalData]);
 
   const handleCancel = useCallback(() => {
     setFormData({ ...originalData, password: "" });
     setIsEditing(false);
-    setValidationStatus({});
-    setFieldErrors({});
-    setError("");
-    setSuccess("");
+    setTouched({});
   }, [originalData]);
 
-  // ============================================
-  // CONTRASEÑA
-  // ============================================
+  /* ── Guardar ── */
+  const handleSave = useCallback(() => {
+    const allTouched = {};
+    Object.keys(RULES).forEach((k) => { allTouched[k] = true; });
+    setTouched(allTouched);
 
-  const handlePasswordChange = useCallback(async () => {
-    const { currentPassword, newPassword, confirmPassword } = passwordData;
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setError("Todos los campos son obligatorios");
+    if (!isFormValid) {
+      showToast("Corregí los errores marcados antes de guardar.", "error");
       return;
     }
-
-    if (newPassword !== confirmPassword) {
-      setError("Las contraseñas nuevas no coinciden");
-      return;
+    const dataToSend = {};
+    Object.keys(originalData).forEach((k) => {
+      const nv = formData[k]?.trim?.() ?? formData[k];
+      if (nv !== originalData[k]) dataToSend[k] = nv;
+    });
+    if (formData.password?.trim()) dataToSend.password = formData.password.trim();
+    if (!Object.keys(dataToSend).length) {
+      showToast("No hay cambios para guardar.", "error"); return;
     }
+    if (dataToSend.email) { setConfirmModal(dataToSend); return; }
+    doSave(dataToSend);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, originalData, isFormValid, showToast]);
 
-    const result = validateField('password', newPassword);
-    if (!result.isValid) {
-      setError(result.error);
-      return;
-    }
-
+  // En doSave, filtrar campos que el backend no acepta
+  const doSave = useCallback(async (data) => {
     setLoading(true);
+
+    // Campos que acepta UserDto (única fuente de verdad del contrato)
+    const ALLOWED_FIELDS = ['name', 'lastname', 'email', 'recoveryEmail', 'phone', 'password'];
+
+    const filteredData = Object.fromEntries(
+      Object.entries(data).filter(([key]) => ALLOWED_FIELDS.includes(key))
+    );
+
     try {
-      await updateUser(user.id_user, { password: newPassword });
-      setSuccess("✅ Contraseña actualizada correctamente");
-      setShowPasswordChange(false);
-      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch (err) {
-      setError("Error al cambiar contraseña");
+      const updated = await updateUser(filteredData); // ahora devuelve UserDto fresco
+      if (updateUserContext) updateUserContext(updated);
+      await loadUserData();
+      setIsEditing(false);
+      setTouched({});
+      showToast("¡Perfil actualizado correctamente!");
+    } catch {
+      showToast("No se pudieron guardar los cambios. Intentá de nuevo.", "error");
     } finally {
       setLoading(false);
     }
-  }, [passwordData, user.id_user, validateField]);
+  }, [user?.id_user, updateUserContext, loadUserData, showToast]);
 
-  // Alerta al salir con cambios
+  /* ── Cambio de contraseña ── */
+  const handlePwChange = useCallback(async () => {
+    if (!pwData.current || !pwData.next || !pwData.confirm) {
+      showToast("Completá todos los campos de contraseña.", "error"); return;
+    }
+    if (pwData.next !== pwData.confirm) {
+      showToast("Las contraseñas nuevas no coinciden.", "error"); return;
+    }
+    const err = RULES.password.validate(pwData.next);
+    if (err) { showToast(err, "error"); return; }
+    setLoading(true);
+    try {
+      await updateUser({ password: pwData.next });
+      showToast("¡Contraseña actualizada correctamente!");
+      setShowPwSection(false);
+      setPwData({ current: "", next: "", confirm: "" });
+    } catch {
+      showToast("No se pudo cambiar la contraseña. Intentá de nuevo.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [pwData, user?.id_user, showToast]);
+
+  /* ── Guard: salir con cambios ── */
   useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (isEditing && hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
+    const warn = (e) => {
+      if (isEditing && hasUnsavedChanges) { e.preventDefault(); e.returnValue = ""; }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
   }, [isEditing, hasUnsavedChanges]);
 
-  // ============================================
-  // RENDER
-  // ============================================
-
-  if (loadingData) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.card}>
-          <div style={{ textAlign: "center", padding: "3rem" }}>
-            <div className={styles.spinner}></div>
-            <p style={{ marginTop: "1rem", color: "#666" }}>
-              Cargando información del usuario...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.card}>
-          <div style={{ textAlign: "center", padding: "3rem" }}>
-            <p style={{ color: "#dc2626", fontSize: "1.1rem" }}>
-              No hay sesión activa. Por favor inicia sesión.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const getFieldStatus = (fieldName) => {
-    const status = validationStatus[fieldName]?.status;
-    if (status === 'success') return styles.inputSuccess;
-    if (status === 'error') return styles.inputError;
-    return '';
+  /* ── Helper estado visual de campo ── */
+  const fState = (name) => {
+    if (!touched[name]) return "idle";
+    if (errors[name])   return "error";
+    if (formData[name]) return "success";
+    return "idle";
   };
 
-  const getFieldIcon = (fieldName) => {
-    const status = validationStatus[fieldName]?.status;
-    if (status === 'success') return <Check size={18} className={styles.successIcon} />;
-    if (status === 'error') return <AlertCircle size={18} className={styles.errorIcon} />;
-    return null;
-  };
+  /* ── Estados de carga / sin sesión ── */
+  if (loadingData) return (
+    <div className={styles.page}>
+      <div className={styles.centerScreen}>
+        <div className={styles.spinner} />
+        <p>Cargando tu perfil…</p>
+      </div>
+    </div>
+  );
+
+  if (!user) return (
+    <div className={styles.page}>
+      <div className={styles.centerScreen}>
+        <AlertCircle size={36} style={{ color: "#B00020" }} />
+        <p>No hay sesión activa. Por favor iniciá sesión.</p>
+      </div>
+    </div>
+  );
+
+  const displayName = [formData.name, formData.lastname].filter(Boolean).join(" ") || user?.name || "Mi cuenta";
+  const initial = displayName.charAt(0).toUpperCase();
+
+  /* ── Config de filas de campos ── */
+  const FIELD_ROWS = [
+    [
+      { key: "name",     label: "Nombre",           icon: User,   type: "text",  ph: "Tu nombre",            req: false },
+      { key: "lastname", label: "Apellido",          icon: User,   type: "text",  ph: "Tu apellido",          req: false },
+    ],
+    [
+      { key: "username", label: "Nombre de usuario", icon: AtSign, type: "text",  ph: "ej: usuario_123",      req: false },
+      { key: "phone",    label: "Teléfono",           icon: Phone,  type: "tel",   ph: "(364) 4123456",        req: false },
+    ],
+    [
+      { key: "email",         label: "Email principal",       icon: Mail, type: "email", ph: "vos@ejemplo.com",          req: true  },
+      { key: "recoveryEmail", label: "Email de recuperación", icon: Mail, type: "email", ph: "recuperacion@ejemplo.com", req: false },
+    ],
+  ];
 
   return (
-    <div className={styles.container}>
-      <div className={styles.card}>
-        {/* Header */}
-        <div className={styles.header}>
-          <div className={styles.avatarSection}>
-            <div className={styles.avatar}>
-              <User size={48} />
-            </div>
-            <div className={styles.userInfo}>
-              <h1 className={styles.title}>Mi Cuenta</h1>
-              <p className={styles.subtitle}>Gestiona tu información personal</p>
-            </div>
-          </div>
-          
-          {!isEditing ? (
-            <button 
-              className={styles.editButton} 
-              onClick={() => setIsEditing(true)}
-              disabled={loading}
-            >
-              <Edit2 size={18} />
-              Editar
-            </button>
-          ) : (
-            <div className={styles.editActions}>
-              <button 
-                className={`${styles.saveButton} ${!hasUnsavedChanges ? styles.disabled : ''}`}
-                onClick={handleSave}
-                disabled={loading || !hasUnsavedChanges}
-              >
-                {loading ? <Loader size={18} className={styles.spinnerIcon} /> : <Save size={18} />}
-                {loading ? 'Guardando...' : 'Guardar'}
-              </button>
-              <button 
-                className={styles.cancelButton} 
-                onClick={handleCancel}
-                disabled={loading}
-              >
-                <X size={18} />
-                Cancelar
-              </button>
-            </div>
-          )}
+    <div className={styles.page}>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`${styles.toast} ${styles["toast_" + toast.type]}`}>
+          {toast.type === "success" ? <Check size={15} /> : <AlertCircle size={15} />}
+          <span>{toast.msg}</span>
+          <button onClick={() => setToast(null)} className={styles.toastClose}><X size={13} /></button>
         </div>
+      )}
 
-        {/* Mensajes de error y éxito (VUELTO AL SISTEMA ORIGINAL) */}
-        {error && (
-          <div className={styles.errorMessage}>
-            <AlertCircle size={18} />
-            {error}
+      <div className={styles.layout}>
+
+        {/* ════ SIDEBAR ════ */}
+        <aside className={styles.sidebar}>
+          <div className={styles.avatarRing}>
+            <div className={styles.avatarCircle}>{initial}</div>
           </div>
-        )}
 
-        {success && (
-          <div className={styles.successMessage}>
-            <Check size={18} />
-            {success}
-          </div>
-        )}
+          <h2 className={styles.sidebarName}>{displayName}</h2>
+          <p  className={styles.sidebarEmail}>{user.email}</p>
 
-        {/* Indicador de cambios */}
-        {isEditing && hasUnsavedChanges && (
-          <div className={styles.infoMessage}>
-            <AlertCircle size={18} />
-            Tienes cambios sin guardar
-          </div>
-        )}
-
-        {/* Formulario */}
-        <div className={styles.form}>
-          {[
-            { key: 'username', label: 'Nombre de usuario', icon: User, type: 'text', placeholder: 'Ej: usuario123' },
-            { key: 'name', label: 'Nombre', icon: User, type: 'text', placeholder: 'Ej: Juan' },
-            { key: 'lastname', label: 'Apellido', icon: User, type: 'text', placeholder: 'Ej: Pérez' },
-            { key: 'email', label: 'Correo electrónico', icon: Mail, type: 'email', placeholder: 'Ej: usuario@ejemplo.com', required: true },
-            { key: 'recoveryEmail', label: 'Correo de recuperación', icon: Mail, type: 'email', placeholder: 'Ej: recuperacion@ejemplo.com' },
-            { key: 'phone', label: 'Teléfono', icon: Phone, type: 'tel', placeholder: 'Ej: +34 123 456 789' }
-          ].map(field => (
-            <div key={field.key} className={styles.field}>
-              <label className={styles.label}>
-                <field.icon size={18} />
-                {field.label}
-                {field.required && <span className={styles.requiredBadge}>*</span>}
-                {isEditing && (
-                  <span className={styles.charCount}>
-                    {formData[field.key]?.length || 0}/{VALIDATIONS[field.key].max}
-                  </span>
-                )}
-                {isEditing && originalData?.[field.key] !== formData[field.key] && formData[field.key] && (
-                  <span className={styles.modifiedDot}>●</span>
-                )}
-              </label>
-              
-              {isEditing ? (
-                <div className={styles.inputWrapper}>
-                  <input
-                    type={field.type}
-                    name={field.key}
-                    value={formData[field.key] || ''}
-                    onChange={handleInputChange}
-                    className={`${styles.input} ${getFieldStatus(field.key)}`}
-                    placeholder={field.placeholder}
-                    disabled={loading}
-                    aria-invalid={validationStatus[field.key]?.status === 'error'}
-                    aria-describedby={`${field.key}-error`}
-                    maxLength={VALIDATIONS[field.key].max} // NUEVO: Límite estricto
-                  />
-                  {getFieldIcon(field.key)}
-                </div>
-              ) : (
-                <p className={`${styles.value} ${!formData[field.key] ? styles.empty : ''}`}>
-                  {formData[field.key] || "Sin especificar"}
-                </p>
-              )}
-
-              {isEditing && validationStatus[field.key]?.error && (
-                <span id={`${field.key}-error`} className={styles.fieldError}>
-                  {validationStatus[field.key].error}
-                </span>
-              )}
-
-              {isEditing && originalData?.[field.key] !== formData[field.key] && formData[field.key] && (
-                <button 
-                  className={styles.undoButton}
-                  onClick={() => handleUndoField(field.key)}
-                  type="button"
-                >
-                  <RefreshCw size={14} />
-                  Restaurar
-                </button>
-              )}
-            </div>
-          ))}
-
-          {/* Campo de contraseña (solo edición) */}
-          {isEditing && (
-            <div className={styles.field}>
-              <label className={styles.label}>
-                <Lock size={18} />
-                Nueva contraseña (opcional)
-                {formData.password && formData.password.trim() !== "" && (
-                  <span className={styles.modifiedDot}>●</span>
-                )}
-              </label>
-              <div className={styles.inputWrapper}>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password || ''}
-                  onChange={handleInputChange}
-                  className={`${styles.input} ${getFieldStatus('password')}`}
-                  placeholder="Mínimo 8 caracteres"
-                  disabled={loading}
-                  maxLength={VALIDATIONS.password.max} // NUEVO: Límite estricto
-                />
-                {formData.password && (
-                  <span className={`${styles.strengthBadge} ${styles[validationStatus.password?.strength?.level]}`}>
-                    {validationStatus.password?.strength?.message}
-                  </span>
-                )}
-              </div>
-              {validationStatus.password?.error && (
-                <span className={styles.fieldError}>
-                  {validationStatus.password.error}
-                </span>
-              )}
-              {originalData && formData.password && (
-                <button 
-                  className={styles.undoButton}
-                  onClick={() => handleUndoField('password')}
-                  type="button"
-                >
-                  <X size={14} />
-                  Limpiar
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Sección de seguridad */}
-        {!isEditing && (
-          <div className={styles.securitySection}>
-            <h2 className={styles.sectionTitle}>
-              <Shield size={22} />
-              Seguridad
-            </h2>
-            
-            {!showPasswordChange ? (
-              <button 
-                className={styles.changePasswordButton}
-                onClick={() => setShowPasswordChange(true)}
-              >
-                <Lock size={18} />
-                Cambiar contraseña
+          <div className={styles.sidebarBtns}>
+            {!isEditing ? (
+              <button className={styles.btnPrimary} onClick={() => setIsEditing(true)} disabled={loading}>
+                <Edit2 size={14} /> Editar perfil
               </button>
             ) : (
-              <div className={styles.passwordForm}>
-                {['currentPassword', 'newPassword', 'confirmPassword'].map((field, idx) => {
-                  const labels = {
-                    currentPassword: 'Contraseña actual',
-                    newPassword: 'Nueva contraseña',
-                    confirmPassword: 'Confirmar nueva contraseña'
-                  };
-                  const isVisible = passwordVisibility[field.replace('Password', '')];
-                  
-                  return (
-                    <div key={field} className={styles.field}>
-                      <label className={styles.label}>{labels[field]}</label>
-                      <div className={styles.inputWrapper}>
+              <>
+                <button
+                  className={styles.btnSave}
+                  onClick={handleSave}
+                  disabled={loading || !hasUnsavedChanges}
+                >
+                  {loading
+                    ? <><Loader size={14} className={styles.spin} /> Guardando…</>
+                    : <><Save   size={14} /> Guardar cambios</>
+                  }
+                </button>
+                <button className={styles.btnCancel} onClick={handleCancel} disabled={loading}>
+                  <X size={14} /> Descartar cambios
+                </button>
+              </>
+            )}
+          </div>
+
+          {isEditing && hasUnsavedChanges && (
+            <div className={styles.pendingBadge}>
+              <span className={styles.pendingDot} />
+              Cambios sin guardar
+            </div>
+          )}
+
+          {isEditing && (
+            <p className={styles.requiredHint}>
+              <span className={styles.req}>*</span> campos obligatorios
+            </p>
+          )}
+        </aside>
+
+        {/* ════ MAIN ════ */}
+        <main className={styles.main}>
+
+          {/* Sección info personal */}
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <User size={16} />
+              <h3>Información personal</h3>
+            </div>
+
+            <div className={styles.formBody}>
+              {FIELD_ROWS.map((row, ri) => (
+                <div key={ri} className={styles.fieldRow}>
+                  {row.map(({ key, label, icon: Icon, type, ph, req }) => {
+                    const state   = fState(key);
+                    const val     = formData[key] || "";
+                    const changed = isEditing && originalData?.[key] !== formData[key];
+
+                    return (
+                      <div key={key} className={styles.field}>
+                        <label className={styles.label}>
+                          <Icon size={12} />
+                          {label}
+                          {req && <span className={styles.req}>*</span>}
+                          {isEditing && changed && <span className={styles.modDot} title="Modificado" />}
+                        </label>
+
+                        {isEditing ? (
+                          <>
+                            <div className={`${styles.inputWrap} ${styles["iw_" + state]}`}>
+                              <input
+                                type={type}
+                                name={key}
+                                value={val}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                className={styles.input}
+                                placeholder={ph}
+                                disabled={loading}
+                                maxLength={RULES[key]?.max}
+                                aria-required={req}
+                                aria-invalid={state === "error"}
+                              />
+                              <span className={styles.stateIcon}>
+                                {state === "success" && <Check       size={13} />}
+                                {state === "error"   && <AlertCircle size={13} />}
+                              </span>
+                            </div>
+
+                            {state === "error" && errors[key] && (
+                              <p className={styles.fieldError} role="alert">
+                                <AlertCircle size={11} /> {errors[key]}
+                              </p>
+                            )}
+
+                            <div className={styles.fieldFooter}>
+                              {RULES[key]?.max && (
+                                <span className={`${styles.charCount} ${val.length >= RULES[key].max * 0.88 ? styles.charNear : ""}`}>
+                                  {val.length}/{RULES[key].max}
+                                </span>
+                              )}
+                              {changed && (
+                                <button className={styles.undoBtn} onClick={() => handleUndoField(key)} type="button">
+                                  <RotateCcw size={11} /> Restaurar
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <div className={`${styles.valueDisplay} ${!val ? styles.emptyVal : ""}`}>
+                            {val || "Sin especificar"}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              {/* Nueva contraseña — solo en edición */}
+              {isEditing && (
+                <div className={styles.fieldRow}>
+                  <div className={styles.field}>
+                    <label className={styles.label}>
+                      <Lock size={12} />
+                      Nueva contraseña
+                      <span className={styles.optTag}>opcional</span>
+                      {formData.password && <span className={styles.modDot} />}
+                    </label>
+
+                    <div className={`${styles.inputWrap} ${styles["iw_" + fState("password")]}`}>
+                      <input
+                        type={pwVisible ? "text" : "password"}
+                        name="password"
+                        value={formData.password || ""}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={styles.input}
+                        placeholder="Mínimo 8 caracteres"
+                        disabled={loading}
+                        maxLength={100}
+                        autoComplete="new-password"
+                      />
+                      <button type="button" className={styles.eyeBtn} onClick={() => setPwVisible((p) => !p)} tabIndex={-1}>
+                        {pwVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                    </div>
+
+                    {touched.password && errors.password && (
+                      <p className={styles.fieldError} role="alert">
+                        <AlertCircle size={11} /> {errors.password}
+                      </p>
+                    )}
+
+                    {formData.password && (() => {
+                      const s = RULES.password.strength(formData.password);
+                      return (
+                        <div className={styles.strengthRow}>
+                          <div className={styles.strengthBar}>
+                            <div className={`${styles.strengthFill} ${styles["sf_" + s.level]}`} />
+                          </div>
+                          <span className={`${styles.strengthLbl} ${styles["sl_" + s.level]}`}>{s.label}</span>
+                        </div>
+                      );
+                    })()}
+
+                    <div className={styles.fieldFooter}>
+                      {formData.password && (
+                        <button className={styles.undoBtn} onClick={() => {
+                          setFormData((p) => ({ ...p, password: "" }));
+                          setTouched((p) => ({ ...p, password: false }));
+                        }} type="button">
+                          <X size={11} /> Limpiar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles.field} /> {/* celda vacía grid 2-col */}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Sección seguridad — solo vista */}
+          {!isEditing && (
+            <section className={styles.card}>
+              <div className={styles.cardHeader}>
+                <Shield size={16} />
+                <h3>Seguridad</h3>
+              </div>
+
+              {!showPwSection ? (
+                <button className={styles.btnOutline} onClick={() => setShowPwSection(true)}>
+                  <Lock size={13} /> Cambiar contraseña
+                </button>
+              ) : (
+                <div className={styles.pwForm}>
+                  {[
+                    { key: "current", label: "Contraseña actual"          },
+                    { key: "next",    label: "Nueva contraseña"           },
+                    { key: "confirm", label: "Confirmar nueva contraseña" },
+                  ].map(({ key, label }) => (
+                    <div key={key} className={styles.field}>
+                      <label className={styles.label}>
+                        <Lock size={12} /> {label} <span className={styles.req}>*</span>
+                      </label>
+                      <div className={styles.inputWrap}>
                         <input
-                          type={isVisible ? 'text' : 'password'}
-                          value={passwordData[field]}
-                          onChange={(e) => setPasswordData(prev => ({ ...prev, [field]: e.target.value }))}
+                          type={pwVis[key] ? "text" : "password"}
+                          value={pwData[key]}
+                          onChange={(e) => setPwData((p) => ({ ...p, [key]: e.target.value }))}
                           className={styles.input}
-                          placeholder={labels[field]}
-                          maxLength={VALIDATIONS.password.max} // NUEVO: Límite estricto
+                          placeholder={label}
+                          maxLength={100}
+                          autoComplete={key === "current" ? "current-password" : "new-password"}
                         />
-                        <button
-                          type="button"
-                          className={styles.togglePassword}
-                          onClick={() => setPasswordVisibility(prev => ({ 
-                            ...prev, 
-                            [field.replace('Password', '')]: !prev[field.replace('Password', '')] 
-                          }))}
-                        >
-                          {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                        <button type="button" className={styles.eyeBtn}
+                          onClick={() => setPwVis((p) => ({ ...p, [key]: !p[key] }))} tabIndex={-1}>
+                          {pwVis[key] ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
 
-                {passwordData.confirmPassword && (
-                  <div className={`${styles.passwordMatch} ${
-                    passwordData.newPassword === passwordData.confirmPassword ? styles.match : styles.mismatch
-                  }`}>
-                    {passwordData.newPassword === passwordData.confirmPassword ? (
-                      <><Check size={16} /> Las contraseñas coinciden</>
-                    ) : (
-                      <><X size={16} /> Las contraseñas no coinciden</>
-                    )}
+                  {pwData.confirm && (
+                    <div className={`${styles.pwMatch} ${pwData.next === pwData.confirm ? styles.pwOk : styles.pwFail}`}>
+                      {pwData.next === pwData.confirm
+                        ? <><Check size={12} /> Las contraseñas coinciden</>
+                        : <><X     size={12} /> Las contraseñas no coinciden</>
+                      }
+                    </div>
+                  )}
+
+                  {pwData.next && (() => {
+                    const s = RULES.password.strength(pwData.next);
+                    return (
+                      <div className={styles.strengthRow}>
+                        <div className={styles.strengthBar}>
+                          <div className={`${styles.strengthFill} ${styles["sf_" + s.level]}`} />
+                        </div>
+                        <span className={`${styles.strengthLbl} ${styles["sl_" + s.level]}`}>{s.label}</span>
+                      </div>
+                    );
+                  })()}
+
+                  <div className={styles.pwActions}>
+                    <button className={styles.btnSave} onClick={handlePwChange} disabled={loading}>
+                      {loading
+                        ? <><Loader size={13} className={styles.spin} /> Guardando…</>
+                        : <><Check  size={13} /> Actualizar contraseña</>
+                      }
+                    </button>
+                    <button className={styles.btnCancel} disabled={loading}
+                      onClick={() => { setShowPwSection(false); setPwData({ current: "", next: "", confirm: "" }); }}>
+                      <X size={13} /> Cancelar
+                    </button>
                   </div>
-                )}
-
-                <div className={styles.passwordActions}>
-                  <button 
-                    className={styles.saveButton}
-                    onClick={handlePasswordChange}
-                    disabled={loading}
-                  >
-                    {loading ? <Loader size={18} className={styles.spinnerIcon} /> : 'Actualizar contraseña'}
-                  </button>
-                  <button 
-                    className={styles.cancelButton}
-                    onClick={() => {
-                      setShowPasswordChange(false);
-                      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                    }}
-                    disabled={loading}
-                  >
-                    Cancelar
-                  </button>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </section>
+          )}
+        </main>
       </div>
 
-      {/* Modal de confirmación */}
-      {showConfirmModal && (
-        <div className={styles.modalOverlay} onClick={cancelSave}>
+      {/* Modal confirmación cambio de email */}
+      {confirmModal && (
+        <div className={styles.overlay} onClick={() => setConfirmModal(null)}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.warningIcon}>
-                <AlertCircle size={32} />
-              </div>
-              <h3>Cambio de email requiere confirmación</h3>
-            </div>
-            
-            <div className={styles.modalBody}>
-              <p>Estás a punto de cambiar tu email principal:</p>
-              
-              <div className={styles.emailComparison}>
-                <div className={styles.emailBox}>
-                  <span className={styles.emailLabel}>Actual</span>
-                  <span className={styles.oldEmail}>{originalData?.email}</span>
-                </div>
-                <div className={styles.arrowIcon}>
-                  <RefreshCw size={20} />
-                </div>
-                <div className={styles.emailBox}>
-                  <span className={styles.emailLabel}>Nuevo</span>
-                  <span className={styles.newEmail}>{pendingChanges?.email}</span>
-                </div>
-              </div>
+            <div className={styles.modalIconWrap}><AlertCircle size={28} /></div>
+            <h3 className={styles.modalTitle}>Confirmá el cambio de email</h3>
+            <p className={styles.modalDesc}>
+              Tu email es tu clave de acceso. Asegurate de tener acceso al nuevo antes de confirmar.
+            </p>
 
-              <div className={styles.alertBox}>
-                <Info size={20} />
-                <p>
-                  <strong>Importante:</strong> Usarás este nuevo email para iniciar sesión. 
-                  Asegúrate de tener acceso a él.
-                </p>
+            <div className={styles.emailDiff}>
+              <div className={styles.emailBox}>
+                <span className={styles.emailTag}>Actual</span>
+                <span className={styles.emailOld}>{originalData?.email}</span>
+              </div>
+              <RefreshCw size={15} className={styles.emailArrow} />
+              <div className={styles.emailBox}>
+                <span className={styles.emailTag}>Nuevo</span>
+                <span className={styles.emailNew}>{confirmModal?.email}</span>
               </div>
             </div>
-            
+
+            <div className={styles.infoBox}>
+              <Info size={15} />
+              <p>A partir del cambio usarás el nuevo email para iniciar sesión.</p>
+            </div>
+
             <div className={styles.modalActions}>
-              <button className={styles.confirmButton} onClick={confirmSave}>
-                <Check size={18} />
-                Confirmar cambio
+              <button className={styles.btnSave} onClick={() => { const d = confirmModal; setConfirmModal(null); doSave(d); }}>
+                <Check size={14} /> Confirmar cambio
               </button>
-              <button className={styles.cancelModalButton} onClick={cancelSave}>
-                <X size={18} />
-                Cancelar
+              <button className={styles.btnCancel} onClick={() => setConfirmModal(null)}>
+                <X size={14} /> Cancelar
               </button>
             </div>
           </div>
@@ -805,6 +637,4 @@ const Profile = () => {
       )}
     </div>
   );
-};
-
-export default Profile;
+}

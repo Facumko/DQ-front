@@ -9,12 +9,12 @@ const PostGallery = ({ images, showThumbnails = false }) => { // ✅ NUEVO pará
     setIndex(0);
   }, [images]);
 
-  if (!images || images.length === 0) return null;
 
   const next = () => setIndex((i) => (i + 1) % images.length);
   const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
 
   useEffect(() => {
+    if (!images || images.length === 0) return ;
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') prev();
       if (e.key === 'ArrowRight') next();
@@ -23,6 +23,9 @@ const PostGallery = ({ images, showThumbnails = false }) => { // ✅ NUEVO pará
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [images.length]);
+
+  if (!images || images.length === 0) return null;
+
 
   const goToImage = (newIndex) => setIndex(newIndex);
 

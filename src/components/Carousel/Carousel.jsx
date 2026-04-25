@@ -71,8 +71,8 @@ const Carousel = ({ slides = [] }) => {  // <--- valor por defecto
             style={{ backgroundImage: `url(${slide.imageUrl || ""})` }}
             id={`slide-${slide.id}`}
           >
-            <div className={styles.overlay}>
-              <div className={styles.info}>
+            <div className={styles.overlay} data-carousel-overlay>
+              <div className={styles.info} data-carousel-info>
                 {slide.badge && <span className={`${styles.badge} ${styles[slide.badge.type]}`}>{slide.badge.text}</span>}
                 <h2>{slide.title}</h2>
                 <p>{slide.subtitle}</p>

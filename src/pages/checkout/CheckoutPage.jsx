@@ -99,7 +99,6 @@ export default function CheckoutPage() {
         },
         body: JSON.stringify({
           planId: plan.id,
-          userId: user.id_user,
           userEmail: user.email,
         }),
       });

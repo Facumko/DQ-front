@@ -1,6 +1,7 @@
 import { useState, useContext, useEffect, useRef } from "react";
 import { UserContext } from "../../pages/UserContext";
 import { validateEmail, validatePasswordStrength } from "../../Api/Api";
+import { getOrCreateDeviceId, getDeviceName } from "../../utils/deviceId";
 import "./LoginModal.css";
 import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaCheckCircle, FaArrowLeft } from "react-icons/fa";
 
@@ -11,6 +12,8 @@ import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaCheckCircle, FaArrowLeft } f
 // "register"  → email nuevo  → crear contraseña
 // "forgot"    → olvidé contraseña
 // "resetSent" → enlace enviado
+
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
 
 export default function LoginModal({ onClose }) {
   const { login, register, loading, error, clearError, isLocked } = useContext(UserContext);
@@ -58,6 +61,10 @@ export default function LoginModal({ onClose }) {
   const [resendCount,    setResendCount]    = useState(0);
   const [localError,     setLocalError]     = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [shake,          setShake]          = useState(false);
+  const [fieldError,     setFieldError]     = useState(""); // Para errores inline
+  const [lockoutTime,    setLockoutTime]    = useState(0); // Para countdown del bloqueo
+  const [bannerClass,    setBannerClass]    = useState(""); // Para clase especial del banner
 
   const emailRef    = useRef(null);
   const passwordRef = useRef(null);
@@ -79,6 +86,27 @@ export default function LoginModal({ onClose }) {
   useEffect(() => {
     if (successMessage) { const t = setTimeout(() => setSuccessMessage(""), 3000); return () => clearTimeout(t); }
   }, [successMessage]);
+
+  // Countdown del bloqueo temporal
+  useEffect(() => {
+    const lockStatus = isLocked();
+    if (lockStatus?.locked) {
+      setLockoutTime(lockStatus.remainingSeconds);
+      const interval = setInterval(() => {
+        setLockoutTime(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setLoginPassword(""); // Limpiar password cuando se desbloquea
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setLockoutTime(0);
+    }
+  }, [isLocked]);
 
   useEffect(() => {
     if (step === "resetSent" && resetEmail) {
@@ -123,11 +151,37 @@ export default function LoginModal({ onClose }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLocalError("");
+    setFieldError("");
+    setBannerClass("");
     if (clearError) clearError();
-    if (!loginPassword.trim()) { setLocalError("Por favor ingresá tu contraseña"); return; }
+    if (!loginPassword.trim()) { setFieldError("Por favor ingresá tu contraseña"); return; }
     const result = await login(email, loginPassword);
-    if (result.success) { setSuccessMessage("¡Bienvenido de vuelta!"); setTimeout(() => onClose(), 1500); }
-    else setLocalError(result.error);
+    if (result.success) { 
+      setSuccessMessage("¡Bienvenido de vuelta!"); 
+      setTimeout(() => onClose(), 1500); 
+    } else {
+      const { authErrorType } = result;
+      if (authErrorType === 'WRONG_PASSWORD') {
+        setLoginPassword(""); // Limpiar campo password
+        setFieldError(result.error); // Mostrar error inline bajo password
+        passwordRef.current?.focus(); // Hacer foco en input password
+        setShake(true); // Agregar clase shake
+        setTimeout(() => setShake(false), 400); // Remover después de 400ms
+      } else if (authErrorType === 'USER_NOT_FOUND') {
+        setStep("email"); // Volver al paso email
+        setFieldError(result.error); // Mostrar error bajo email
+        setEmail(""); // Limpiar email
+        setLoginPassword(""); // Limpiar password
+      } else if (authErrorType === 'ACCOUNT_BLOCKED') {
+        setLocalError(result.error); // Mostrar banner especial
+        setBannerClass("blocked");
+      } else if (authErrorType === 'UNVERIFIED') {
+        setLocalError(result.error); // Mostrar banner con instrucción
+        // Aquí podríamos agregar botón para reenviar email
+      } else {
+        setLocalError(result.error); // Mostrar en banner global
+      }
+    }
   };
 
   const handleRegister = async (e) => {
@@ -158,8 +212,23 @@ export default function LoginModal({ onClose }) {
   };
 
   const handleSocialLogin = (provider) => {
-    // TODO: window.location.href = `/oauth2/authorization/${provider.toLowerCase()}`;
-    setLocalError(`${provider} estará disponible próximamente.`);
+    // Guardamos la ruta actual para volver después del login
+    const currentPath = window.location.pathname;
+    if (currentPath !== "/" && currentPath !== "/login") {
+      sessionStorage.setItem("oauth2_return_to", currentPath);
+    }
+
+    // Redirige al backend de Spring Security que inicia el flujo OAuth2.
+    // El backend redirige a Google/Facebook, recibe el callback,
+    // genera los JWT y redirige al frontend a /oauth2/success?accessToken=...
+    const providerKey = provider.toLowerCase(); // "google" | "facebook"
+    const deviceId = getOrCreateDeviceId();
+    const deviceName = getDeviceName();
+
+    // Usar ruta relativa para pasar por el proxy de Vite en local
+    // Incluir device_id y device_name como query params requeridos por el backend
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.3:8080';
+    window.location.href = `/oauth2/authorization/${provider.toLowerCase()}`;
   };
 
   // ── Sub-componentes ───────────────────────────────────────────────────────
@@ -190,7 +259,7 @@ export default function LoginModal({ onClose }) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal-card ${shake ? 'shake' : ''}`} onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose} aria-label="Cerrar">✕</button>
 
         {/* Logo */}
@@ -204,7 +273,7 @@ export default function LoginModal({ onClose }) {
           <div className="success-banner"><FaCheckCircle /> {successMessage}</div>
         )}
         {(error || localError) && (
-          <div className="error-message">{localError || error}</div>
+          <div className={`error-message ${bannerClass}`}>{localError || error}</div>
         )}
 
         {/* ══ PASO: EMAIL ══════════════════════════════ */}
@@ -214,10 +283,10 @@ export default function LoginModal({ onClose }) {
             <p className="modal-subtitle">Ingresá tu email o continuá con una red social</p>
 
             <div className="social-section">
-              <button type="button" className="social-btn-full google" onClick={() => handleSocialLogin("Google")}>
+              <button type="button" className="social-btn-full google" onClick={() => handleSocialLogin("google")}>
                 <FaGoogle className="social-icon" /> Continuar con Google
               </button>
-              <button type="button" className="social-btn-full facebook" onClick={() => handleSocialLogin("Facebook")}>
+              <button type="button" className="social-btn-full facebook" onClick={() => handleSocialLogin("facebook")}>
                 <FaFacebook className="social-icon" /> Continuar con Facebook
               </button>
             </div>
@@ -240,6 +309,7 @@ export default function LoginModal({ onClose }) {
                   </span>
                 )}
               </div>
+              {fieldError && step === "email" && <div className="field-error-inline">{fieldError}</div>}
               <button type="submit" className="modal-button login-btn" disabled={loading || !emailValidation.valid}>
                 Continuar
               </button>
@@ -289,19 +359,18 @@ export default function LoginModal({ onClose }) {
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="modal-input password-input"
-                  disabled={loading || isLocked?.locked}
+                  disabled={loading || isLocked()?.locked}
                 />
                 <span className="toggle-password" onClick={() => setShowLoginPassword(!showLoginPassword)}>
                   {showLoginPassword ? <FaEyeSlash /> : <FaEye />}
                 </span>
-              </div>
-
+              </div>              {fieldError && step === "login" && <div className="field-error-inline">{fieldError}</div>}
               <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); setResetEmail(email); setStep("forgot"); }}>
                 Olvidé mi contraseña
               </a>
 
-              <button type="submit" className="modal-button login-btn" disabled={loading || isLocked?.locked}>
-                {loading ? <span className="spinner" /> : "Iniciar sesión"}
+              <button type="submit" className="modal-button login-btn" disabled={loading || lockoutTime > 0}>
+                {loading ? <span className="spinner" /> : lockoutTime > 0 ? `Bloqueado (${lockoutTime}s)` : "Iniciar sesión"}
               </button>
             </form>
 

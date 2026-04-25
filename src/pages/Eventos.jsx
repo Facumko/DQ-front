@@ -1,24 +1,38 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import EventCalendar, { MOCK_EVENTS, getUpcomingCount } from "../components/EventCalendar/EventCalendar";
+import { getAllEvents } from "../Api/Api";
 import styles from "./Eventos.module.css";
 import { Calendar, Sparkles } from "lucide-react";
 
 const Eventos = () => {
-  // 🔄 TODO: Reemplazar con llamada al backend cuando esté listo
-  // Ejemplo futuro:
-  // const [events, setEvents] = useState([]);
-  // useEffect(() => {
-  //   getAllPosts().then(posts =>
-  //     setEvents(posts.filter(p => p.type === "event").map(normalizeEventFromPost))
-  //   );
-  // }, []);
+  const [events, setEvents] = useState(MOCK_EVENTS);
 
-  const events = MOCK_EVENTS; // <- reemplazar por estado real
+  useEffect(() => {
+    getAllEvents()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          const normalized = data.map((ev) => ({
+            id:          ev.idEvent,
+            title:       ev.title,
+            date:        ev.startDate?.split("T")[0],
+            time:        ev.startDate?.split("T")[1]?.slice(0, 5),
+            endTime:     ev.endDate?.split("T")[1]?.slice(0, 5),
+            location:    ev.address?.address || "",
+            business:    ev.nameCommerce || "",
+            description: ev.description || "",
+            category:    ev.categories?.[0]?.name || "Evento",
+            color:       "#B00020",
+          }));
+          setEvents(normalized);
+        }
+      })
+      .catch(() => {}); // si falla usa los mock
+  }, []);
+
   const upcoming = useMemo(() => getUpcomingCount(events), [events]);
 
   return (
     <div className={styles.page}>
-      {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerContent}>
           <div className={styles.headerIcon}>
@@ -32,7 +46,6 @@ const Eventos = () => {
           </div>
         </div>
 
-        {/* Contador de próximos eventos */}
         {upcoming > 0 && (
           <div className={styles.upcomingBadge}>
             <Sparkles size={15} className={styles.sparkle} />
@@ -43,7 +56,6 @@ const Eventos = () => {
         )}
       </div>
 
-      {/* Calendario */}
       <div className={styles.calendarWrapper}>
         <EventCalendar events={events} />
       </div>

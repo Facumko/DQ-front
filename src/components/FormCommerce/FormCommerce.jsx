@@ -1,20 +1,13 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { createBusiness } from "../../Api/Api";
+import { createBusiness, addCommerceCategories } from "../../Api/Api";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
 import CreatorInfo from "./CreatorInfo";
 import BusinessInfo from "./BusinessInfo";
 import Confirmation from "./Confirmation";
 import "./FormCommerce.css";
-
-// Pasos del formulario
-// 1 → Elegir plan
-// 2 → Datos del propietario
-// 3 → Datos del negocio  (incluye LocationPicker → guarda location: { lat, lng, address })
-// 4 → Confirmación
-// TODO: reincorporar paso de Pago (Mercado Pago) entre Plan y Propietario
 
 const STEPS = ["Plan", "Propietario", "Negocio", "Confirmación"];
 
@@ -27,44 +20,33 @@ function FormCommerce() {
   const [checkingBusiness, setCheckingBusiness] = useState(true);
 
   const [formData, setFormData] = useState({
-    // Paso 1 — Plan
-    selectedPlan: "",
-    // Paso 2 — Propietario
-    firstName: "",
-    lastName:  "",
-    idNumber:  "",
-    phone:     "",
-    // Paso 3 — Negocio
+    selectedPlan:        "",
+    firstName:           "",
+    lastName:            "",
+    idNumber:            "",
+    phone:               "",
     businessName:        "",
     businessDescription: "",
-    category:            "",
-    categoryId:          null,
+    selectedCategories:  [],
     businessAddress:     "",
     businessPhone:       "",
     instagram:           "",
     facebook:            "",
     website:             "",
     email:               "",
-    // 🆕 Ubicación del LocationPicker: { lat, lng, address } | null
     location:            null,
   });
 
-  // ── Verificar sesión ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user?.id_user) {
-      navigate("/login");
-      return;
-    }
+    if (!user?.id_user) { navigate("/login"); return; }
     setCheckingBusiness(false);
   }, [user, navigate]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
-  // useCallback evita que updateFormData se recree en cada render,
-  // lo que causaba que BusinessInfo perdiera la location al sincronizar
   const updateFormData = useCallback(
     (data) => setFormData(prev => ({ ...prev, ...data })),
     []
   );
+
   const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
@@ -73,13 +55,8 @@ function FormCommerce() {
     setCurrentStep(2);
   };
 
-  // ── Paso 4: crear negocio ─────────────────────────────────────────────────
   const handleSuccess = async () => {
-    console.log("🗺️ formData.location en handleSuccess:", formData.location)
-    console.log("📋 formData completo:", JSON.stringify(formData, null, 2))
-
     if (!user?.id_user) { navigate("/login"); return; }
-
     if (!formData.businessName || !formData.businessDescription) {
       alert("Por favor completá todos los campos requeridos");
       return;
@@ -98,21 +75,23 @@ function FormCommerce() {
         whatsapp:    null,
         email:       formData.email?.trim()     || "",
         branchOf:    null,
-        idOwner:     Number(user.id_user),
-        // 🆕 Pasar location para que Api.jsx lo convierta a AddressDto
-        // location viene del LocationPicker como { lat, lng, address }
-        location:    formData.location || null,
+        location:    formData.location          || null,
       };
-
-      if (import.meta.env.MODE === 'development') {
-        console.log("📤 Creando negocio con datos:", businessData);
-        console.log("🗺️ Ubicación incluida:", businessData.location);
-      }
 
       const created = await createBusiness(businessData);
 
-      // Refrescar lista de negocios en el Navbar
-      await loadBusinesses(user.id_user);
+      // Si el usuario seleccionó categorías, las agregamos en un segundo request
+      if (formData.selectedCategories.length > 0) {
+        try {
+          const categoryIds = formData.selectedCategories.map(c => c.idCategory);
+          await addCommerceCategories(created.id_business, categoryIds);
+        } catch (categoryError) {
+          // No bloqueamos la navegación si falla la asignación de categorías
+          console.warn("No se pudieron asignar las categorías:", categoryError.message);
+        }
+      }
+
+      await loadBusinesses();
 
       navigate(`/negocios/${created.id_business}`);
     } catch (err) {
@@ -121,7 +100,6 @@ function FormCommerce() {
     }
   };
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (checkingBusiness) {
     return (
       <div className="app">
@@ -135,7 +113,6 @@ function FormCommerce() {
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="app">
       <div className="form-container">
