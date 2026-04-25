@@ -286,7 +286,7 @@ export default function MapaPage() {
           );
         }
         setFiltered(result);
-      } catch (err) {
+      } catch {
         setError("No se pudieron cargar los comercios por categoría.");
       } finally {
         setLoading(false);

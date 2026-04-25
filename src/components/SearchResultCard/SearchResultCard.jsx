@@ -21,9 +21,6 @@ const SearchResultCard = ({ commerce }) => {
 
   // Categoría a mostrar (filtrar valores internos no útiles)
   const HIDDEN = ["private", "PUBLIC", "PRIVATE", "public"];
-  const categoryName = commerce.categories?.find(
-    (c) => c.name && !HIDDEN.includes(c.name)
-  )?.name || null;
 
   const handleClick = () => navigate(`/negocios/${id}`);
 

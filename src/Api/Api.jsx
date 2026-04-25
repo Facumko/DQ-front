@@ -240,7 +240,7 @@ export const scheduleToBackend = (schedule) => {
  * al objeto por día que usa el frontend.
  * Los días ausentes en el array se marcan como cerrado: true.
  */
-export const scheduleFromBackend = (scheduleDtos, defaultSchedule) => {
+export const scheduleFromBackend = (scheduleDtos) => {
   // Partir del defaultSchedule con todos los días cerrados
   const result = {};
   const ALL_KEYS = ["Lun","Mar","Mie","Jue","Vie","Sab","Dom"];
@@ -926,6 +926,21 @@ export const getCommercesByCategories = async (categoryIds) => {
   } catch (error) { if (isDevelopment) console.error('Error filtrando por categorías:', error); throw error; }
 };
 
+
+// ============================================
+// DESTACADOS / CARRUSEL
+// ============================================
+export const getFeaturedSection = async (carouselPage = 0, carouselSize = 5) => {
+  const response = await apiRequest(
+    'GET',
+    `/destacado?carouselPage=${carouselPage}&carouselSize=${carouselSize}`
+  );
+  return response; // { carousel: FeaturedItemDto[], featured: FeaturedItemDto[] }
+};
+
+
+
+
 // ============================================
 // EVENTOS
 // ============================================
@@ -1041,5 +1056,6 @@ export default {
   replaceCommerceSchedules,
   scheduleToBackend,
   scheduleFromBackend, addCommerceCategories, removeCommerceCategories, getCommercesByCategories,
-  createEvent, getAllEvents, getEventById, updateEvent, deleteEvent, addImagesToEvent, deleteImagesFromEvent, toLocalDateTime 
+  createEvent, getAllEvents, getEventById, updateEvent, deleteEvent, addImagesToEvent, deleteImagesFromEvent, toLocalDateTime,
+  getFeaturedSection,
 };

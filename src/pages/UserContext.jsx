@@ -28,6 +28,8 @@ const safeSet = (key, value) => {
   catch { /* ignore localStorage write failures */ }
 };
 
+const isDevelopment = import.meta.env.MODE === 'development';
+
 export function UserProvider({ children }) {
 
   // ── Usuario ───────────────────────────────────────────────────────────
@@ -441,7 +443,6 @@ export function UserProvider({ children }) {
   }, [user]);
 
   // ── isDevelopment (para los logs de favoritos) ────────────────────────
-  const isDevelopment = import.meta.env.MODE === 'development';
 
   return (
     <UserContext.Provider value={{

@@ -5,7 +5,7 @@ import { UserContext } from "../../pages/UserContext"
 import { getMyUser, updateUser } from "../../Api/Api"
 import "./FormStep.css"
 
-function CreatorInfo({ data, onUpdate, onNext, onBack }) {
+function CreatorInfo({ data, onUpdate, onNext}) {
   const navigate = useNavigate()
   const { user } = useContext(UserContext)
   const [formData, setFormData] = useState({
@@ -236,7 +236,7 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
       </div>
 
       {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <div style={{ marginTop: '20px', padding: '10px', background: '#f5f5f5', borderRadius: '5px', fontSize: '12px' }}>
           <strong>Debug:</strong> 
           User ID: {user?.id_user} | 

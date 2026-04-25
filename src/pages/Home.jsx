@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
 import LoginModal from "../components/LoginForm/LoginModal";
 import styles from "./Home.module.css";
-import { getMainFeed, getCategories } from "../Api/Api";
+import { getMainFeed, getCategories, getFeaturedSection } from "../Api/Api";
 import { UserContext } from "./UserContext";
 import {
   Calendar,
@@ -23,9 +23,6 @@ import {
   Bookmark,
 } from "lucide-react";
 
-// ============================================
-// Placeholder para imágenes que fallan
-// ============================================
 const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23e0e0e0' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='14' fill='%23888' text-anchor='middle' dy='0.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 const handleImageError = (e) => {
@@ -33,9 +30,6 @@ const handleImageError = (e) => {
   e.target.style.backgroundColor = '#f0f0f0';
 };
 
-// ============================================
-// 🔥 DATA MOCK TEMPORAL
-// ============================================
 const MOCK_DATA = {
   heroSlides: [
     {
@@ -46,6 +40,7 @@ const MOCK_DATA = {
       badge: { type: "event", text: "Evento Especial" },
       cta: "Ver Detalles",
       metadata: { date: "15-17 Nov" },
+      link: "/eventos",
     },
     {
       id: 2,
@@ -55,6 +50,7 @@ const MOCK_DATA = {
       badge: { type: "featured", text: "Destacado" },
       cta: "Reservar Mesa",
       metadata: { rating: "4.9" },
+      link: "/search?q=",
     },
     {
       id: 3,
@@ -64,6 +60,7 @@ const MOCK_DATA = {
       badge: { type: "promotion", text: "Oferta Limitada" },
       cta: "Ver Ofertas",
       metadata: { discount: "Hasta 50% OFF" },
+      link: "/search?q=",
     },
   ],
 
@@ -94,44 +91,13 @@ const MOCK_DATA = {
     },
   ],
 
-  // Categorías mock con iconos y estilos — se usan como fallback visual
   categoryStyles: [
-    {
-      icon: Calendar,
-      gradient: "gradientBlue",
-      image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&q=80",
-      description: "Eventos destacados",
-    },
-    {
-      icon: Utensils,
-      gradient: "gradientOrange",
-      image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",
-      description: "Restaurantes y cafés",
-    },
-    {
-      icon: Tag,
-      gradient: "gradientGreen",
-      image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80",
-      description: "Descuentos especiales",
-    },
-    {
-      icon: Store,
-      gradient: "gradientPurple",
-      image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80",
-      description: "Nuevos negocios",
-    },
-    {
-      icon: Wrench,
-      gradient: "gradientRed",
-      image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80",
-      description: "Técnicos y delivery",
-    },
-    {
-      icon: TrendingUp,
-      gradient: "gradientPink",
-      image: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=400&q=80",
-      description: "Tendencias actuales",
-    },
+    { icon: Calendar,   gradient: "gradientBlue",   image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&q=80",  description: "Eventos destacados"   },
+    { icon: Utensils,   gradient: "gradientOrange", image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",  description: "Restaurantes y cafés" },
+    { icon: Tag,        gradient: "gradientGreen",  image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80",  description: "Descuentos especiales" },
+    { icon: Store,      gradient: "gradientPurple", image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80",  description: "Nuevos negocios"       },
+    { icon: Wrench,     gradient: "gradientRed",    image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80",  description: "Técnicos y delivery"   },
+    { icon: TrendingUp, gradient: "gradientPink",   image: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=400&q=80",  description: "Tendencias actuales"   },
   ],
 
   directorySlides: [
@@ -178,7 +144,7 @@ const MOCK_DATA = {
 };
 
 // ============================================
-// 🗂️ COMPONENTE: Directorio Destacado (sidebar carrusel)
+// Directorio Destacado
 // ============================================
 const DirectorySpotlight = ({ slides }) => {
   const [current, setCurrent] = useState(0);
@@ -195,7 +161,7 @@ const DirectorySpotlight = ({ slides }) => {
   useEffect(() => {
     startTimer();
     return () => clearInterval(timerRef.current);
-  }, [slides.length]);
+  }, [slides.length]); // eslint-disable-line
 
   const goTo = (idx) => { setCurrent(idx); startTimer(); };
   const { subcategory, businesses } = slides[current];
@@ -253,34 +219,68 @@ const DirectorySpotlight = ({ slides }) => {
 };
 
 // ============================================
-// 🎯 COMPONENTE PRINCIPAL
+// COMPONENTE PRINCIPAL
 // ============================================
 const Home = () => {
   const navigate = useNavigate();
-
   const { user, savedPostIds, toggleSavedPost } = useContext(UserContext);
 
-  const [currentSlide, setCurrentSlide]           = useState(0);
-  const [posts, setPosts]                         = useState([]);
-  const [feedPage, setFeedPage]                   = useState(0);
-  const [feedLoading, setFeedLoading]             = useState(false);
-  const [feedError, setFeedError]                 = useState("");
-  const [feedHasMore, setFeedHasMore]             = useState(true);
-  const [currentImageIndex, setCurrentImageIndex] = useState({});
-  const [showLogin, setShowLogin]                 = useState(false);
-  const [apiCategories, setApiCategories]         = useState([]);
+  // ── Estado carrusel ──────────────────────────────────────────────────
+  const [heroSlides,          setHeroSlides]          = useState(MOCK_DATA.heroSlides);
+  const [currentSlide,        setCurrentSlide]        = useState(0);
+
+  // ── Estado feed ──────────────────────────────────────────────────────
+  const [posts,               setPosts]               = useState([]);
+  const [feedPage,            setFeedPage]            = useState(0);
+  const [feedLoading,         setFeedLoading]         = useState(false);
+  const [feedError,           setFeedError]           = useState("");
+  const [feedHasMore,         setFeedHasMore]         = useState(true);
+  const [currentImageIndex,   setCurrentImageIndex]   = useState({});
+  const [showLogin,           setShowLogin]           = useState(false);
+  const [apiCategories,       setApiCategories]       = useState([]);
   const sectionsRef = useRef([]);
 
   const FEED_SIZE = 10;
 
-  // ── Cargar categorías reales ──────────────────────────────────────────
+  // ── Cargar categorías ─────────────────────────────────────────────────
   useEffect(() => {
     getCategories()
       .then((cats) => setApiCategories(Array.isArray(cats) ? cats : []))
       .catch(() => {});
   }, []);
 
-  // ── Helpers ───────────────────────────────────────────────────────────
+  // ── Normalizar item del carrusel del backend ──────────────────────────
+  const normalizeFeaturedItem = (item) => {
+    const d = item.data || {};
+    const imageUrl = d.coverImageUrl || d.coverImage?.url || d.images?.[0]?.url || "";
+
+    const getLink = () => {
+      const rt = d.redirectType;
+      const id = d.redirectTargetId;
+      if (rt === "EVENT")    return `/eventos`;
+      if (rt === "POST")     return `/negocios/${d.idCommerce}`;
+      if (rt === "COMMERCE") return `/negocios/${id}`;
+      if (item.type === "EVENT")    return `/eventos`;
+      if (item.type === "COMMERCE") return `/negocios/${d.idCommerce || d.id}`;
+      return `/negocios/${d.idCommerce || d.id || ""}`;
+    };
+
+    return {
+      id:       d.idPromotion || d.idEvent || d.idPost || d.idCommerce || Math.random(),
+      image:    imageUrl,
+      title:    d.title || d.name || "",
+      subtitle: d.description || "",
+      badge: {
+        type: item.type?.toLowerCase() || "featured",
+        text: item.type === "EVENT" ? "Evento" : item.type === "PROMOTION" ? "Promoción" : "Destacado",
+      },
+      cta:      "Ver más",
+      metadata: { rating: null, date: null, discount: null },
+      link:     getLink(),
+    };
+  };
+
+  // ── Helpers feed ──────────────────────────────────────────────────────
   const formatTimeAgo = (dateStr) => {
     if (!dateStr) return "";
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
@@ -292,9 +292,7 @@ const Home = () => {
   };
 
   const handleShare = async (post) => {
-    const url  = post.businessId
-      ? `${window.location.origin}/negocios/${post.businessId}`
-      : window.location.href;
+    const url  = post.businessId ? `${window.location.origin}/negocios/${post.businessId}` : window.location.href;
     const text = `${post.businessName}: ${post.content?.slice(0, 80)}...`;
     if (navigator.share) {
       try { await navigator.share({ title: post.businessName, text, url }); } catch {}
@@ -309,7 +307,6 @@ const Home = () => {
     await toggleSavedPost(post);
   };
 
-  // ── Feed ──────────────────────────────────────────────────────────────
   const normalizeFeedPost = (p) => {
     const d = p.data || p;
     return {
@@ -347,14 +344,32 @@ const Home = () => {
     loadFeed(next, true);
   };
 
+  // ── Effect principal: timer carrusel + carga inicial ──────────────────
   useEffect(() => {
+    // Timer autoplay — usa función para leer heroSlides actualizado
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % MOCK_DATA.heroSlides.length);
+      setCurrentSlide((prev) => {
+        // Usamos ref para saber el length actualizado sin re-crear el interval
+        return prev + 1; // se normaliza abajo en el render
+      });
     }, 6000);
+
+    // Cargar carrusel del backend
+    getFeaturedSection(0, 5)
+      .then((data) => {
+        const items = data?.carousel;
+        if (Array.isArray(items) && items.length > 0) {
+          setHeroSlides(items.map(normalizeFeaturedItem));
+          setCurrentSlide(0);
+        }
+      })
+      .catch(() => {}); // fallback silencioso → se queda con el mock
+
     loadFeed(0);
     return () => clearInterval(timer);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Effect intersection observer para animaciones ─────────────────────
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add(styles.visible); }),
@@ -364,8 +379,11 @@ const Home = () => {
     return () => observer.disconnect();
   }, []);
 
-  const nextSlide = () => setCurrentSlide((p) => (p + 1) % MOCK_DATA.heroSlides.length);
-  const prevSlide = () => setCurrentSlide((p) => (p - 1 + MOCK_DATA.heroSlides.length) % MOCK_DATA.heroSlides.length);
+  // ── Navegación carrusel ───────────────────────────────────────────────
+  const prevSlide = () => setCurrentSlide((p) => (p - 1 + heroSlides.length) % heroSlides.length);
+  const nextSlide = () => setCurrentSlide((p) => (p + 1) % heroSlides.length);
+  // Normalizar currentSlide por si heroSlides cambió de tamaño
+  const safeCurrentSlide = heroSlides.length > 0 ? currentSlide % heroSlides.length : 0;
 
   const getBadgeClass = (type) => {
     const map = { event: styles.badgeEvent, featured: styles.badgeFeatured, promotion: styles.badgePromotion };
@@ -377,23 +395,24 @@ const Home = () => {
   const prevImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) - 1 + total) % total }));
 
-  // ── Navegar a search con categoría ───────────────────────────────────
-  const handleCategoryClick = (catId) => {
-    navigate(`/search?categoryIds=${catId}`);
-  };
+  const handleCategoryClick = (catId) => navigate(`/search?categoryIds=${catId}`);
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className={styles.homeContainer}>
 
-      {/* ── HERO ── */}
+      {/* ── HERO / CARRUSEL ── */}
       <section ref={(el) => (sectionsRef.current[0] = el)} className={`${styles.section} ${styles.heroSection}`}>
         <div className={styles.heroGrid}>
 
           <div className={styles.carouselContainer}>
             <div className={styles.carousel}>
-              {MOCK_DATA.heroSlides.map((slide, index) => (
-                <div key={slide.id} className={`${styles.slide} ${index === currentSlide ? styles.slideActive : ""}`}>
+
+              {heroSlides.map((slide, index) => (
+                <div
+                  key={slide.id}
+                  className={`${styles.slide} ${index === safeCurrentSlide ? styles.slideActive : ""}`}
+                >
                   <img src={slide.image} alt={slide.title} className={styles.slideImage} onError={handleImageError} />
                   <div className={styles.slideOverlay}>
                     <div className={styles.slideBadgeContainer}>
@@ -403,19 +422,26 @@ const Home = () => {
                     </div>
                     <div className={styles.slideContent}>
                       <div className={styles.slideMetadata}>
-                        {slide.metadata.date && (
+                        {slide.metadata?.date && (
                           <div className={styles.metadataItem}><Clock size={16} /><span>{slide.metadata.date}</span></div>
                         )}
-                        {slide.metadata.rating && (
+                        {slide.metadata?.rating && (
                           <div className={styles.metadataItem}><Star size={16} fill="currentColor" /><span>{slide.metadata.rating}</span></div>
                         )}
-                        {slide.metadata.discount && (
+                        {slide.metadata?.discount && (
                           <span className={styles.discountBadge}>{slide.metadata.discount}</span>
                         )}
                       </div>
                       <h2 className={styles.slideTitle}>{slide.title}</h2>
                       <p className={styles.slideSubtitle}>{slide.subtitle}</p>
-                      <button className={styles.slideCta}>{slide.cta}<ExternalLink size={18} /></button>
+
+                      {/* ← onClick navega al destino correcto */}
+                      <button
+                        className={styles.slideCta}
+                        onClick={() => slide.link && navigate(slide.link)}
+                      >
+                        {slide.cta}<ExternalLink size={18} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -429,10 +455,10 @@ const Home = () => {
               </button>
 
               <div className={styles.carouselIndicators}>
-                {MOCK_DATA.heroSlides.map((_, index) => (
+                {heroSlides.map((_, index) => (
                   <button
                     key={index}
-                    className={`${styles.indicator} ${index === currentSlide ? styles.indicatorActive : ""}`}
+                    className={`${styles.indicator} ${index === safeCurrentSlide ? styles.indicatorActive : ""}`}
                     onClick={() => setCurrentSlide(index)}
                   />
                 ))}
@@ -472,7 +498,6 @@ const Home = () => {
         <div className={styles.categoriesLayout}>
           <div className={styles.categoriesGrid}>
             {(apiCategories.length > 0 ? apiCategories : []).map((cat, i) => {
-              // Usamos los estilos mock en orden cíclico
               const style = MOCK_DATA.categoryStyles[i % MOCK_DATA.categoryStyles.length];
               const IconComponent = style.icon;
               return (
@@ -483,12 +508,7 @@ const Home = () => {
                   style={{ cursor: "pointer" }}
                 >
                   <div className={styles.categoryImageContainer}>
-                    <img
-                      src={style.image}
-                      alt={cat.name}
-                      className={styles.categoryImage}
-                      onError={handleImageError}
-                    />
+                    <img src={style.image} alt={cat.name} className={styles.categoryImage} onError={handleImageError} />
                     <div className={`${styles.categoryOverlay} ${styles[style.gradient]}`}>
                       <IconComponent size={64} className={styles.categoryIcon} />
                     </div>
@@ -501,7 +521,6 @@ const Home = () => {
               );
             })}
 
-            {/* Fallback si no cargaron las categorías de la API */}
             {apiCategories.length === 0 && MOCK_DATA.categoryStyles.map((style, i) => {
               const IconComponent = style.icon;
               return (
@@ -541,7 +560,7 @@ const Home = () => {
 
           {feedLoading && posts.length === 0 && (
             <div className={styles.feedLoading}>
-              {[1,2,3].map((i) => (
+              {[1, 2, 3].map((i) => (
                 <div key={i} className={styles.postCardSkeleton}>
                   <div className={styles.skeletonHeader} />
                   <div className={styles.skeletonBody} />
@@ -654,7 +673,6 @@ const Home = () => {
       </section>
 
       <FloatingChat />
-
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );

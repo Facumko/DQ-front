@@ -1,6 +1,6 @@
 import { useContext, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { UserContext } from "../../pages/UserContext";
 import styles from "./Favorites.module.css";
 

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { FaLock, FaShieldAlt, FaCreditCard, FaMobileAlt, FaMoneyBillWave, FaArrowLeft } from "react-icons/fa";
 import "./FormStep.css";
 import "./PaymentStep.css";

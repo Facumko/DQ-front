@@ -104,7 +104,8 @@ const SearchPage = () => {
 
   useEffect(() => {
     load(false);
-  }, [query, isAgregados, selectedCategoryIds]);
+  }, [query, isAgregados, selectedCategoryIds, load]);
+
 
   const handleLoadMore = () => {
     if (hasMore && !loadingMore) load(true);

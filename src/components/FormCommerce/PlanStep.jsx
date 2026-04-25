@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import "./FormStep.css";
 import "./PlanStep.css";
 

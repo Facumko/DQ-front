@@ -58,7 +58,8 @@ const Negocios = () => {
     };
 
     load();
-  }, [user?.id_user, id]);
+  }, [user?.id_user, id, isPublic, navigate]);
+
 
   if (loading) {
     return (
