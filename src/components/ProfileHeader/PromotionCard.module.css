@@ -1,0 +1,358 @@
+/* PromotionCard.module.css */
+
+/* ── Card base ── */
+.card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #e5e7eb;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+}
+.card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Card activa — borde verde */
+.cardActive {
+  border-color: #16a34a;
+  box-shadow: 0 2px 12px rgba(22, 163, 74, 0.12);
+}
+.cardActive:hover {
+  box-shadow: 0 8px 28px rgba(22, 163, 74, 0.18);
+}
+
+/* ── Imagen ── */
+.imageWrap {
+  position: relative;
+  height: 140px;
+  background: #f3f4f6;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.card:hover .image { transform: scale(1.04); }
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #d1d5db;
+  font-size: 0.75rem;
+}
+
+/* ── Badge de estado ── */
+.statusBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+
+.badgeActive {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badgePaused {
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fde68a;
+}
+
+.badgeDraft {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+/* ── Body ── */
+.body {
+  padding: 14px 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.cardDesc {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Tags ── */
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #B00020;
+  background: #fef2f4;
+  border: 1px solid #fecaca;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ── Redirect ── */
+.redirectRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  color: #6b7280;
+}
+.redirectRow svg { color: #9ca3af; }
+
+/* ── Fechas ── */
+.datesRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.73rem;
+  color: #9ca3af;
+}
+
+/* ── Métricas ── */
+.metricsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+  padding: 7px 10px;
+  background: #f0fdf4;
+  border-radius: 8px;
+  border: 1px solid #dcfce7;
+}
+
+.metricItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.metricsLoading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinIcon { animation: spin 0.8s linear infinite; }
+
+/* ── Acciones ── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-top: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+/* Botón activar */
+.btnActivate {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #16a34a;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btnActivate:hover:not(:disabled) { background: #15803d; }
+.btnActivate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Botón pausar */
+.btnPause {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.btnPause:hover:not(:disabled) { border-color: #d97706; color: #b45309; background: #fffbeb; }
+.btnPause:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Botón editar */
+.btnEdit {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btnEdit:hover:not(:disabled) { border-color: #B00020; color: #B00020; background: #fef2f4; }
+.btnEdit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Botón eliminar */
+.btnDelete {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btnDelete:hover:not(:disabled) { background: #fee2e2; border-color: #dc2626; }
+.btnDelete:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Modal de conflicto ── */
+.conflictOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.conflictModal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 28px 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.conflictIcon { color: #d97706; }
+
+.conflictTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.conflictDesc {
+  font-size: 0.88rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.conflictActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.conflictCancel {
+  flex: 1;
+  padding: 9px;
+  background: transparent;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.conflictCancel:hover { border-color: #9ca3af; color: #374151; }
+
+.conflictConfirm {
+  flex: 1;
+  padding: 9px;
+  background: #B00020;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.conflictConfirm:hover { background: #8a0018; }

@@ -21,6 +21,7 @@ import ScheduleEditor from "./components/ScheduleEditor";
 import ScheduleDisplay from "./components/ScheduleDisplay";
 import LocationPicker from "../LocationPicker/LocationPicker";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
+import PromotionModal from "../PromotionModal";
 
 const MOCK_BUSINESS = {
   idCommerce: 0,

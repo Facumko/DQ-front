@@ -1032,6 +1032,97 @@ export const getEventsByCommerce = async (commerceId) => {
     throw error;
   }
 };
+
+// ============================================
+// PROMOCIONES — agregar al final de Api.jsx
+// ============================================
+
+export const getPromotionTags = async () =>
+  apiRequest('GET', '/etiqueta/promocion');
+
+export const getMisPromociones = async () => {
+  try {
+    const response = await apiRequest('GET', '/promocion/traer/mis/promociones');
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    if (error.status === 403) throw { ...error, isPlanError: true };
+    if (error.message?.includes('404')) return [];
+    throw error;
+  }
+};
+
+export const createPromotion = async (commerceId, dto) => {
+  validateParams({ commerceId, dto }, ['commerceId', 'dto']);
+  return apiRequest('POST', `/promocion/crear/${commerceId}`, dto);
+};
+
+export const updatePromotion = async (idPromocion, dto) => {
+  validateParams({ idPromocion, dto }, ['idPromocion', 'dto']);
+  return apiRequest('PUT', `/promocion/editar/${idPromocion}`, dto);
+};
+
+export const deletePromotion = async (idPromocion) => {
+  validateParams({ idPromocion }, ['idPromocion']);
+  return apiRequest('DELETE', `/promocion/eliminar/${idPromocion}`);
+};
+
+export const uploadPromotionImage = async (idPromocion, imageFile) => {
+  validateParams({ idPromocion, imageFile }, ['idPromocion', 'imageFile']);
+  if (!(imageFile instanceof File)) throw new Error('Archivo inválido');
+  if (imageFile.size > 5 * 1024 * 1024) throw new Error('La imagen no puede superar los 5MB');
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  try {
+    const { accessToken } = getStoredTokens();
+    const response = await axios.post(
+      `${API_URL}/promocion/establecer/imagen/${idPromocion}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        timeout: 30000,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, 'uploadPromotionImage');
+  }
+};
+
+export const activatePromotion = async (idPromocion, confirmarPausa = false) => {
+  validateParams({ idPromocion }, ['idPromocion']);
+  try {
+    return await apiRequest('POST', `/promocion/activar/${idPromocion}?confirmarPausa=${confirmarPausa}`);
+  } catch (error) {
+    if (error.status === 409) throw { ...error, isConflict: true };
+    throw error;
+  }
+};
+
+export const pausePromotion = async (idPromocion) => {
+  validateParams({ idPromocion }, ['idPromocion']);
+  return apiRequest('POST', `/promocion/pausar/${idPromocion}`);
+};
+
+export const getPromotionMetrics = async (idPromocion) => {
+  validateParams({ idPromocion }, ['idPromocion']);
+  return apiRequest('GET', `/promocion/metricas/${idPromocion}`);
+};
+
+export const registerPromotionView = async (idPromocion) => {
+  try {
+    await apiRequest('POST', `/promocion/vista/${idPromocion}`);
+  } catch { /* silencioso */ }
+};
+
+export const registerPromotionClick = async (idPromocion) => {
+  try {
+    await apiRequest('POST', `/promocion/click/${idPromocion}`);
+  } catch { /* silencioso */ }
+};
 // ============================================
 // EXPORTACIÓN
 // ============================================
@@ -1057,5 +1148,15 @@ export default {
   scheduleToBackend,
   scheduleFromBackend, addCommerceCategories, removeCommerceCategories, getCommercesByCategories,
   createEvent, getAllEvents, getEventById, updateEvent, deleteEvent, addImagesToEvent, deleteImagesFromEvent, toLocalDateTime,
-  getFeaturedSection,
+  getFeaturedSection,getPromotionTags,
+  getMisPromociones,
+  createPromotion,
+  updatePromotion,
+  deletePromotion,
+  uploadPromotionImage,
+  activatePromotion,
+  pausePromotion,
+  getPromotionMetrics,
+  registerPromotionView,
+  registerPromotionClick,
 };
