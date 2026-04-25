@@ -10,10 +10,12 @@ import {
   getCategories, addCommerceCategories, removeCommerceCategories,
   createEvent, updateEvent, deleteEvent,
   addImagesToEvent, deleteImagesFromEvent,
-  toLocalDateTime, getEventsByCommerce 
+  toLocalDateTime, getEventsByCommerce,
+  getMisPromociones, getPromotionTags,
+  createPromotion, updatePromotion, uploadPromotionImage,
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
-import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus, 
+import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
          Phone, Mail, Link2, Clock, Pencil, Trash2 } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
@@ -21,7 +23,8 @@ import ScheduleEditor from "./components/ScheduleEditor";
 import ScheduleDisplay from "./components/ScheduleDisplay";
 import LocationPicker from "../LocationPicker/LocationPicker";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
-import PromotionModal from "../PromotionModal";
+import PromotionModal from "./PromotionModal";
+import PromotionCard from "./PromotionCard";
 
 const MOCK_BUSINESS = {
   idCommerce: 0,
@@ -58,10 +61,7 @@ const normalizeBusiness = (d) => ({
   profileImage: d?.profileImage?.url || d?.profileImage || null,
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
   schedules:    d?.schedules || [],
-  categories:   Array.isArray(d?.categories) ? d.categories : [], // ← faltaba
-
-
-  // ── Convertir AddressDto del back → formato LocationPicker ──────────
+  categories:   Array.isArray(d?.categories) ? d.categories : [],
   location: d?.address?.lat && d?.address?.lng
     ? {
         idAddress: d.address.idAddress || null,
@@ -157,6 +157,7 @@ const ProfileHeader = ({
   const [loading, setLoading] = useState({
     business: true, posts: false, profileImage: false,
     coverImage: false, savingBusiness: false, creatingPost: false, deletingPost: false,
+    creatingPromotion: false, deletingPromotion: false,
   });
   const [errorMsg,   setErrorMsg]   = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -173,6 +174,12 @@ const ProfileHeader = ({
   const [businessId, setBusinessId]= useState(null);
   const [events, setEvents] = useState([]);
 
+  // Promociones
+  const [promotions,         setPromotions]         = useState([]);
+  const [promotionTags,      setPromotionTags]       = useState([]);
+  const [showPromotionModal, setShowPromotionModal]  = useState(false);
+  const [editingPromotion,   setEditingPromotion]    = useState(null);
+
   const [businessData, setBusinessData] = useState({
     name:"", email:"", phone:"", link:"", description:"",
     profileImage:null, coverImage:null, location:null, categories:[],
@@ -181,7 +188,6 @@ const ProfileHeader = ({
   const [draft,         setDraft]         = useState(businessData);
   const [draftSchedule, setDraftSchedule] = useState(schedule);
 
-  // Categorías
   const [allCategories,    setAllCategories]    = useState([]);
   const [draftCategories,  setDraftCategories]  = useState([]);
 
@@ -212,7 +218,6 @@ const ProfileHeader = ({
     if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
   }, []);
 
-  // Cargar todas las categorías disponibles
   useEffect(() => {
     getCategories()
       .then(cats => setAllCategories(Array.isArray(cats) ? cats : []))
@@ -252,6 +257,24 @@ const ProfileHeader = ({
   const flashInfo    = (m) => flash(setInfoMsg,    m);
   const setLoad = (key, val) => setLoading((p) => ({ ...p, [key]: val }));
 
+  const loadPromotions = useCallback(async () => {
+    if (!isOwner) return;
+    try {
+      const [promos, tags] = await Promise.all([
+        getMisPromociones(),
+        getPromotionTags(),
+      ]);
+      setPromotions(Array.isArray(promos) ? promos : []);
+      setPromotionTags(Array.isArray(tags) ? tags : []);
+    } catch (err) {
+      if (err.isPlanError) {
+        flashError("Necesitás un plan activo para usar promociones.");
+      } else {
+        flashError(err.message || "Error al cargar promociones");
+      }
+    }
+  }, [isOwner]);
+
   const loadBusinessData = async () => {
     setLoad("business", true);
     try {
@@ -285,6 +308,7 @@ const ProfileHeader = ({
       ]);
       setPosts(Array.isArray(rawPosts) ? rawPosts.map(normalizePost) : []);
       setEvents(Array.isArray(rawEvents) ? rawEvents : []);
+      if (isOwner) await loadPromotions();
     } catch { setPosts([]); setEvents([]); }
     finally { setLoad("posts", false); }
   };
@@ -381,7 +405,6 @@ const ProfileHeader = ({
       if (pendingCover?.file)  await uploadImage("coverImage",   pendingCover.file);
       if (pendingAvatar?.file) await uploadImage("profileImage", pendingAvatar.file);
 
-      // Guardar horarios
       const idToUse = businessId || currentBusinessId;
       if (idToUse) {
         try {
@@ -393,14 +416,11 @@ const ProfileHeader = ({
         }
       }
 
-      // Sincronizar categorías
       if (idToUse) {
         const currentIds = businessData.categories.map(c => c.idCategory);
         const draftIds   = draftCategories.map(c => c.idCategory);
-
         const toAdd    = draftIds.filter(id => !currentIds.includes(id));
         const toRemove = currentIds.filter(id => !draftIds.includes(id));
-
         try {
           if (toAdd.length > 0)    await addCommerceCategories(idToUse, toAdd);
           if (toRemove.length > 0) await removeCommerceCategories(idToUse, toRemove);
@@ -410,7 +430,6 @@ const ProfileHeader = ({
         }
       }
 
-      // Recargar datos del negocio
       if (externalData) {
         const biz = await getBusinessById(currentBusinessId);
         if (biz) {
@@ -471,6 +490,7 @@ const ProfileHeader = ({
   const sortedEvents = useMemo(() =>
     [...events].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)),
     [events]);
+
   const handleSubmitPost = async (data) => {
     if (!isOwner) { flashError("No tenés permisos"); return; }
     if (!businessId) { flashError("Creá el negocio primero"); return; }
@@ -480,7 +500,6 @@ const ProfileHeader = ({
     setLoad("creatingPost", true);
     try {
       if (modalType === "event") {
-        // ── EVENTO ──
         const eventDto = {
           title:           data.title || data.text,
           description:     data.text,
@@ -501,7 +520,6 @@ const ProfileHeader = ({
           flashSuccess("✅ Evento creado");
         }
       } else {
-        // ── POST (lógica existente sin cambios) ──
         if (editingPost) {
           await updatePostText(editingPost.id, data.text, id);
           if (data.imagesToDelete?.length) await deleteImagesFromPost(editingPost.id, data.imagesToDelete);
@@ -518,6 +536,7 @@ const ProfileHeader = ({
     } catch (err) { flashError(err.message || "Error al guardar"); }
     finally { setLoad("creatingPost", false); setEditingPost(null); }
   };
+
   const handleDeletePost = async (postId, type = "post") => {
     if (!isOwner) { flashError("No tenés permisos"); return; }
     if (!window.confirm("¿Eliminar? Esta acción no se puede deshacer.")) return;
@@ -533,7 +552,30 @@ const ProfileHeader = ({
     } catch (err) { flashError(err.message || "Error al eliminar"); }
     finally { setLoad("deletingPost", false); }
   };
-  
+
+  const handleSubmitPromotion = async (dto, imageFile) => {
+    if (!isOwner || !businessId) return;
+    setLoad("creatingPromotion", true);
+    try {
+      let result;
+      if (editingPromotion) {
+        result = await updatePromotion(editingPromotion.idPromotion, dto);
+        if (imageFile) await uploadPromotionImage(editingPromotion.idPromotion, imageFile);
+        flashSuccess("✅ Promoción actualizada");
+      } else {
+        result = await createPromotion(businessId, dto);
+        if (imageFile) await uploadPromotionImage(result.idPromotion, imageFile);
+        flashSuccess("✅ Promoción creada");
+      }
+      await loadPromotions();
+      setShowPromotionModal(false);
+      setEditingPromotion(null);
+    } catch (err) {
+      flashError(err.message || "Error al guardar la promoción");
+    } finally {
+      setLoad("creatingPromotion", false);
+    }
+  };
 
   const openModal = (type, post = null) => {
     setModalType(type); setEditingPost(post); setShowModal(true);
@@ -616,7 +658,6 @@ const ProfileHeader = ({
             <>
               <h1 className={styles.businessName}>{businessData.name || "Sin nombre"}</h1>
 
-              {/* Chips de categorías en modo vista */}
               {businessData.categories.length > 0 && (
                 <div className={styles.categoryChipsView}>
                   {businessData.categories.map(cat => (
@@ -646,7 +687,6 @@ const ProfileHeader = ({
                 {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
                 <span className={styles.charCount}>{draft.description.length}/500</span>
 
-                {/* Editor de categorías en modo edición */}
                 <div className={styles.categoryEditorSection}>
                   <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categorías</p>
                   <div className={styles.categoryChipsEdit}>
@@ -792,6 +832,15 @@ const ProfileHeader = ({
                 <button className={styles.btnCreateSecondary} onClick={() => openModal("event")} disabled={loading.creatingPost}>
                   <Plus size={15}/> Evento
                 </button>
+                {activeTab === "promotions" && (
+                  <button
+                    className={styles.btnCreateSecondary}
+                    onClick={() => { setEditingPromotion(null); setShowPromotionModal(true); }}
+                    disabled={loading.creatingPromotion}
+                  >
+                    <Plus size={15}/> Promoción
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -805,6 +854,11 @@ const ProfileHeader = ({
         <button className={`${styles.tabBtn} ${activeTab === "events" ? styles.tabBtnActive : ""}`} onClick={() => setActiveTab("events")}>
           Eventos ({sortedEvents.length})
         </button>
+        {isOwner && (
+          <button className={`${styles.tabBtn} ${activeTab === "promotions" ? styles.tabBtnActive : ""}`} onClick={() => setActiveTab("promotions")}>
+            Promociones ({promotions.length})
+          </button>
+        )}
       </div>
 
       <div className={styles.feedWrapper}>
@@ -835,36 +889,60 @@ const ProfileHeader = ({
             </div>
           ))
         )}
-            {activeTab === "events" && (
-              sortedEvents.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <div className={styles.emptyIcon}>📅</div>
-                  <p className={styles.emptyTitle}>Sin eventos aún</p>
-                  <p className={styles.emptyDesc}>{isOwner ? "¡Creá el primer evento!" : "Este negocio no tiene eventos todavía."}</p>
-                </div>
-              ) : sortedEvents.map((ev) => (
-                <div key={ev.idEvent} className={styles.eventCard}>
-                  {ev.images?.length > 0 && <PostGallery images={ev.images.map(i => i.url || i)} showThumbnails={true}/>}
-                  <div className={styles.eventHeader}>
-                    <h3 className={styles.eventTitle}>{ev.title}</h3>
-                    <div className={styles.eventMeta}>
-                      {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[0]}</span>}
-                      {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[1]?.slice(0,5)}</span>}
-                    </div>
-                    {ev.description && <p className={styles.descriptionText} style={{padding: "0 18px 10px"}}>{ev.description}</p>}
-                  </div>
-                  {isOwner && (
-                    <div className={styles.eventBody}>
-                      <div className={styles.postActions}>
-                        <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
-                        <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.idEvent, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
+
+        {activeTab === "events" && (
+          sortedEvents.length === 0 ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>📅</div>
+              <p className={styles.emptyTitle}>Sin eventos aún</p>
+              <p className={styles.emptyDesc}>{isOwner ? "¡Creá el primer evento!" : "Este negocio no tiene eventos todavía."}</p>
             </div>
+          ) : sortedEvents.map((ev) => (
+            <div key={ev.idEvent} className={styles.eventCard}>
+              {ev.images?.length > 0 && <PostGallery images={ev.images.map(i => i.url || i)} showThumbnails={true}/>}
+              <div className={styles.eventHeader}>
+                <h3 className={styles.eventTitle}>{ev.title}</h3>
+                <div className={styles.eventMeta}>
+                  {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[0]}</span>}
+                  {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[1]?.slice(0,5)}</span>}
+                </div>
+                {ev.description && <p className={styles.descriptionText} style={{padding: "0 18px 10px"}}>{ev.description}</p>}
+              </div>
+              {isOwner && (
+                <div className={styles.eventBody}>
+                  <div className={styles.postActions}>
+                    <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                    <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.idEvent, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+
+        {activeTab === "promotions" && isOwner && (
+          promotions.length === 0 ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>📣</div>
+              <p className={styles.emptyTitle}>Sin promociones</p>
+              <p className={styles.emptyDesc}>Creá tu primera promoción para destacar tu negocio en el carrusel.</p>
+            </div>
+          ) : (
+            <div className={styles.promotionsGrid}>
+              {promotions.map(promo => (
+                <PromotionCard
+                  key={promo.idPromotion}
+                  promotion={promo}
+                  onEdit={(p) => { setEditingPromotion(p); setShowPromotionModal(true); }}
+                  onDeleted={() => loadPromotions()}
+                  onStatusChanged={() => loadPromotions()}
+                  onError={(msg) => flashError(msg)}
+                />
+              ))}
+            </div>
+          )
+        )}
+      </div>
 
       <CreatePostModal
         isOpen={showModal}
@@ -872,6 +950,17 @@ const ProfileHeader = ({
         onSubmit={handleSubmitPost}
         type={modalType}
         initialData={editingPost}
+      />
+
+      <PromotionModal
+        isOpen={showPromotionModal}
+        onClose={() => { setShowPromotionModal(false); setEditingPromotion(null); }}
+        onSubmit={handleSubmitPromotion}
+        initialData={editingPromotion}
+        availableTags={promotionTags}
+        posts={sortedPosts}
+        events={sortedEvents}
+        isSubmitting={loading.creatingPromotion}
       />
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}

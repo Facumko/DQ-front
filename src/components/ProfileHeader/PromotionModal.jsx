@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Image, Link2, Tag, Calendar, AlertCircle, Check } from "lucide-react";
 import styles from "./PromotionModal.module.css";
-import LinkContentModal from "./LinkContentModal";
+import LinkContentModal from "./components/LinkContentModal";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -11,7 +11,7 @@ const PromotionModal = ({
   onSubmit,
   initialData = null,
   availableTags = [],
-  posts = [],
+  posts = [], 
   events = [],
   isSubmitting = false,
 }) => {
