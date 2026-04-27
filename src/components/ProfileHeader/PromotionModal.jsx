@@ -35,7 +35,7 @@ const PromotionModal = ({
       setForm({
         title: initialData.title || "",
         description: initialData.description || "",
-        tags: initialData.tags?.map(t => t.name || t) || [],
+        tags: initialData.tags?.map(t => t.nameTag || t.name || t) || [],
         startDate: initialData.startDate?.split("T")[0] || "",
         endDate: initialData.endDate?.split("T")[0] || "",
       });
@@ -209,7 +209,7 @@ const PromotionModal = ({
                 </label>
                 <div className={styles.tagsWrap}>
                   {availableTags.map(tag => {
-                    const tagName = tag.name || tag;
+                    const tagName = tag.nameTag || tag.name || tag;
                     const selected = form.tags.includes(tagName);
                     return (
                       <button

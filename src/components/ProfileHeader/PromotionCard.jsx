@@ -131,15 +131,14 @@ const PromotionCard = ({ promotion, onEdit, onDeleted, onStatusChanged, onError 
           )}
 
           {/* Tags */}
-          {promotion.tags?.length > 0 && (
-            <div className={styles.tagsRow}>
-              {promotion.tags.map((tag, i) => (
+            {promotion.tags.map((tag, i) => {
+              const tagName = tag.nameTag || tag.name || tag;
+              return (
                 <span key={i} className={styles.tagChip}>
-                  <Tag size={10} /> {tag.name || tag}
+                  <Tag size={10} /> {tagName}
                 </span>
-              ))}
-            </div>
-          )}
+              );
+            })}
 
           {/* Redirect */}
           {redirectLabel && (
