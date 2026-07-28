@@ -342,6 +342,28 @@ const handleApiError = (error, endpoint) => {
       errorMsg = 'Error al iniciar sesión.';
       authErrorType = 'GENERIC';
     }
+  } else if (endpoint.includes(ENDPOINTS.REGISTER)) {
+    if (status === 409) {
+      if (serverMessage.includes('email') || serverMessage.includes('correo')) {
+        errorMsg = 'Ese email ya tiene una cuenta creada.';
+        authErrorType = 'EMAIL_TAKEN';
+      } else if (serverMessage.includes('username') || serverMessage.includes('usuario')) {
+        errorMsg = 'Ese nombre de usuario ya está en uso.';
+        authErrorType = 'USERNAME_TAKEN';
+      } else {
+        // El backend no aclaró qué campo chocó — no asumimos que es el username,
+        // porque reintentar con el mismo email cuando en realidad el email ya
+        // existe solo generaría el mismo error de nuevo.
+        errorMsg = 'Ya existe una cuenta con estos datos.';
+        authErrorType = 'GENERIC_CONFLICT';
+      }
+    } else if (status === 400) {
+      errorMsg = serverMessage || 'Revisá los datos ingresados.';
+      authErrorType = 'GENERIC';
+    } else {
+      errorMsg = serverMessage || 'Error al crear la cuenta.';
+      authErrorType = 'GENERIC';
+    }
   } else {
     const msgs = {
       400: 'Datos inválidos.',
@@ -447,7 +469,11 @@ export const registerUser = async (userData) => {
     if (response.accessToken && response.refreshToken) saveTokens(response.accessToken, response.refreshToken);
     return response;
   } catch (error) {
-    if (error.message.includes('duplicado') || error.message.includes('409')) {
+    // Antes esto reintentaba ante CUALQUIER 409, asumiendo que era el username.
+    // Si el conflicto era en realidad por email duplicado, el reintento con el
+    // mismo email fallaba igual (o peor, generaba usuarios raros). Ahora solo
+    // reintentamos cuando el propio backend nos dijo que fue el username.
+    if (error.authErrorType === 'USERNAME_TAKEN') {
       registrationData.username = generateUsername(userData.email);
       const retry = await apiRequest('POST', ENDPOINTS.REGISTER, registrationData);
       if (!retry) throw new Error('Respuesta inválida del servidor');

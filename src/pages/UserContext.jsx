@@ -393,9 +393,12 @@ export function UserProvider({ children }) {
       safeSet("user", newUser);
       return { success: true, data: newUser };
     } catch (err) {
-      const msg = err.message || "Error al registrar usuario";
+      const authErrorType = err.authErrorType || 'GENERIC';
+      const msg = authErrorType === 'EMAIL_TAKEN'
+        ? 'Ese email ya tiene una cuenta creada.'
+        : (err.message || "Error al registrar usuario");
       setError(msg);
-      return { success: false, error: msg };
+      return { success: false, error: msg, authErrorType };
     } finally { setLoading(false); }
   };
 

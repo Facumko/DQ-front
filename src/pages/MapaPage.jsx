@@ -370,6 +370,7 @@ export default function MapaPage() {
               placeholder="Buscar comercio..."
               value={search}
               onChange={e => setSearch(e.target.value)}
+              maxLength={80}
             />
             {search && <button style={s.clearBtn} onClick={() => setSearch("")}>✕</button>}
           </div>

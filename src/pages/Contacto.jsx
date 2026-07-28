@@ -2,14 +2,52 @@ import React, { useState } from "react";
 import styles from "./Contacto.module.css";
 import { FaEnvelope, FaWhatsapp, FaMapMarkerAlt, FaClock } from "react-icons/fa";
 
+const LIMITS = { nombre: 60, email: 100, asunto: 100, mensaje: 500 };
+
+// Nombre: sólo letras (con acentos/ñ), espacios, apóstrofes y guiones.
+// Acá SÍ bloqueamos el caracter en el momento: no hay ningún caso legítimo
+// de un número o símbolo raro en un nombre, así que directamente no se deja escribirlo.
+const NOMBRE_INVALIDO = /[^\p{L}\s'-]/gu;
+
+const validate = (form) => {
+  const errors = {};
+
+  if (!form.nombre.trim()) errors.nombre = "Ingresá tu nombre";
+  else if (form.nombre.trim().length < 2) errors.nombre = "El nombre es demasiado corto";
+
+  if (!form.email.trim()) errors.email = "Ingresá tu email";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = "Ingresá un email válido";
+
+  if (!form.asunto.trim()) errors.asunto = "Contanos el asunto";
+  else if (form.asunto.trim().length < 3) errors.asunto = "El asunto es demasiado corto";
+
+  if (!form.mensaje.trim()) errors.mensaje = "Escribí tu mensaje";
+  else if (form.mensaje.trim().length < 10) errors.mensaje = "Contanos un poco más (mínimo 10 caracteres)";
+
+  return errors;
+};
+
 const Contacto = () => {
   const [form, setForm] = useState({ nombre: "", email: "", asunto: "", mensaje: "" });
+  const [errors, setErrors] = useState({});
   const [sent, setSent] = useState(false);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    // En nombre, y también al pegar texto, sacamos todo lo que no sea letra/espacio/apóstrofe/guión
+    const clean = name === "nombre" ? value.replace(NOMBRE_INVALIDO, "") : value;
+    if (clean.length > LIMITS[name]) return; // cinturón extra además del maxLength del input
+    setForm({ ...form, [name]: clean });
+    if (errors[name]) setErrors({ ...errors, [name]: undefined });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const foundErrors = validate(form);
+    if (Object.keys(foundErrors).length > 0) {
+      setErrors(foundErrors);
+      return;
+    }
     // TODO: conectar con backend
     setSent(true);
     window.scrollTo(0, 0);
@@ -88,23 +126,28 @@ const Contacto = () => {
                   <div className={styles.formGroup}>
                     <label>Nombre *</label>
                     <input name="nombre" value={form.nombre} onChange={handleChange}
-                      placeholder="Tu nombre" required />
+                      placeholder="Tu nombre" maxLength={LIMITS.nombre} required />
+                    {errors.nombre && <small className={styles.errorMessage}>{errors.nombre}</small>}
                   </div>
                   <div className={styles.formGroup}>
                     <label>Email *</label>
                     <input name="email" type="email" value={form.email} onChange={handleChange}
-                      placeholder="tu@email.com" required />
+                      placeholder="tu@email.com" maxLength={LIMITS.email} required />
+                    {errors.email && <small className={styles.errorMessage}>{errors.email}</small>}
                   </div>
                 </div>
                 <div className={styles.formGroup}>
                   <label>Asunto *</label>
                   <input name="asunto" value={form.asunto} onChange={handleChange}
-                    placeholder="¿En qué te podemos ayudar?" required />
+                    placeholder="¿En qué te podemos ayudar?" maxLength={LIMITS.asunto} required />
+                  {errors.asunto && <small className={styles.errorMessage}>{errors.asunto}</small>}
                 </div>
                 <div className={styles.formGroup}>
                   <label>Mensaje *</label>
                   <textarea name="mensaje" value={form.mensaje} onChange={handleChange}
-                    rows={5} placeholder="Escribí tu mensaje acá..." required />
+                    rows={5} placeholder="Escribí tu mensaje acá..." maxLength={LIMITS.mensaje} required />
+                  <small className={styles.charCount}>{form.mensaje.length}/{LIMITS.mensaje}</small>
+                  {errors.mensaje && <small className={styles.errorMessage}>{errors.mensaje}</small>}
                 </div>
                 <button type="submit" className={styles.submitBtn}>
                   Enviar mensaje
