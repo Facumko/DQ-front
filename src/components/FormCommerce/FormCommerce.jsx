@@ -13,7 +13,7 @@ const STEPS = ["Plan", "Propietario", "Negocio", "Confirmación"];
 
 function FormCommerce() {
   const navigate = useNavigate();
-  const { user, loadBusinesses } = useContext(UserContext);
+  const { user, loadBusinesses, openLoginModal } = useContext(UserContext);
 
   const [currentStep,      setCurrentStep]     = useState(1);
   const [isSubmitting,     setIsSubmitting]     = useState(false);
@@ -38,9 +38,9 @@ function FormCommerce() {
   });
 
   useEffect(() => {
-    if (!user?.id_user) { navigate("/login"); return; }
+    if (!user?.id_user) { openLoginModal(); return; }
     setCheckingBusiness(false);
-  }, [user, navigate]);
+  }, [user, openLoginModal]);
 
   const updateFormData = useCallback(
     (data) => setFormData(prev => ({ ...prev, ...data })),
@@ -56,7 +56,7 @@ function FormCommerce() {
   };
 
   const handleSuccess = async () => {
-    if (!user?.id_user) { navigate("/login"); return; }
+    if (!user?.id_user) { openLoginModal(); return; }
     if (!formData.businessName || !formData.businessDescription) {
       alert("Por favor completá todos los campos requeridos");
       return;

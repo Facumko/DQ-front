@@ -6,7 +6,7 @@ import { Clock, Star } from "lucide-react";
 
 const SearchResultCard = ({ commerce }) => {
   const navigate = useNavigate();
-  const { user, favoriteCommerceIds, toggleFavoriteCommerce } = useContext(UserContext);
+  const { user, favoriteCommerceIds, toggleFavoriteCommerce, openLoginModal } = useContext(UserContext);
 
   const id    = commerce.idCommerce;
   const isFav = favoriteCommerceIds?.has(id) ?? false;
@@ -26,7 +26,7 @@ const SearchResultCard = ({ commerce }) => {
 
   const handleFav = (e) => {
     e.stopPropagation();
-    if (!user) { navigate("/login"); return; }
+    if (!user) { openLoginModal(); return; }
     toggleFavoriteCommerce(commerce);
   };
 
