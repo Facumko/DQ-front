@@ -197,6 +197,8 @@ const Navbar = () => {
             value={searchText}
             onChange={(e) => handleSearchChange(e.target.value)}
             onKeyPress={handleKeyPress}
+            maxLength={80}
+
           />
 
           {/* Sugerencias — solo fuera de /search */}

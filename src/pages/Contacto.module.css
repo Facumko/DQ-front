@@ -53,6 +53,8 @@ a.infoValue:hover { color: #B00020; }
   box-shadow: 0 0 0 3px rgba(176,0,32,0.1); background: #fff;
 }
 .formGroup textarea { resize: vertical; min-height: 120px; }
+.errorMessage { color: #dc2626; font-size: 0.78rem; margin-top: -2px; }
+.charCount { color: #9ca3af; font-size: 0.72rem; align-self: flex-end; margin-top: -4px; }
 .submitBtn {
   padding: 12px; background: #B00020; color: #fff; border: none;
   border-radius: 10px; font-size: 0.92rem; font-weight: 700;

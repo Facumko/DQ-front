@@ -168,10 +168,9 @@ export default function LoginModal({ onClose }) {
         setShake(true); // Agregar clase shake
         setTimeout(() => setShake(false), 400); // Remover después de 400ms
       } else if (authErrorType === 'USER_NOT_FOUND') {
-        setStep("email"); // Volver al paso email
-        setFieldError(result.error); // Mostrar error bajo email
-        setEmail(""); // Limpiar email
-        setLoginPassword(""); // Limpiar password
+        setLoginPassword(""); // Limpiar password, pero conservamos el email tipeado
+        setLocalError("No encontramos una cuenta con ese email. Podés crear una nueva ahora mismo.");
+        setStep("register"); // Saltamos directo a crear cuenta, sin hacer retipear el email
       } else if (authErrorType === 'ACCOUNT_BLOCKED') {
         setLocalError(result.error); // Mostrar banner especial
         setBannerClass("blocked");
@@ -187,12 +186,14 @@ export default function LoginModal({ onClose }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     setLocalError("");
+    setFieldError("");
     if (clearError) clearError();
     if (!registerPassword.trim() || !confirmPassword.trim()) { setLocalError("Por favor completá todos los campos"); return; }
     if (registerPassword !== confirmPassword) { setLocalError("Las contraseñas no coinciden"); return; }
     if (registerPassword.length < 6) { setLocalError("La contraseña debe tener al menos 6 caracteres"); return; }
     const result = await register({ email, password: registerPassword });
     if (result.success) { setSuccessMessage("¡Cuenta creada exitosamente! ✅"); setTimeout(() => onClose(), 1500); }
+    else if (result.authErrorType === 'EMAIL_TAKEN') { setFieldError(result.error); }
     else setLocalError(result.error);
   };
 
@@ -302,6 +303,7 @@ export default function LoginModal({ onClose }) {
                   value={email}
                   onChange={(e) => handleEmailChange(e.target.value)}
                   className={`modal-input ${emailValidation.valid === true ? "valid" : emailValidation.valid === false ? "invalid" : ""}`}
+                  maxLength={100}
                 />
                 {email && (
                   <span className={`validation-icon ${emailValidation.valid ? "valid" : "invalid"}`}>
@@ -360,6 +362,7 @@ export default function LoginModal({ onClose }) {
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="modal-input password-input"
                   disabled={loading || isLocked()?.locked}
+                  maxLength={72}
                 />
                 <span className="toggle-password" onClick={() => setShowLoginPassword(!showLoginPassword)}>
                   {showLoginPassword ? <FaEyeSlash /> : <FaEye />}
@@ -393,6 +396,7 @@ export default function LoginModal({ onClose }) {
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   className="modal-input password-input"
                   disabled={loading}
+                  maxLength={72}
                 />
                 <span className="toggle-password" onClick={() => setShowRegisterPassword(!showRegisterPassword)}>
                   {showRegisterPassword ? <FaEyeSlash /> : <FaEye />}
@@ -423,6 +427,7 @@ export default function LoginModal({ onClose }) {
                   onPaste={(e) => e.preventDefault()}
                   className="modal-input password-input"
                   disabled={loading}
+                  maxLength={72}
                 />
                 <span className="toggle-password" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -433,6 +438,20 @@ export default function LoginModal({ onClose }) {
                 <p className="password-match" style={{ color: registerPassword === confirmPassword ? "#00cc66" : "#ff4444" }}>
                   {registerPassword === confirmPassword ? "✓ Las contraseñas coinciden" : "✗ Las contraseñas no coinciden"}
                 </p>
+              )}
+
+              {fieldError && step === "register" && (
+                <div className="field-error-inline">
+                  {fieldError}{" "}
+                  <button
+                    type="button"
+                    className="modal-link"
+                    style={{ display: "inline", padding: 0 }}
+                    onClick={() => { setFieldError(""); setLoginPassword(""); setStep("login"); }}
+                  >
+                    Iniciar sesión
+                  </button>
+                </div>
               )}
 
               <button
@@ -467,6 +486,7 @@ export default function LoginModal({ onClose }) {
                 }}
                 className="modal-input"
                 disabled={loading}
+                maxLength={100}
                 autoFocus
               />
               <button type="submit" className="modal-button login-btn" disabled={loading}>
