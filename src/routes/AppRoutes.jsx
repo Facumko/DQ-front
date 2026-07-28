@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useContext } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { UserContext } from "../pages/UserContext";
+import LoginModal from "../components/LoginForm/LoginModal";
 import ScrollToTop from "../components/ScrollToTop/ScrollToTop";
 import Navbar from "../components/Navbar/Navbar";
 import Footer from "../components/Footer/Footer";
 import Home from "../pages/Home";
 import Negocios from "../pages/Negocios";
 import Eventos from "../pages/Eventos";
-import Login from "../pages/Login";
 import Profile from "../pages/Profile";
 import Favorites from "../components/Favorites/Favorites";
 import FormCommerce from "../components/FormCommerce/FormCommerce";
@@ -29,6 +30,7 @@ import PagoPendiente from "../pages/checkout/PagoPendiente";
 import OAuth2RedirectHandler from "../pages/auth/OAuth2RedirectHandler";
 
 const AppRoutes = () => {
+  const { showLoginModal, closeLoginModal } = useContext(UserContext);
   return (
     <Router>
       {/* Sube al tope en cada cambio de ruta */}
@@ -36,6 +38,10 @@ const AppRoutes = () => {
 
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <Navbar />
+
+        {/* Modal de login/registro global — cualquier componente lo abre
+            llamando a openLoginModal() del UserContext, sin navegar a ninguna ruta */}
+        {showLoginModal && <LoginModal onClose={closeLoginModal} />}
 
         {/* El main crece para empujar el footer al fondo */}
         <main style={{ flex: 1 }}>
@@ -57,7 +63,6 @@ const AppRoutes = () => {
 
             {/* Secciones */}
             <Route path="/eventos" element={<Eventos />} />
-            <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* ── OAuth2 callback — debe coincidir con app.oauth2.redirect-uri ── */}

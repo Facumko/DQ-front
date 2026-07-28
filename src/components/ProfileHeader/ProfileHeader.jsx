@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import { UserContext } from "../../pages/UserContext";
-import LoginModal from "../LoginForm/LoginModal";
 import {
   getMyBusiness, getBusinessById, updateBusiness, createBusiness,
   uploadProfileImage, uploadCoverImage,
@@ -152,7 +151,7 @@ const ProfileHeader = ({
   businessData: externalData = null,
   useMock        = false,
 }) => {
-  const { user, favoriteCommerceIds, toggleFavoriteCommerce } = useContext(UserContext);
+  const { user, favoriteCommerceIds, toggleFavoriteCommerce, openLoginModal } = useContext(UserContext);
 
   const [loading, setLoading] = useState({
     business: true, posts: false, profileImage: false,
@@ -167,7 +166,6 @@ const ProfileHeader = ({
   const [showModal,   setShowModal]  = useState(false);
   const [modalType,   setModalType]  = useState("post");
   const [editingPost, setEditingPost]= useState(null);
-  const [showLogin,   setShowLogin]  = useState(false);
 
   const [posts,      setPosts]     = useState([]);
   const [activeTab,  setActiveTab] = useState("posts");
@@ -202,7 +200,7 @@ const ProfileHeader = ({
   const isFav = businessId ? (favoriteCommerceIds?.has(businessId) ?? false) : false;
 
   const handleToggleFav = useCallback(async () => {
-    if (!user) { setShowLogin(true); return; }
+    if (!user) { openLoginModal(); return; }
     if (!businessId) return;
     const commerce = {
       idCommerce:   businessId,
@@ -211,7 +209,7 @@ const ProfileHeader = ({
       profileImage: businessData.profileImage,
     };
     await toggleFavoriteCommerce(commerce);
-  }, [user, businessId, businessData, toggleFavoriteCommerce]);
+  }, [user, businessId, businessData, toggleFavoriteCommerce, openLoginModal]);
 
   useEffect(() => () => {
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
@@ -962,8 +960,6 @@ const ProfileHeader = ({
         events={sortedEvents}
         isSubmitting={loading.creatingPromotion}
       />
-
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 };

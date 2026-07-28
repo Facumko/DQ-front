@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
-import LoginModal from "../components/LoginForm/LoginModal";
 import styles from "./Home.module.css";
 import { getMainFeed, getCategories, getFeaturedSection } from "../Api/Api";
 import { UserContext } from "./UserContext";
@@ -223,7 +222,7 @@ const DirectorySpotlight = ({ slides }) => {
 // ============================================
 const Home = () => {
   const navigate = useNavigate();
-  const { user, savedPostIds, toggleSavedPost } = useContext(UserContext);
+  const { user, savedPostIds, toggleSavedPost, openLoginModal } = useContext(UserContext);
 
   // ── Estado carrusel ──────────────────────────────────────────────────
   const [heroSlides,          setHeroSlides]          = useState(MOCK_DATA.heroSlides);
@@ -236,7 +235,6 @@ const Home = () => {
   const [feedError,           setFeedError]           = useState("");
   const [feedHasMore,         setFeedHasMore]         = useState(true);
   const [currentImageIndex,   setCurrentImageIndex]   = useState({});
-  const [showLogin,           setShowLogin]           = useState(false);
   const [apiCategories,       setApiCategories]       = useState([]);
   const sectionsRef = useRef([]);
 
@@ -303,7 +301,7 @@ const Home = () => {
   };
 
   const handleToggleSave = async (post) => {
-    if (!user) { setShowLogin(true); return; }
+    if (!user) { openLoginModal(); return; }
     await toggleSavedPost(post);
   };
 
@@ -673,7 +671,6 @@ const Home = () => {
       </section>
 
       <FloatingChat />
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 };

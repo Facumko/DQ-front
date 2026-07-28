@@ -1,6 +1,5 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from "react";
 import { UserContext } from "../../pages/UserContext";
-import LoginModal from "../LoginForm/LoginModal";
 import { useNavigate, useLocation } from "react-router-dom";
 import { searchCommerces } from "../../Api/Api";
 import styles from "./Navbar.module.css";
@@ -28,11 +27,10 @@ const HighlightText = ({ text, query }) => {
 };
 
 const Navbar = () => {
-  const { user, logout, businesses, hasBusiness } = useContext(UserContext);
+  const { user, logout, businesses, hasBusiness, openLoginModal } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [showLogin, setShowLogin]           = useState(false);
   const [showMenu, setShowMenu]             = useState(false);
   const [showDrawer, setShowDrawer]         = useState(false);
   const [showBusinesses, setShowBusinesses] = useState(false);
@@ -143,7 +141,7 @@ const Navbar = () => {
   );
 
   const handleBusinessMenuClick = () => {
-    if (!user) return setShowLogin(true);
+    if (!user) return openLoginModal();
     if (!hasBusiness) {
       navigate("/register-commerce");
       setShowMenu(false);
@@ -198,7 +196,6 @@ const Navbar = () => {
             onChange={(e) => handleSearchChange(e.target.value)}
             onKeyPress={handleKeyPress}
             maxLength={80}
-
           />
 
           {/* Sugerencias — solo fuera de /search */}
@@ -278,7 +275,7 @@ const Navbar = () => {
           })}
 
           {!user ? (
-            <button className={styles.loginButton} onClick={() => setShowLogin(true)}>
+            <button className={styles.loginButton} onClick={() => openLoginModal()}>
               <FaRegUser className={styles.loginBtnIcon} />
               <span>Ingresar</span>
             </button>
@@ -386,7 +383,6 @@ const Navbar = () => {
       </nav>
 
       <CityDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </>
   );
 };

@@ -2,7 +2,6 @@ import { useEffect, useState, useContext } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import LoginModal from "../LoginForm/LoginModal";
 import styles from "./Plans.module.css";
 
 const PLANS = [
@@ -92,9 +91,8 @@ const FAQS = [
 ];
 
 export default function Planes() {
-  const { user } = useContext(UserContext);
+  const { user, openLoginModal } = useContext(UserContext);
   const navigate = useNavigate();
-  const [showLogin, setShowLogin] = useState(false);
   const [openFaq, setOpenFaq]     = useState(null);
   const [hoveredPlan, setHoveredPlan] = useState(null);
 
@@ -106,7 +104,7 @@ export default function Planes() {
 
   const handleSelectPlan = (planId) => {
     if (!user) {
-      setShowLogin(true);
+      openLoginModal();
       return;
     }
     navigate(`/checkout/${planId}`);
@@ -388,7 +386,7 @@ export default function Planes() {
           <p>Registrate gratis y explorá todo lo que tiene para ofrecer tu ciudad.</p>
           <motion.button
             className={styles.ctaFinalBtn}
-            onClick={() => setShowLogin(true)}
+            onClick={() => openLoginModal()}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
@@ -396,8 +394,6 @@ export default function Planes() {
           </motion.button>
         </motion.div>
       </section>
-
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 }

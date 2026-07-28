@@ -6,7 +6,7 @@ import { getMyBusiness, getBusinessById } from "../Api/Api";
 import { useParams, useNavigate } from "react-router-dom";
 
 const Negocios = () => {
-  const { user } = useContext(UserContext);
+  const { user, openLoginModal } = useContext(UserContext);
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -30,7 +30,7 @@ const Negocios = () => {
           business = await getBusinessById(id);
         } else {
           if (!user?.id_user) {
-            navigate("/login");
+            openLoginModal();
             return;
           }
           business = await getMyBusiness();
@@ -58,7 +58,7 @@ const Negocios = () => {
     };
 
     load();
-  }, [user?.id_user, id, isPublic, navigate]);
+  }, [user?.id_user, id, isPublic, navigate, openLoginModal]);
 
 
   if (loading) {
@@ -81,7 +81,7 @@ const Negocios = () => {
           {!user && (
             <>
               <p style={{ color: "#666", marginBottom: "1.5rem" }}>Iniciá sesión para acceder a tu negocio</p>
-              <button onClick={() => navigate("/login")} style={{ padding: "10px 20px", borderRadius: "6px", border: "none", cursor: "pointer", marginRight: "10px", background: "#B00020", color: "#fff" }}>
+              <button onClick={() => openLoginModal()} style={{ padding: "10px 20px", borderRadius: "6px", border: "none", cursor: "pointer", marginRight: "10px", background: "#B00020", color: "#fff" }}>
                 Iniciar sesión
               </button>
             </>

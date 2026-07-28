@@ -35,6 +35,12 @@ export function UserProvider({ children }) {
   // ── Usuario ───────────────────────────────────────────────────────────
   const [user, setUser] = useState(() => safeGet("user", null));
 
+  // Modal de login/registro global — cualquier componente lo puede abrir
+  // llamando a openLoginModal() en vez de navegar a una ruta /login.
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const openLoginModal  = useCallback(() => setShowLoginModal(true),  []);
+  const closeLoginModal = useCallback(() => setShowLoginModal(false), []);
+
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
 
@@ -457,6 +463,8 @@ export function UserProvider({ children }) {
       isLoggedIn:     isAuthenticated(),
       loginAttempts:  loginAttempts.count,
       isLocked,
+      // Modal de login global
+      showLoginModal, openLoginModal, closeLoginModal,
       // Negocios
       businesses, setBusinesses, hasBusiness, loadBusinesses,
       // Favoritos — comercios
