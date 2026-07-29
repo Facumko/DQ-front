@@ -25,6 +25,7 @@ body {
   background-color: var(--bg-color);
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
 /* Títulos un poco más marcados */
