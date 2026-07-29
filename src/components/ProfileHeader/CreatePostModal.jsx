@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styles from "./CreatePostModal.module.css";
-import { X, Calendar, Image, MapPin, Clock, User, Trash2, AlertCircle } from "lucide-react";
+import { X, Calendar, Image, MapPin, Clock, AlertCircle } from "lucide-react";
 
 const MAX_IMAGES = 10;
 
@@ -19,6 +19,11 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
   const [location, setLocation] = useState("");
   const [taggedBusiness, setTaggedBusiness] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // ✅ Confirmaciones propias (reemplazan window.confirm / alert)
+  const [pendingRemoveIndex, setPendingRemoveIndex] = useState(null); // índice de imagen a confirmar borrado
+  const [confirmingClose, setConfirmingClose] = useState(false); // confirmar salir sin guardar
 
   // ✅ Resetear estado al abrir/cerrar
   useEffect(() => {
@@ -29,7 +34,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
           URL.revokeObjectURL(url);
         }
       });
-      
+
       setText("");
       setPreviewUrls([]);
       setImageFiles([]);
@@ -42,8 +47,11 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       setActiveIndex(0);
       setHasUnsavedChanges(false);
       setEndDate("");
-       setEndTime("");
-        setTitle("");
+      setEndTime("");
+      setTitle("");
+      setErrorMessage("");
+      setPendingRemoveIndex(null);
+      setConfirmingClose(false);
     }
   }, [isOpen]);
 
@@ -55,7 +63,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       setTime(initialData.time || "");
       setLocation(initialData.location || "");
       setTaggedBusiness(initialData.taggedBusiness || "");
-      
+
       // Cargar imágenes existentes con sus IDs
       if (initialData.imageDetails && initialData.imageDetails.length > 0) {
         setExistingImages(initialData.imageDetails);
@@ -64,7 +72,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
         setExistingImages([]);
         setPreviewUrls([]);
       }
-      
+
       setImageFiles([]);
       setImagesToDelete([]);
       setActiveIndex(0);
@@ -88,144 +96,120 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     const files = Array.from(e.target.files);
 
     if (files.length === 0) return;
-    
+
     if (files.length > availableSlots) {
-      alert(`Solo puedes agregar ${availableSlots} imágenes más (máximo ${MAX_IMAGES} total, actualmente tienes ${totalImages}).`);
+      setErrorMessage(`Solo puedes agregar ${availableSlots} imágenes más (máximo ${MAX_IMAGES} total, actualmente tienes ${totalImages}).`);
+      e.target.value = "";
       return;
     }
-    
+
+    setErrorMessage("");
+
     // Crear URLs temporales para preview
     const newUrls = files.map(file => URL.createObjectURL(file));
-    
+
     setPreviewUrls(prev => [...prev, ...newUrls]);
     setImageFiles(prev => [...prev, ...files]);
     setActiveIndex(previewUrls.length);
   };
 
-const handleRemoveImage = (index) => {
-  console.log('🗑️ Intentando eliminar imagen en índice:', index);
-  console.log('Estado actual:', {
-    totalPreviewUrls: previewUrls.length,
-    existingImagesCount: existingImages.length,
-    imagesToDeleteCount: imagesToDelete.length,
-    newImageFilesCount: imageFiles.length
-  });
-  
-  // ✅ Calcular cuántas imágenes existentes hay (sin contar las marcadas para eliminar)
-  const activeExistingCount = existingImages.filter(img => 
-    !imagesToDelete.includes(img.id)
-  ).length;
-  
-  // ✅ Determinar si es una imagen existente o nueva
-  const isExistingImage = index < activeExistingCount;
-  
-  if (isExistingImage) {
-    // ✅ Es una imagen EXISTENTE del servidor
-    const existingImageIndex = index;
-    const activeExistingImages = existingImages.filter(img => 
+  const handleRemoveImage = (index) => {
+    // ✅ Calcular cuántas imágenes existentes hay (sin contar las marcadas para eliminar)
+    const activeExistingCount = existingImages.filter(img =>
+      !imagesToDelete.includes(img.id)
+    ).length;
+
+    const isExistingImage = index < activeExistingCount;
+
+    if (isExistingImage) {
+      // Las imágenes existentes en el servidor requieren confirmación propia
+      setPendingRemoveIndex(index);
+    } else {
+      // Imagen nueva (local): se puede sacar directo, no hay nada que perder en el servidor
+      removeNewImage(index, activeExistingCount);
+    }
+  };
+
+  const removeNewImage = (index, activeExistingCount) => {
+    const fileIndex = index - activeExistingCount;
+
+    if (previewUrls[index]?.startsWith?.('blob:')) {
+      URL.revokeObjectURL(previewUrls[index]);
+    }
+
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+    setImageFiles(prev => prev.filter((_, i) => i !== fileIndex));
+
+    if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
+      setActiveIndex(previewUrls.length - 2);
+    }
+  };
+
+  const confirmRemoveExistingImage = () => {
+    const index = pendingRemoveIndex;
+    if (index === null) return;
+
+    const activeExistingImages = existingImages.filter(img =>
       !imagesToDelete.includes(img.id)
     );
-    const imageToDelete = activeExistingImages[existingImageIndex];
-    
-    if (!imageToDelete) {
-      console.error('❌ No se encontró la imagen a eliminar');
-      return;
-    }
-    
-    console.log('🗑️ Marcando imagen existente para eliminar:', imageToDelete);
-    
-    if (window.confirm(`¿Eliminar esta imagen? Se aplicará al guardar.`)) {
-      // Marcar para eliminar
+    const imageToDelete = activeExistingImages[index];
+
+    if (imageToDelete) {
       setImagesToDelete(prev => [...prev, imageToDelete.id]);
-      
-      // Remover del preview
       setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-      
-      // Ajustar índice activo si es necesario
+
       if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
         setActiveIndex(previewUrls.length - 2);
       }
     }
-  } else {
-    // ✅ Es una imagen NUEVA (archivo local)
-    const fileIndex = index - activeExistingCount;
-    
-    console.log('🗑️ Eliminando archivo nuevo en índice:', fileIndex);
-    
-    // Liberar memoria del blob
-    if (previewUrls[index]?.startsWith?.('blob:')) {
-      URL.revokeObjectURL(previewUrls[index]);
-    }
-    
-    // Remover del preview
-    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-    
-    // Remover del array de archivos
-    setImageFiles(prev => prev.filter((_, i) => i !== fileIndex));
-    
-    // Ajustar índice activo
-    if (activeIndex >= previewUrls.length - 1 && previewUrls.length > 1) {
-      setActiveIndex(previewUrls.length - 2);
-    }
-  }
-};
 
-
-const handleSubmit = (e) => {
-  e.preventDefault();
-  
-  // ✅ Validación: en modo creación DEBE haber al menos 1 imagen nueva
-  if (!initialData && imageFiles.length === 0) {
-    alert("Debes subir al menos una imagen nueva.");
-    return;
-  }
-  
-  // ✅ Validación: en modo edición debe quedar al menos 1 imagen total
-  if (initialData && totalImages === 0) {
-    alert("Debe quedar al menos una imagen en la publicación.");
-    return;
-  }
-  
-  // ✅ Construir payload con validaciones
-  const payload = {
-    text: text.trim(),
-    type,
-    imageFiles: imageFiles,              // ✅ Archivos nuevos (Array de File)
-    imagesToDelete: imagesToDelete,       // ✅ IDs a eliminar (Array de números)
-    existingImages: existingImages.filter(img => !imagesToDelete.includes(img.id)), // ✅ Imágenes que quedan
-    ...(type === "event" && { 
-      date, 
-      time, 
-      location, 
-      taggedBusiness,endDate, endTime, title,
-    }),
+    setPendingRemoveIndex(null);
   };
 
-  console.log("📤 Modal enviando payload final:", {
-    text: payload.text.slice(0, 50) + '...',
-    newImageCount: payload.imageFiles.length,
-    imagesToDeleteCount: payload.imagesToDelete.length,
-    existingImageCount: payload.existingImages.length,
-    totalImagesAfterChanges: payload.existingImages.length + payload.imageFiles.length,
-    isEditing: !!initialData
-  });
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-  // ✅ Validar que onSubmit exista
-  if (typeof onSubmit !== 'function') {
-    console.error("❌ ERROR: onSubmit no es una función");
-    alert("Error interno: no se puede enviar el formulario");
-    return;
-  }
+    // ✅ Validación: en modo creación DEBE haber al menos 1 imagen nueva
+    if (!initialData && imageFiles.length === 0) {
+      setErrorMessage("Debes subir al menos una imagen nueva.");
+      return;
+    }
 
-  onSubmit(payload);
-  onClose();
-};
+    // ✅ Validación: en modo edición debe quedar al menos 1 imagen total
+    if (initialData && totalImages === 0) {
+      setErrorMessage("Debe quedar al menos una imagen en la publicación.");
+      return;
+    }
+
+    if (typeof onSubmit !== 'function') {
+      setErrorMessage("Error interno: no se puede enviar el formulario.");
+      return;
+    }
+
+    setErrorMessage("");
+
+    // ✅ Construir payload
+    const payload = {
+      text: text.trim(),
+      type,
+      imageFiles: imageFiles,
+      imagesToDelete: imagesToDelete,
+      existingImages: existingImages.filter(img => !imagesToDelete.includes(img.id)),
+      ...(type === "event" && {
+        date,
+        time,
+        location,
+        taggedBusiness, endDate, endTime, title,
+      }),
+    };
+
+    onSubmit(payload);
+    onClose();
+  };
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
-      if (window.confirm("Tienes cambios sin guardar en las imágenes. ¿Deseas salir sin guardar?")) {
-        onClose();
-      }
+      setConfirmingClose(true);
     } else {
       onClose();
     }
@@ -236,7 +220,7 @@ const handleSubmit = (e) => {
   return (
     <div className={styles.overlay}>
       <div className={styles.modal}>
-        <button className={styles.closeButton} onClick={handleClose}>
+        <button className={styles.closeButton} onClick={handleClose} type="button">
           <X size={20} />
         </button>
 
@@ -250,7 +234,15 @@ const handleSubmit = (e) => {
           </div>
         )}
 
-        <div onSubmit={handleSubmit} className={styles.form}>
+        {/* Errores de validación */}
+        {errorMessage && (
+          <div className={styles.errorBanner}>
+            <AlertCircle size={16} />
+            {errorMessage}
+          </div>
+        )}
+
+        <div className={styles.form}>
           <textarea
             placeholder="Escribe algo..."
             value={text}
@@ -263,22 +255,22 @@ const handleSubmit = (e) => {
           {/* ✅ VISTA PREVIA PRINCIPAL */}
           {previewUrls.length > 0 && (
             <div className={styles.mainViewer}>
-              <img 
-                src={previewUrls[activeIndex]} 
-                alt={`Vista previa ${activeIndex + 1}`} 
-                className={styles.mainImg} 
+              <img
+                src={previewUrls[activeIndex]}
+                alt={`Vista previa ${activeIndex + 1}`}
+                className={styles.mainImg}
               />
-              
+
               {previewUrls.length > 1 && (
                 <>
-                  <button 
+                  <button
                     type="button"
                     className={styles.navBtn}
                     onClick={() => setActiveIndex((activeIndex - 1 + previewUrls.length) % previewUrls.length)}
                   >
                     ‹
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className={styles.navBtn}
                     style={{ right: '12px', left: 'auto' }}
@@ -297,23 +289,23 @@ const handleSubmit = (e) => {
           {/* ✅ MINIATURAS con indicador visual */}
           {previewUrls.length > 1 && (
             <div className={styles.thumbs}>
-              {previewUrls.map((url, i) => {  
-                const activeExistingCount = existingImages.filter(img => 
+              {previewUrls.map((url, i) => {
+                const activeExistingCount = existingImages.filter(img =>
                   !imagesToDelete.includes(img.id)
                 ).length;
                 const isExisting = i < activeExistingCount;
                 const isNew = !isExisting;
                 return (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className={`${styles.thumb} ${i === activeIndex ? styles.active : ""} ${isNew ? styles.newImage : ""}`}
                     onClick={() => setActiveIndex(i)}
                     title={isNew ? "Imagen nueva" : "Imagen existente"}
                   >
                     <img src={url} alt={`Miniatura ${i + 1}`} />
-                    <button 
-                      type="button" 
-                      className={styles.removeThumb} 
+                    <button
+                      type="button"
+                      className={styles.removeThumb}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemoveImage(i);
@@ -346,56 +338,114 @@ const handleSubmit = (e) => {
           {/* Botón agregar más */}
           <label className={`${styles.fileLabel} ${availableSlots === 0 ? styles.disabled : ""}`}>
             <Image size={18} />
-            {previewUrls.length === 0 
-              ? "Subir imagen" 
+            {previewUrls.length === 0
+              ? "Subir imagen"
               : `Agregar más (${availableSlots} disponibles)`}
-            <input 
-              type="file" 
-              accept="image/*" 
-              multiple 
-              onChange={handleImageChange} 
-              className={styles.fileInput} 
-              disabled={availableSlots === 0} 
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageChange}
+              className={styles.fileInput}
+              disabled={availableSlots === 0}
             />
           </label>
 
           {/* Campos de evento */}
           {type === "event" && (
             <>
-              <label>
-                Título del evento
+              <label className={styles.fieldLabel}>
+                <span className={styles.fieldLabelText}>Título del evento</span>
                 <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Nombre del evento" required />
               </label>
 
               <div className={styles.row}>
-                <label><Calendar size={16}/> Inicio
+                <label>
+                  <span className={styles.fieldLabelText}><Calendar size={14}/> Inicio</span>
                   <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
                 </label>
-                <label><Clock size={16}/> Hora inicio
+                <label>
+                  <span className={styles.fieldLabelText}><Clock size={14}/> Hora inicio</span>
                   <input type="time" value={time} onChange={e => setTime(e.target.value)} required />
                 </label>
               </div>
 
               <div className={styles.row}>
-                <label><Calendar size={16}/> Fin
+                <label>
+                  <span className={styles.fieldLabelText}><Calendar size={14}/> Fin</span>
                   <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required />
                 </label>
-                <label><Clock size={16}/> Hora fin
+                <label>
+                  <span className={styles.fieldLabelText}><Clock size={14}/> Hora fin</span>
                   <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required />
                 </label>
               </div>
 
-              <label><MapPin size={16}/>
+              <label className={styles.fieldLabel}>
+                <span className={styles.fieldLabelText}><MapPin size={14}/> Lugar</span>
                 <input type="text" placeholder="Lugar del evento" value={location} onChange={e => setLocation(e.target.value)} required />
               </label>
             </>
           )}
 
-          <button onClick={handleSubmit} className={styles.submitButton}>
+          <button onClick={handleSubmit} className={styles.submitButton} type="button">
             {initialData ? "Guardar cambios" : "Publicar"}
           </button>
         </div>
       </div>
+
+      {/* Confirmación para eliminar imagen existente del servidor */}
+      {pendingRemoveIndex !== null && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmBox}>
+            <p>¿Eliminar esta imagen? El cambio se aplicará recién al guardar.</p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmCancel}
+                onClick={() => setPendingRemoveIndex(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={styles.confirmDelete}
+                onClick={confirmRemoveExistingImage}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmación para cerrar con cambios sin guardar */}
+      {confirmingClose && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmBox}>
+            <p>Tienes cambios sin guardar en las imágenes. ¿Salir sin guardar?</p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmCancel}
+                onClick={() => setConfirmingClose(false)}
+              >
+                Seguir editando
+              </button>
+              <button
+                type="button"
+                className={styles.confirmDelete}
+                onClick={() => {
+                  setConfirmingClose(false);
+                  onClose();
+                }}
+              >
+                Salir sin guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
