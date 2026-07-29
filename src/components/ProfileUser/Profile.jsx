@@ -101,10 +101,9 @@ export default function Profile() {
   const [originalData, setOriginalData] = useState(null);
   const [formData,     setFormData]     = useState({
     username: "", name: "", lastname: "",
-    email: "", recoveryEmail: "", phone: "", password: "",
+    email: "", recoveryEmail: "", phone: "",
   });
-  const [touched,   setTouched]   = useState({});
-  const [pwVisible, setPwVisible] = useState(false);
+  const [touched, setTouched] = useState({});
 
   const [showPwSection, setShowPwSection] = useState(false);
   const [pwData,        setPwData]        = useState({ current: "", next: "", confirm: "" });
@@ -133,7 +132,7 @@ export default function Profile() {
         phone:         d.phone          || "",
       };
       setOriginalData(norm);
-      setFormData({ ...norm, password: "" });
+      setFormData(norm);
     } catch {
       showToast("No se pudo cargar tu información. Intentá de nuevo.", "error");
     } finally {
@@ -147,7 +146,7 @@ export default function Profile() {
   const errors = useMemo(() => {
     const e = {};
     Object.keys(RULES).forEach((k) => {
-      if (k === "password" && !formData.password) return;
+      if (k === "password" || k === "username") return; // password: solo en "Seguridad". username: no editable aún.
       const err = RULES[k].validate?.(formData[k]?.trim?.() ?? formData[k], formData);
       if (err) e[k] = err;
     });
@@ -158,8 +157,7 @@ export default function Profile() {
 
   const hasUnsavedChanges = useMemo(() => {
     if (!originalData) return false;
-    return Object.keys(originalData).some((k) => formData[k] !== originalData[k])
-      || !!formData.password?.trim();
+    return Object.keys(originalData).some((k) => k !== "username" && formData[k] !== originalData[k]);
   }, [formData, originalData]);
 
   /* ── Handlers de inputs ── */
@@ -180,7 +178,7 @@ export default function Profile() {
   }, [originalData]);
 
   const handleCancel = useCallback(() => {
-    setFormData({ ...originalData, password: "" });
+    setFormData(originalData);
     setIsEditing(false);
     setTouched({});
   }, [originalData]);
@@ -197,10 +195,10 @@ export default function Profile() {
     }
     const dataToSend = {};
     Object.keys(originalData).forEach((k) => {
+      if (k === "username") return; // el backend todavía no soporta editarlo
       const nv = formData[k]?.trim?.() ?? formData[k];
       if (nv !== originalData[k]) dataToSend[k] = nv;
     });
-    if (formData.password?.trim()) dataToSend.password = formData.password.trim();
     if (!Object.keys(dataToSend).length) {
       showToast("No hay cambios para guardar.", "error"); return;
     }
@@ -232,7 +230,7 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id_user, updateUserContext, loadUserData, showToast]);
+  }, [updateUserContext, loadUserData, showToast]);
 
   /* ── Cambio de contraseña ── */
   const handlePwChange = useCallback(async () => {
@@ -255,7 +253,7 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, [pwData, user?.id_user, showToast]);
+  }, [pwData, showToast]);
 
   /* ── Guard: salir con cambios ── */
   useEffect(() => {
@@ -303,7 +301,7 @@ export default function Profile() {
       { key: "lastname", label: "Apellido",          icon: User,   type: "text",  ph: "Tu apellido",          req: false },
     ],
     [
-      { key: "username", label: "Nombre de usuario", icon: AtSign, type: "text",  ph: "ej: usuario_123",      req: false },
+      { key: "username", label: "Nombre de usuario", icon: AtSign, type: "text",  ph: "ej: usuario_123",      req: false, editable: false },
       { key: "phone",    label: "Teléfono",           icon: Phone,  type: "tel",   ph: "(364) 4123456",        req: false },
     ],
     [
@@ -386,7 +384,7 @@ export default function Profile() {
             <div className={styles.formBody}>
               {FIELD_ROWS.map((row, ri) => (
                 <div key={ri} className={styles.fieldRow}>
-                  {row.map(({ key, label, icon: Icon, type, ph, req }) => {
+                  {row.map(({ key, label, icon, type, ph, req, editable = true }) => {
                     const state   = fState(key);
                     const val     = formData[key] || "";
                     const changed = isEditing && originalData?.[key] !== formData[key];
@@ -394,7 +392,7 @@ export default function Profile() {
                     return (
                       <div key={key} className={styles.field}>
                         <label className={styles.label}>
-                          <Icon size={12} />
+                          {React.createElement(icon, { size: 12 })}
                           {label}
                           {req && <span className={styles.req}>*</span>}
                           {isEditing && changed && <span className={styles.modDot} title="Modificado" />}
@@ -411,7 +409,7 @@ export default function Profile() {
                                 onBlur={handleBlur}
                                 className={styles.input}
                                 placeholder={ph}
-                                disabled={loading}
+                                disabled={loading || !editable}
                                 maxLength={RULES[key]?.max}
                                 aria-required={req}
                                 aria-invalid={state === "error"}
@@ -422,24 +420,32 @@ export default function Profile() {
                               </span>
                             </div>
 
-                            {state === "error" && errors[key] && (
+                            {!editable && (
+                              <p className={styles.fieldError} role="note">
+                                <Info size={11} /> Todavía no se puede editar desde acá
+                              </p>
+                            )}
+
+                            {editable && state === "error" && errors[key] && (
                               <p className={styles.fieldError} role="alert">
                                 <AlertCircle size={11} /> {errors[key]}
                               </p>
                             )}
 
-                            <div className={styles.fieldFooter}>
-                              {RULES[key]?.max && (
-                                <span className={`${styles.charCount} ${val.length >= RULES[key].max * 0.88 ? styles.charNear : ""}`}>
-                                  {val.length}/{RULES[key].max}
-                                </span>
-                              )}
-                              {changed && (
-                                <button className={styles.undoBtn} onClick={() => handleUndoField(key)} type="button">
-                                  <RotateCcw size={11} /> Restaurar
-                                </button>
-                              )}
-                            </div>
+                            {editable && (
+                              <div className={styles.fieldFooter}>
+                                {RULES[key]?.max && (
+                                  <span className={`${styles.charCount} ${val.length >= RULES[key].max * 0.88 ? styles.charNear : ""}`}>
+                                    {val.length}/{RULES[key].max}
+                                  </span>
+                                )}
+                                {changed && (
+                                  <button className={styles.undoBtn} onClick={() => handleUndoField(key)} type="button">
+                                    <RotateCcw size={11} /> Restaurar
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </>
                         ) : (
                           <div className={`${styles.valueDisplay} ${!val ? styles.emptyVal : ""}`}>
@@ -451,68 +457,6 @@ export default function Profile() {
                   })}
                 </div>
               ))}
-
-              {/* Nueva contraseña — solo en edición */}
-              {isEditing && (
-                <div className={styles.fieldRow}>
-                  <div className={styles.field}>
-                    <label className={styles.label}>
-                      <Lock size={12} />
-                      Nueva contraseña
-                      <span className={styles.optTag}>opcional</span>
-                      {formData.password && <span className={styles.modDot} />}
-                    </label>
-
-                    <div className={`${styles.inputWrap} ${styles["iw_" + fState("password")]}`}>
-                      <input
-                        type={pwVisible ? "text" : "password"}
-                        name="password"
-                        value={formData.password || ""}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={styles.input}
-                        placeholder="Mínimo 8 caracteres"
-                        disabled={loading}
-                        maxLength={100}
-                        autoComplete="new-password"
-                      />
-                      <button type="button" className={styles.eyeBtn} onClick={() => setPwVisible((p) => !p)} tabIndex={-1}>
-                        {pwVisible ? <EyeOff size={13} /> : <Eye size={13} />}
-                      </button>
-                    </div>
-
-                    {touched.password && errors.password && (
-                      <p className={styles.fieldError} role="alert">
-                        <AlertCircle size={11} /> {errors.password}
-                      </p>
-                    )}
-
-                    {formData.password && (() => {
-                      const s = RULES.password.strength(formData.password);
-                      return (
-                        <div className={styles.strengthRow}>
-                          <div className={styles.strengthBar}>
-                            <div className={`${styles.strengthFill} ${styles["sf_" + s.level]}`} />
-                          </div>
-                          <span className={`${styles.strengthLbl} ${styles["sl_" + s.level]}`}>{s.label}</span>
-                        </div>
-                      );
-                    })()}
-
-                    <div className={styles.fieldFooter}>
-                      {formData.password && (
-                        <button className={styles.undoBtn} onClick={() => {
-                          setFormData((p) => ({ ...p, password: "" }));
-                          setTouched((p) => ({ ...p, password: false }));
-                        }} type="button">
-                          <X size={11} /> Limpiar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className={styles.field} /> {/* celda vacía grid 2-col */}
-                </div>
-              )}
             </div>
           </section>
 
