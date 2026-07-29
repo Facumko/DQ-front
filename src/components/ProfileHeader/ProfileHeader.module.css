@@ -783,6 +783,18 @@
 }
 
 .emptyIcon  { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
+
+.emptyIconWrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+}
 .emptyTitle { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0 0 4px; }
 .emptyDesc  { font-size: 0.88rem; margin: 0; }
 

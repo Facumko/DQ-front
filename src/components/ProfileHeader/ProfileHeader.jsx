@@ -13,11 +13,11 @@ import {
   toLocalDateTime, getEventsByCommerce,
   getMisPromociones, getPromotionTags,
   createPromotion, updatePromotion, uploadPromotionImage,
-  getMyUser,
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
-         Phone, Mail, Link2, Clock, Pencil, Trash2 } from "lucide-react";
+         Phone, Mail, Link2, Clock, Pencil, Trash2,
+         FileText, CalendarDays, Sparkles, Megaphone } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
@@ -150,24 +150,13 @@ const useBusinessStatus = (schedule) => {
 };
 
 // Promociones requieren una suscripción activa (regla del backend).
-// Mapeo entre el tier real del plan (backend) y los ids MOCK que hoy usa
-// /checkout/:planId (ver nota en CheckoutPage.jsx — esto se reemplaza
-// cuando conectemos Planes+Checkout al backend real).
-const PLAN_TIER_ORDER = ["BASIC", "INTERMEDIATE", "PREMIUM"];
-const PLAN_TIER_TO_CHECKOUT_ID = { BASIC: "basic", INTERMEDIATE: "mid", PREMIUM: "premium" };
-
-// A partir de la suscripción real del usuario, calcula:
-// - allowed: si ya puede crear promociones (suscripción activa)
-// - targetPlanId: a qué plan del checkout mandarlo si no puede
-const getPromotionPlanAccess = (subscription) => {
-  const currentTier = subscription?.plan?.planType;
-  const currentIndex = PLAN_TIER_ORDER.indexOf(currentTier);
-  const nextIndex = currentIndex === -1 ? 0 : Math.min(currentIndex + 1, PLAN_TIER_ORDER.length - 1);
-  return {
-    allowed: Boolean(subscription?.valid),
-    targetPlanId: PLAN_TIER_TO_CHECKOUT_ID[PLAN_TIER_ORDER[nextIndex]],
-  };
-};
+// OJO: /usuario/traer/mis/datos NO devuelve subscription/plan hoy (DTO recortado),
+// así que no podemos leer el tier actual del usuario desde ahí para saber a qué
+// plan exacto ofrecerle el upgrade. Por eso, si está bloqueado, el CTA "Mejorar
+// plan" apunta siempre al plan de entrada ("basic"). Cuando el backend agregue
+// esos campos a la respuesta, se puede volver a calcular el "próximo tier" real
+// (ver nota en el chat: pedido pendiente al equipo de backend).
+const DEFAULT_UPGRADE_TARGET = "basic";
 
 const ProfileHeader = ({
   isOwner        = false,
@@ -252,13 +241,6 @@ const ProfileHeader = ({
   }, []);
 
   useEffect(() => {
-    if (!isOwner || !user?.id_user) return;
-    getMyUser()
-      .then(userData => setPlanAccess(getPromotionPlanAccess(userData?.subscription)))
-      .catch(() => setPlanAccess(getPromotionPlanAccess(null))); // sin datos → sin acceso
-  }, [isOwner, user?.id_user]);
-
-  useEffect(() => {
     if (useMock) {
       const d = normalizeBusiness(MOCK_BUSINESS);
       setBusinessData(d); setDraft(d);
@@ -300,9 +282,10 @@ const ProfileHeader = ({
       ]);
       setPromotions(Array.isArray(promos) ? promos : []);
       setPromotionTags(Array.isArray(tags) ? tags : []);
+      setPlanAccess({ allowed: true, targetPlanId: null });
     } catch (err) {
       if (err.isPlanError) {
-        flashError("Necesitás un plan activo para usar promociones.");
+        setPlanAccess({ allowed: false, targetPlanId: DEFAULT_UPGRADE_TARGET });
       } else {
         flashError(err.message || "Error al cargar promociones");
       }
@@ -912,7 +895,7 @@ const ProfileHeader = ({
             <div className={styles.emptyState}><Loader size={32} className={styles.spinnerIcon}/></div>
           ) : sortedPosts.length === 0 ? (
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>📝</div>
+              <div className={styles.emptyIconWrap}><FileText size={24} /></div>
               <p className={styles.emptyTitle}>Sin publicaciones aún</p>
               <p className={styles.emptyDesc}>{isOwner ? "¡Creá la primera publicación!" : "Este negocio no ha publicado nada todavía."}</p>
             </div>
@@ -938,7 +921,7 @@ const ProfileHeader = ({
         {activeTab === "events" && (
           sortedEvents.length === 0 ? (
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>📅</div>
+              <div className={styles.emptyIconWrap}><CalendarDays size={24} /></div>
               <p className={styles.emptyTitle}>Sin eventos aún</p>
               <p className={styles.emptyDesc}>{isOwner ? "¡Creá el primer evento!" : "Este negocio no tiene eventos todavía."}</p>
             </div>
@@ -968,7 +951,7 @@ const ProfileHeader = ({
         {activeTab === "promotions" && isOwner && (
           planAccess && !planAccess.allowed ? (
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>✨</div>
+              <div className={styles.emptyIconWrap}><Sparkles size={24} /></div>
               <p className={styles.emptyTitle}>Necesitás un plan superior</p>
               <p className={styles.emptyDesc}>
                 Para poder crear promociones necesitás tener un plan superior activo.
@@ -984,7 +967,7 @@ const ProfileHeader = ({
             </div>
           ) : promotions.length === 0 ? (
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>📣</div>
+              <div className={styles.emptyIconWrap}><Megaphone size={24} /></div>
               <p className={styles.emptyTitle}>Sin promociones</p>
               <p className={styles.emptyDesc}>Creá tu primera promoción para destacar tu negocio en el carrusel.</p>
             </div>
