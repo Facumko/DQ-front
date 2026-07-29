@@ -457,8 +457,8 @@ export const loginUser = async (email, password) => {
 export const registerUser = async (userData) => {
   validateParams(userData, ['email', 'password']);
   if (!validateEmail(userData.email)) throw new Error('Email inválido');
-  // El backend exige entre 8 y 100 caracteres (confirmado en el schema de /auth/registrarse)
-  if (userData.password.length < 8) throw new Error('La contraseña debe tener entre 8 y 100 caracteres');
+  // El backend exige al menos 8 caracteres (confirmado en el schema de /auth/registrarse)
+  if (userData.password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
 
   // Paso 1: el backend SOLO acepta email y password en este endpoint.
   // (No existe username en ningún DTO del backend — no se manda.)
