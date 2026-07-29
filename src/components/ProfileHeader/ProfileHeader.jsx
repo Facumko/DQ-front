@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import {
   getMyBusiness, getBusinessById, updateBusiness, createBusiness,
@@ -12,6 +13,7 @@ import {
   toLocalDateTime, getEventsByCommerce,
   getMisPromociones, getPromotionTags,
   createPromotion, updatePromotion, uploadPromotionImage,
+  getMyUser,
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
@@ -24,6 +26,7 @@ import LocationPicker from "../LocationPicker/LocationPicker";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 import PromotionModal from "./PromotionModal";
 import PromotionCard from "./PromotionCard";
+import PlanRestrictedModal from "./PlanRestrictedModal";
 
 const MOCK_BUSINESS = {
   idCommerce: 0,
@@ -146,6 +149,26 @@ const useBusinessStatus = (schedule) => {
   return status;
 };
 
+// Promociones requieren una suscripción activa (regla del backend).
+// Mapeo entre el tier real del plan (backend) y los ids MOCK que hoy usa
+// /checkout/:planId (ver nota en CheckoutPage.jsx — esto se reemplaza
+// cuando conectemos Planes+Checkout al backend real).
+const PLAN_TIER_ORDER = ["BASIC", "INTERMEDIATE", "PREMIUM"];
+const PLAN_TIER_TO_CHECKOUT_ID = { BASIC: "basic", INTERMEDIATE: "mid", PREMIUM: "premium" };
+
+// A partir de la suscripción real del usuario, calcula:
+// - allowed: si ya puede crear promociones (suscripción activa)
+// - targetPlanId: a qué plan del checkout mandarlo si no puede
+const getPromotionPlanAccess = (subscription) => {
+  const currentTier = subscription?.plan?.planType;
+  const currentIndex = PLAN_TIER_ORDER.indexOf(currentTier);
+  const nextIndex = currentIndex === -1 ? 0 : Math.min(currentIndex + 1, PLAN_TIER_ORDER.length - 1);
+  return {
+    allowed: Boolean(subscription?.valid),
+    targetPlanId: PLAN_TIER_TO_CHECKOUT_ID[PLAN_TIER_ORDER[nextIndex]],
+  };
+};
+
 const ProfileHeader = ({
   isOwner        = false,
   businessData: externalData = null,
@@ -177,6 +200,12 @@ const ProfileHeader = ({
   const [promotionTags,      setPromotionTags]       = useState([]);
   const [showPromotionModal, setShowPromotionModal]  = useState(false);
   const [editingPromotion,   setEditingPromotion]    = useState(null);
+
+  // Acceso a promociones según la suscripción real del usuario.
+  // null = todavía no lo sabemos (no mostrar nada restrictivo mientras carga)
+  const [planAccess, setPlanAccess] = useState(null);
+  const [showPlanRestrictedModal, setShowPlanRestrictedModal] = useState(false);
+  const navigate = useNavigate();
 
   const [businessData, setBusinessData] = useState({
     name:"", email:"", phone:"", link:"", description:"",
@@ -221,6 +250,13 @@ const ProfileHeader = ({
       .then(cats => setAllCategories(Array.isArray(cats) ? cats : []))
       .catch(() => setAllCategories([]));
   }, []);
+
+  useEffect(() => {
+    if (!isOwner || !user?.id_user) return;
+    getMyUser()
+      .then(userData => setPlanAccess(getPromotionPlanAccess(userData?.subscription)))
+      .catch(() => setPlanAccess(getPromotionPlanAccess(null))); // sin datos → sin acceso
+  }, [isOwner, user?.id_user]);
 
   useEffect(() => {
     if (useMock) {
@@ -575,6 +611,17 @@ const ProfileHeader = ({
     }
   };
 
+  const handleOpenPromotionModal = () => {
+    if (planAccess && !planAccess.allowed) { setShowPlanRestrictedModal(true); return; }
+    setEditingPromotion(null);
+    setShowPromotionModal(true);
+  };
+
+  const handleUpgradePlan = () => {
+    setShowPlanRestrictedModal(false);
+    navigate(`/checkout/${planAccess?.targetPlanId || "basic"}`);
+  };
+
   const openModal = (type, post = null) => {
     setModalType(type); setEditingPost(post); setShowModal(true);
   };
@@ -833,7 +880,7 @@ const ProfileHeader = ({
                 {activeTab === "promotions" && (
                   <button
                     className={styles.btnCreateSecondary}
-                    onClick={() => { setEditingPromotion(null); setShowPromotionModal(true); }}
+                    onClick={handleOpenPromotionModal}
                     disabled={loading.creatingPromotion}
                   >
                     <Plus size={15}/> Promoción
@@ -919,7 +966,23 @@ const ProfileHeader = ({
         )}
 
         {activeTab === "promotions" && isOwner && (
-          promotions.length === 0 ? (
+          planAccess && !planAccess.allowed ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>✨</div>
+              <p className={styles.emptyTitle}>Necesitás un plan superior</p>
+              <p className={styles.emptyDesc}>
+                Para poder crear promociones necesitás tener un plan superior activo.
+                Mejorá tu plan para destacar tu negocio en el carrusel principal.
+              </p>
+              <button
+                className={styles.btnCreateSecondary}
+                onClick={() => navigate(`/checkout/${planAccess.targetPlanId}`)}
+                style={{ display: "inline-flex", marginTop: 12 }}
+              >
+                Mejorar plan
+              </button>
+            </div>
+          ) : promotions.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyIcon}>📣</div>
               <p className={styles.emptyTitle}>Sin promociones</p>
@@ -959,6 +1022,12 @@ const ProfileHeader = ({
         posts={sortedPosts}
         events={sortedEvents}
         isSubmitting={loading.creatingPromotion}
+      />
+
+      <PlanRestrictedModal
+        isOpen={showPlanRestrictedModal}
+        onClose={() => setShowPlanRestrictedModal(false)}
+        onUpgrade={handleUpgradePlan}
       />
     </div>
   );

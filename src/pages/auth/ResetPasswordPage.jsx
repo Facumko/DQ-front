@@ -65,7 +65,7 @@ const ResetPasswordPage = () => {
     setError("");
 
     if (newPassword.length < 8) {
-      setError("La contraseña debe tener entre 8 y 100 caracteres");
+      setError("La contraseña debe tener al menos 8 caracteres");
       return;
     }
     if (newPassword !== confirmPassword) {
