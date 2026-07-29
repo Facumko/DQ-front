@@ -172,7 +172,6 @@ axios.defaults.withCredentials = false;
 const { accessToken: _initToken } = getStoredTokens();
 if (_initToken) setAuthToken(_initToken);
 
-export const generateUsername = (email) => { const b = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,''); return `${b}${Math.random().toString(36).substring(2,6)}`; };
 export const capitalizeFirstLetter = (str) => { if (!str) return ''; return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase(); };
 export const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 export const validatePasswordStrength = (password) => {
@@ -298,7 +297,18 @@ export const replaceCommerceSchedules = async (commerceId, schedule) => {
 };
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const shouldRetry = (error) => { if (error.response?.status===401) return false; if (!error.response) return true; if (error.code==='ECONNABORTED') return true; if (error.response.status>=500) return true; return false; };
+const shouldRetry = (error, method) => {
+  // Reintentar automáticamente solo tiene sentido para lecturas (GET), que no
+  // tienen efecto secundario. Un POST/PUT/DELETE que falló con 500 puede
+  // haberse aplicado igual del lado del servidor (ej: el registro se creó pero
+  // la respuesta falló) — reintentarlo a ciegas puede duplicar la operación.
+  if (method !== 'GET') return false;
+  if (error.response?.status===401) return false;
+  if (!error.response) return true;
+  if (error.code==='ECONNABORTED') return true;
+  if (error.response.status>=500) return true;
+  return false;
+};
 const validateApiResponse = (response, endpoint) => {
   if (typeof response==='string' && response.includes('<!DOCTYPE html>')) throw new Error(`El servidor respondió con HTML. Endpoint: ${endpoint}`);
   if (typeof response==='string' && response.includes('ngrok')) throw new Error(`Ngrok bloqueando. Endpoint: ${endpoint}`);
@@ -344,19 +354,10 @@ const handleApiError = (error, endpoint) => {
     }
   } else if (endpoint.includes(ENDPOINTS.REGISTER)) {
     if (status === 409) {
-      if (serverMessage.includes('email') || serverMessage.includes('correo')) {
-        errorMsg = 'Ese email ya tiene una cuenta creada.';
-        authErrorType = 'EMAIL_TAKEN';
-      } else if (serverMessage.includes('username') || serverMessage.includes('usuario')) {
-        errorMsg = 'Ese nombre de usuario ya está en uso.';
-        authErrorType = 'USERNAME_TAKEN';
-      } else {
-        // El backend no aclaró qué campo chocó — no asumimos que es el username,
-        // porque reintentar con el mismo email cuando en realidad el email ya
-        // existe solo generaría el mismo error de nuevo.
-        errorMsg = 'Ya existe una cuenta con estos datos.';
-        authErrorType = 'GENERIC_CONFLICT';
-      }
+      // El backend solo tiene email como campo único en el registro (no existe
+      // username en ningún DTO), así que un 409 acá siempre es email duplicado.
+      errorMsg = 'Ese email ya tiene una cuenta creada.';
+      authErrorType = 'EMAIL_TAKEN';
     } else if (status === 400) {
       errorMsg = serverMessage || 'Revisá los datos ingresados.';
       authErrorType = 'GENERIC';
@@ -405,7 +406,7 @@ const apiRequest = async (method, endpoint, data=null, retries=MAX_RETRIES) => {
     if (isDevelopment) console.log(`✅ ${method} ${endpoint} - Success`, response.data);
     return response.data;
   } catch (error) {
-    if (retries>0 && shouldRetry(error)) { await sleep(1000*(MAX_RETRIES-retries+1)); return apiRequest(method,endpoint,data,retries-1); }
+    if (retries>0 && shouldRetry(error, method)) { await sleep(1000*(MAX_RETRIES-retries+1)); return apiRequest(method,endpoint,data,retries-1); }
     throw handleApiError(error, endpoint);
   }
 };
@@ -456,32 +457,36 @@ export const loginUser = async (email, password) => {
 export const registerUser = async (userData) => {
   validateParams(userData, ['email', 'password']);
   if (!validateEmail(userData.email)) throw new Error('Email inválido');
-  if (userData.password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres');
-  const registrationData = {
-    email: userData.email, password: userData.password,
-    username: userData.username || generateUsername(userData.email),
-    name: userData.name || capitalizeFirstLetter(userData.email.split('@')[0]),
-    lastname: userData.lastname || '', recovery_email: userData.recovery_email || userData.email,
-  };
-  try {
-    const response = await apiRequest('POST', ENDPOINTS.REGISTER, registrationData);
-    if (!response) throw new Error('Respuesta inválida del servidor');
-    if (response.accessToken && response.refreshToken) saveTokens(response.accessToken, response.refreshToken);
-    return response;
-  } catch (error) {
-    // Antes esto reintentaba ante CUALQUIER 409, asumiendo que era el username.
-    // Si el conflicto era en realidad por email duplicado, el reintento con el
-    // mismo email fallaba igual (o peor, generaba usuarios raros). Ahora solo
-    // reintentamos cuando el propio backend nos dijo que fue el username.
-    if (error.authErrorType === 'USERNAME_TAKEN') {
-      registrationData.username = generateUsername(userData.email);
-      const retry = await apiRequest('POST', ENDPOINTS.REGISTER, registrationData);
-      if (!retry) throw new Error('Respuesta inválida del servidor');
-      if (retry.accessToken && retry.refreshToken) saveTokens(retry.accessToken, retry.refreshToken);
-      return retry;
+  // El backend exige entre 8 y 100 caracteres (confirmado en el schema de /auth/registrarse)
+  if (userData.password.length < 8) throw new Error('La contraseña debe tener entre 8 y 100 caracteres');
+
+  // Paso 1: el backend SOLO acepta email y password en este endpoint.
+  // (No existe username en ningún DTO del backend — no se manda.)
+  const response = await apiRequest('POST', ENDPOINTS.REGISTER, {
+    email: userData.email,
+    password: userData.password,
+  });
+  if (!response) throw new Error('Respuesta inválida del servidor');
+  if (response.accessToken && response.refreshToken) saveTokens(response.accessToken, response.refreshToken);
+
+  // Paso 2: si vino nombre/apellido/etc., completamos el perfil con el endpoint
+  // que sí los acepta (PUT /usuario/editar). Si esto falla, no deshacemos el
+  // registro — la cuenta ya existe y el usuario puede completar el perfil después.
+  const hasProfileData = userData.name || userData.lastname || userData.recoveryEmail || userData.phone;
+  if (hasProfileData) {
+    try {
+      await updateUser({
+        name: userData.name || undefined,
+        lastname: userData.lastname || undefined,
+        recoveryEmail: userData.recoveryEmail || undefined,
+        phone: userData.phone || undefined,
+      });
+    } catch (err) {
+      if (isDevelopment) console.warn('⚠️ Cuenta creada, pero no se pudo completar el perfil:', err.message);
     }
-    throw error;
   }
+
+  return response;
 };
 
 export const logoutUser = async () => {
@@ -1169,7 +1174,7 @@ export default {
   getMainFeed,
   getFavoriteCommerces, addFavoriteCommerce, removeFavoriteCommerce,
   getSavedPosts, addSavedPost, removeSavedPost,
-  generateUsername, capitalizeFirstLetter, validateEmail, validatePasswordStrength,
+  capitalizeFirstLetter, validateEmail, validatePasswordStrength,
   replaceCommerceSchedules,
   scheduleToBackend,
   scheduleFromBackend, addCommerceCategories, removeCommerceCategories, getCommercesByCategories,
