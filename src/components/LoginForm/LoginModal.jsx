@@ -190,7 +190,7 @@ export default function LoginModal({ onClose }) {
     if (clearError) clearError();
     if (!registerPassword.trim() || !confirmPassword.trim()) { setLocalError("Por favor completá todos los campos"); return; }
     if (registerPassword !== confirmPassword) { setLocalError("Las contraseñas no coinciden"); return; }
-    if (registerPassword.length < 6) { setLocalError("La contraseña debe tener al menos 6 caracteres"); return; }
+    if (registerPassword.length < 8) { setLocalError("La contraseña debe tener entre 8 y 100 caracteres"); return; }
     const result = await register({ email, password: registerPassword });
     if (result.success) { setSuccessMessage("¡Cuenta creada exitosamente! ✅"); setTimeout(() => onClose(), 1500); }
     else if (result.authErrorType === 'EMAIL_TAKEN') { setFieldError(result.error); }
