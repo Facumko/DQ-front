@@ -189,6 +189,7 @@ const ProfileHeader = ({
   const [promotionTags,      setPromotionTags]       = useState([]);
   const [showPromotionModal, setShowPromotionModal]  = useState(false);
   const [editingPromotion,   setEditingPromotion]    = useState(null);
+  const [promotionFormError, setPromotionFormError]  = useState("");
 
   // Acceso a promociones según la suscripción real del usuario.
   // null = todavía no lo sabemos (no mostrar nada restrictivo mientras carga)
@@ -573,6 +574,7 @@ const ProfileHeader = ({
   const handleSubmitPromotion = async (dto, imageFile) => {
     if (!isOwner || !businessId) return;
     setLoad("creatingPromotion", true);
+    setPromotionFormError("");
     try {
       let result;
       if (editingPromotion) {
@@ -588,7 +590,11 @@ const ProfileHeader = ({
       setShowPromotionModal(false);
       setEditingPromotion(null);
     } catch (err) {
-      flashError(err.message || "Error al guardar la promoción");
+      // El error queda DENTRO del modal (no solo como toast de página), porque
+      // acá es donde va a aparecer el 400 real de "necesitás plan activo" una
+      // vez que el back confirme el mensaje — y el usuario tiene que verlo sin
+      // que el modal se lo tape.
+      setPromotionFormError(err.message || "Error al guardar la promoción");
     } finally {
       setLoad("creatingPromotion", false);
     }
@@ -596,8 +602,15 @@ const ProfileHeader = ({
 
   const handleOpenPromotionModal = () => {
     if (planAccess && !planAccess.allowed) { setShowPlanRestrictedModal(true); return; }
+    setPromotionFormError("");
     setEditingPromotion(null);
     setShowPromotionModal(true);
+  };
+
+  const handleClosePromotionModal = () => {
+    setShowPromotionModal(false);
+    setEditingPromotion(null);
+    setPromotionFormError("");
   };
 
   const handleUpgradePlan = () => {
@@ -977,7 +990,7 @@ const ProfileHeader = ({
                 <PromotionCard
                   key={promo.idPromotion}
                   promotion={promo}
-                  onEdit={(p) => { setEditingPromotion(p); setShowPromotionModal(true); }}
+                  onEdit={(p) => { setPromotionFormError(""); setEditingPromotion(p); setShowPromotionModal(true); }}
                   onDeleted={() => loadPromotions()}
                   onStatusChanged={() => loadPromotions()}
                   onError={(msg) => flashError(msg)}
@@ -998,13 +1011,14 @@ const ProfileHeader = ({
 
       <PromotionModal
         isOpen={showPromotionModal}
-        onClose={() => { setShowPromotionModal(false); setEditingPromotion(null); }}
+        onClose={handleClosePromotionModal}
         onSubmit={handleSubmitPromotion}
         initialData={editingPromotion}
         availableTags={promotionTags}
         posts={sortedPosts}
         events={sortedEvents}
         isSubmitting={loading.creatingPromotion}
+        errorMessage={promotionFormError}
       />
 
       <PlanRestrictedModal

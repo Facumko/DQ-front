@@ -108,6 +108,19 @@
   letter-spacing: 0;
 }
 
+.formErrorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f4;
+  color: #B00020;
+  border: 1px solid #f7c9d1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
 .input {
   padding: 10px 12px;
   border: 1.5px solid #e5e7eb;

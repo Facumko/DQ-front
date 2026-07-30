@@ -14,6 +14,7 @@ const PromotionModal = ({
   posts = [], 
   events = [],
   isSubmitting = false,
+  errorMessage = "",
 }) => {
   const [form, setForm] = useState({
     title: "",
@@ -133,6 +134,13 @@ const PromotionModal = ({
           </div>
 
           <div className={styles.body}>
+            {errorMessage && (
+              <div className={styles.formErrorBanner}>
+                <AlertCircle size={15} />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
             <div className={styles.field}>
               <label className={styles.label}>Título <span className={styles.req}>*</span></label>
               <input
@@ -309,4 +317,4 @@ const PromotionModal = ({
   );
 };
 
-export default PromotionModal;
+export default PromotionModal;  
