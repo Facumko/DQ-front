@@ -60,7 +60,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     try { new URL(str); return true } catch { return false }
   }
   const cleanBusinessName = (str) =>
-    str.replace(/[^A-Za-z0-9\s&()/'.-]/g, "").slice(0, 50)
+    str.replace(/[^A-Za-z0-9\s&()/'.-]/g, "").slice(0, 100)
 
   useEffect(() => {
     const { businessName, businessDescription, email, instagram, facebook, website } = formData
@@ -74,7 +74,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     setIsValid(
       businessName.trim().length >= 3 &&
       businessDescription.trim().length >= 10 &&
-      businessDescription.trim().length <= 300 &&
+      businessDescription.trim().length <= 500 &&
       !hasError
     )
   }, [formData])
@@ -87,7 +87,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     const { name, value } = e.target
     let cleaned = value
     if (name === "businessName")        cleaned = cleanBusinessName(value)
-    if (name === "businessDescription") cleaned = value.slice(0, 300)
+    if (name === "businessDescription") cleaned = value.slice(0, 500)
     if (name === "businessAddress")     cleaned = value.slice(0, 80)
     if (name === "businessPhone")       cleaned = formatPhone(value)
     if (name === "email")               cleaned = value.slice(0, 60)
@@ -149,13 +149,13 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             value={formData.businessName}
             onChange={handleChange}
             placeholder="Ingresá el nombre de tu negocio"
-            maxLength={50}
+            maxLength={100}
           />
           <small className="field-note">Mínimo 3 caracteres</small>
         </div>
 
         <div className="form-group full-width">
-          <label htmlFor="businessDescription">Descripción * (10–300 caracteres)</label>
+          <label htmlFor="businessDescription">Descripción * (10–500 caracteres)</label>
           <textarea
             id="businessDescription"
             name="businessDescription"
@@ -163,9 +163,9 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             onChange={handleChange}
             placeholder="Describí tu negocio, productos o servicios"
             rows="4"
-            maxLength={300}
+            maxLength={500}
           />
-          <div className="char-counter">{formData.businessDescription.length}/300</div>
+          <div className="char-counter">{formData.businessDescription.length}/500</div>
         </div>
 
         {/* Categorías — chips multi-selección */}
