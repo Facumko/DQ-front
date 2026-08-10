@@ -91,6 +91,28 @@ const normalizePost = (p) => {
   };
 };
 
+// Convierte el EventResponseDto crudo del backend (idEvent, description,
+// startDate/endDate ISO, address, images) a la forma que espera el form de
+// edición de CreatePostModal (id, text, title, date/time, endDate/endTime,
+// location, imageDetails). Sin esto, "Editar" abría el modal vacío porque
+// los nombres de campo no coincidían con lo que el form necesita.
+const normalizeEvent = (ev) => {
+  const [startDatePart, startTimePart] = (ev.startDate || "").split("T");
+  const [endDatePart,   endTimePart]   = (ev.endDate   || "").split("T");
+  const sortedImages = (ev.images || []).slice().sort((a, b) => (a.imageOrder ?? 0) - (b.imageOrder ?? 0));
+  return {
+    id:           ev.idEvent,
+    text:         ev.description || "",
+    title:        ev.title || "",
+    date:         startDatePart || "",
+    time:         startTimePart ? startTimePart.slice(0, 5) : "",
+    endDate:      endDatePart || "",
+    endTime:      endTimePart ? endTimePart.slice(0, 5) : "",
+    location:     ev.address?.address || ev.address?.street || "",
+    imageDetails: sortedImages.map((i) => ({ id: i.idImage, url: i.url, order: i.imageOrder })),
+  };
+};
+
 const timeAgo = (date) => {
   const s = Math.floor((Date.now() - new Date(date)) / 1000);
   if (s < 60)  return "hace unos segundos";
@@ -181,6 +203,15 @@ const ProfileHeader = ({
 
   const [posts,      setPosts]     = useState([]);
   const [activeTab,  setActiveTab] = useState("posts");
+  const [expandedEventIds, setExpandedEventIds] = useState(() => new Set());
+  const EVENT_DESC_LIMIT = 220;
+  const toggleEventExpanded = (idEvent) => {
+    setExpandedEventIds(prev => {
+      const next = new Set(prev);
+      if (next.has(idEvent)) next.delete(idEvent); else next.add(idEvent);
+      return next;
+    });
+  };
   const [businessId, setBusinessId]= useState(null);
   const [events, setEvents] = useState([]);
 
@@ -524,7 +555,7 @@ const ProfileHeader = ({
           startDate:       toLocalDateTime(data.date, data.time),
           endDate:         toLocalDateTime(data.endDate || data.date, data.endTime || data.time),
           idCommerceOwner: id,
-          address:         null,
+          address:         data.location ? { address: data.location } : null,
         };
 
         if (editingPost) {
@@ -947,12 +978,27 @@ const ProfileHeader = ({
                   {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[0]}</span>}
                   {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[1]?.slice(0,5)}</span>}
                 </div>
-                {ev.description && <p className={styles.descriptionText} style={{padding: "0 18px 10px"}}>{ev.description}</p>}
+                {ev.description && (
+                  <p className={styles.descriptionText} style={{padding: "0 18px 10px"}}>
+                    {ev.description.length > EVENT_DESC_LIMIT && !expandedEventIds.has(ev.idEvent)
+                      ? `${ev.description.slice(0, EVENT_DESC_LIMIT).trim()}…`
+                      : ev.description}
+                    {ev.description.length > EVENT_DESC_LIMIT && (
+                      <button
+                        type="button"
+                        className={styles.verMasBtn}
+                        onClick={() => toggleEventExpanded(ev.idEvent)}
+                      >
+                        {expandedEventIds.has(ev.idEvent) ? " Ver menos" : " Ver más"}
+                      </button>
+                    )}
+                  </p>
+                )}
               </div>
               {isOwner && (
                 <div className={styles.eventBody}>
                   <div className={styles.postActions}>
-                    <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                    <button className={styles.btnPostEdit} onClick={() => openModal("event", normalizeEvent(ev))} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
                     <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.idEvent, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
                   </div>
                 </div>
