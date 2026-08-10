@@ -3,6 +3,8 @@ import styles from "./CreatePostModal.module.css";
 import { X, Calendar, Image, MapPin, Clock, AlertCircle } from "lucide-react";
 
 const MAX_IMAGES = 10;
+const MAX_TITLE_LENGTH = 100;
+const MAX_LOCATION_LENGTH = 150;
 
 const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null }) => {
   const [endDate,  setEndDate]  = useState("");
@@ -20,6 +22,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
   const [taggedBusiness, setTaggedBusiness] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // ✅ Confirmaciones propias (reemplazan window.confirm / alert)
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState(null); // índice de imagen a confirmar borrado
@@ -50,6 +53,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       setEndTime("");
       setTitle("");
       setErrorMessage("");
+      setFieldErrors({});
       setPendingRemoveIndex(null);
       setConfirmingClose(false);
     }
@@ -61,8 +65,12 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       setText(initialData.text || "");
       setDate(initialData.date || "");
       setTime(initialData.time || "");
+      setEndDate(initialData.endDate || "");
+      setEndTime(initialData.endTime || "");
+      setTitle(initialData.title || "");
       setLocation(initialData.location || "");
       setTaggedBusiness(initialData.taggedBusiness || "");
+      setFieldErrors({});
 
       // Cargar imágenes existentes con sus IDs
       if (initialData.imageDetails && initialData.imageDetails.length > 0) {
@@ -184,6 +192,46 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     if (typeof onSubmit !== 'function') {
       setErrorMessage("Error interno: no se puede enviar el formulario.");
       return;
+    }
+
+    // ✅ Validación de campos de evento: título, lugar y fechas
+    if (type === "event") {
+      const errs = {};
+      const trimmedTitle = title.trim();
+      const trimmedLocation = location.trim();
+
+      if (!trimmedTitle) {
+        errs.title = "El título es obligatorio.";
+      } else if (trimmedTitle.length > MAX_TITLE_LENGTH) {
+        errs.title = `Máximo ${MAX_TITLE_LENGTH} caracteres.`;
+      }
+
+      if (!trimmedLocation) {
+        errs.location = "El lugar es obligatorio.";
+      } else if (trimmedLocation.length > MAX_LOCATION_LENGTH) {
+        errs.location = `Máximo ${MAX_LOCATION_LENGTH} caracteres.`;
+      }
+
+      if (!date || !time) {
+        errs.date = "La fecha y hora de inicio son obligatorias.";
+      }
+      if (!endDate || !endTime) {
+        errs.endDate = "La fecha y hora de fin son obligatorias.";
+      }
+      if (date && time && endDate && endTime) {
+        const start = new Date(`${date}T${time}`);
+        const end = new Date(`${endDate}T${endTime}`);
+        if (end <= start) {
+          errs.endDate = "El fin debe ser posterior al inicio.";
+        }
+      }
+
+      if (Object.keys(errs).length > 0) {
+        setFieldErrors(errs);
+        setErrorMessage("Revisá los campos marcados.");
+        return;
+      }
+      setFieldErrors({});
     }
 
     setErrorMessage("");
@@ -356,34 +404,88 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
             <>
               <label className={styles.fieldLabel}>
                 <span className={styles.fieldLabelText}>Título del evento</span>
-                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Nombre del evento" required />
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => {
+                    setTitle(e.target.value.slice(0, MAX_TITLE_LENGTH));
+                    if (fieldErrors.title) setFieldErrors(p => ({ ...p, title: "" }));
+                  }}
+                  placeholder="Nombre del evento"
+                  maxLength={MAX_TITLE_LENGTH}
+                  className={fieldErrors.title ? styles.inputErrorBorder : ""}
+                />
+                <div className={styles.fieldFooter}>
+                  {fieldErrors.title
+                    ? <span className={styles.fieldErrorText}><AlertCircle size={12} />{fieldErrors.title}</span>
+                    : <span />}
+                  <span className={styles.charCountSmall}>{title.length}/{MAX_TITLE_LENGTH}</span>
+                </div>
               </label>
 
               <div className={styles.row}>
                 <label>
                   <span className={styles.fieldLabelText}><Calendar size={14}/> Inicio</span>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={e => { setDate(e.target.value); if (fieldErrors.date) setFieldErrors(p => ({ ...p, date: "" })); }}
+                    className={fieldErrors.date ? styles.inputErrorBorder : ""}
+                  />
                 </label>
                 <label>
                   <span className={styles.fieldLabelText}><Clock size={14}/> Hora inicio</span>
-                  <input type="time" value={time} onChange={e => setTime(e.target.value)} required />
+                  <input
+                    type="time"
+                    value={time}
+                    onChange={e => { setTime(e.target.value); if (fieldErrors.date) setFieldErrors(p => ({ ...p, date: "" })); }}
+                    className={fieldErrors.date ? styles.inputErrorBorder : ""}
+                  />
                 </label>
               </div>
+              {fieldErrors.date && <span className={styles.fieldErrorText}><AlertCircle size={12} />{fieldErrors.date}</span>}
 
               <div className={styles.row}>
                 <label>
                   <span className={styles.fieldLabelText}><Calendar size={14}/> Fin</span>
-                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={e => { setEndDate(e.target.value); if (fieldErrors.endDate) setFieldErrors(p => ({ ...p, endDate: "" })); }}
+                    className={fieldErrors.endDate ? styles.inputErrorBorder : ""}
+                  />
                 </label>
                 <label>
                   <span className={styles.fieldLabelText}><Clock size={14}/> Hora fin</span>
-                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required />
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={e => { setEndTime(e.target.value); if (fieldErrors.endDate) setFieldErrors(p => ({ ...p, endDate: "" })); }}
+                    className={fieldErrors.endDate ? styles.inputErrorBorder : ""}
+                  />
                 </label>
               </div>
+              {fieldErrors.endDate && <span className={styles.fieldErrorText}><AlertCircle size={12} />{fieldErrors.endDate}</span>}
 
               <label className={styles.fieldLabel}>
                 <span className={styles.fieldLabelText}><MapPin size={14}/> Lugar</span>
-                <input type="text" placeholder="Lugar del evento" value={location} onChange={e => setLocation(e.target.value)} required />
+                <input
+                  type="text"
+                  placeholder="Lugar del evento"
+                  value={location}
+                  onChange={e => {
+                    setLocation(e.target.value.slice(0, MAX_LOCATION_LENGTH));
+                    if (fieldErrors.location) setFieldErrors(p => ({ ...p, location: "" }));
+                  }}
+                  maxLength={MAX_LOCATION_LENGTH}
+                  className={fieldErrors.location ? styles.inputErrorBorder : ""}
+                />
+                <div className={styles.fieldFooter}>
+                  {fieldErrors.location
+                    ? <span className={styles.fieldErrorText}><AlertCircle size={12} />{fieldErrors.location}</span>
+                    : <span />}
+                  <span className={styles.charCountSmall}>{location.length}/{MAX_LOCATION_LENGTH}</span>
+                </div>
               </label>
             </>
           )}
