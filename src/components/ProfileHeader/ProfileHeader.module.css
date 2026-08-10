@@ -271,6 +271,8 @@
   margin: 0 0 4px;
   letter-spacing: -0.02em;
   animation: nameFadeIn 0.2s ease;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @keyframes nameFadeIn {
@@ -335,7 +337,7 @@
   border-top: 1px solid var(--border);
 }
 
-.infoCol { padding: 20px 28px; }
+.infoCol { padding: 20px 28px; min-width: 0; }
 .infoCol + .infoCol { border-left: 1px solid var(--border); }
 
 .infoSectionTitle {
@@ -353,6 +355,8 @@
   line-height: 1.65;
   margin: 0;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .verMasBtn {
