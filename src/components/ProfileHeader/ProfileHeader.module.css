@@ -224,6 +224,42 @@
 }
 .btnEdit:hover { border-color: var(--brand); color: var(--brand); }
 
+/* Compartir: acción secundaria, disponible para cualquiera (no solo el dueño) —
+   por eso va "ghost" (sin fondo ni borde), más liviana que btnEdit, que es la
+   acción principal del dueño. */
+.btnShare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 30px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btnShare:hover { background: var(--border); color: var(--text); }
+
+/* WhatsApp: color de marca reconocible a propósito (verde WhatsApp), como
+   círculo sólido para que se lea como ícono de acción rápida, no como texto. */
+.whatsappBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #25d366;
+  color: white;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.whatsappBtn:hover { transform: scale(1.08); box-shadow: 0 2px 8px rgba(37, 211, 102, 0.4); }
+
 .btnSave {
   display: flex;
   align-items: center;
@@ -271,6 +307,8 @@
   margin: 0 0 4px;
   letter-spacing: -0.02em;
   animation: nameFadeIn 0.2s ease;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @keyframes nameFadeIn {
@@ -335,7 +373,7 @@
   border-top: 1px solid var(--border);
 }
 
-.infoCol { padding: 20px 28px; }
+.infoCol { padding: 20px 28px; min-width: 0; }
 .infoCol + .infoCol { border-left: 1px solid var(--border); }
 
 .infoSectionTitle {
@@ -353,7 +391,22 @@
   line-height: 1.65;
   margin: 0;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
+
+.verMasBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 2px;
+  color: var(--brand);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.verMasBtn:hover { text-decoration: underline; }
 
 .editTextarea {
   width: 100%;
@@ -407,6 +460,19 @@
   color: #dc2626;
   margin-top: 2px;
   display: block;
+}
+
+.scheduleWarning {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin: 4px 0 0;
 }
 
 /* ══════════════════════════════════════════
@@ -868,7 +934,7 @@
 
 .scheduleGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
   gap: 16px;
 }
 
@@ -878,6 +944,9 @@
   border-radius: var(--radius-md);
   padding: 16px;
   transition: border-color var(--transition);
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .dayCard:hover {
@@ -975,6 +1044,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .timeGroup label {
@@ -985,19 +1055,38 @@
 }
 
 .timeInput {
-  padding: 6px 8px;
+  padding: 6px 6px 6px 10px;
   border: 1.5px solid var(--border);
   border-radius: 6px;
   font-size: 0.85rem;
   font-family: inherit;
   color: var(--text);
   transition: border-color var(--transition);
-  width: 80px;
+  width: 118px;
+  min-width: 118px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
 }
 
 .timeInput:focus {
   border-color: var(--brand);
   outline: none;
+}
+
+/* El ícono nativo del reloj (Chrome/Edge/Safari) se dibuja pegado al texto
+   si no se le reserva espacio propio; sin esto se superponía con los dígitos. */
+.timeInput::-webkit-calendar-picker-indicator {
+  margin-left: 6px;
+  padding: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.timeInput::-webkit-datetime-edit {
+  display: flex;
+  align-items: center;
 }
 
 .timeSep {
@@ -1010,6 +1099,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .shiftLabel {

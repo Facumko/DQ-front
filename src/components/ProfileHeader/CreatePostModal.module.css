@@ -206,6 +206,33 @@
   gap: 6px;
 }
 
+.inputErrorBorder {
+  border-color: #dc2626 !important;
+  background: #fef2f2 !important;
+}
+
+.fieldErrorText {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.fieldFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.charCountSmall {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin-left: auto;
+}
+
 .submitButton {
   background: #B00020;
   color: white;

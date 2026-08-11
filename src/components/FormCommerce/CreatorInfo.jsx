@@ -175,7 +175,6 @@ function CreatorInfo({ data, onUpdate, onNext}) {
             required
             maxLength={30}
           />
-          {user?.name && <small className="field-note">✓ Precargado desde tu cuenta</small>}
         </div>
 
         <div className="form-group">
@@ -190,7 +189,6 @@ function CreatorInfo({ data, onUpdate, onNext}) {
             required
             maxLength={45}
           />
-          {user?.lastname && <small className="field-note">✓ Precargado desde tu cuenta</small>}
         </div>
 
         <div className="form-group">

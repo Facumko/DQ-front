@@ -7,7 +7,7 @@ import {
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
   replaceCommerceSchedules, scheduleFromBackend,
-  getCategories, addCommerceCategories, removeCommerceCategories,
+  getCategories, setCommerceCategory,
   createEvent, updateEvent, deleteEvent,
   addImagesToEvent, deleteImagesFromEvent,
   toLocalDateTime, getEventsByCommerce,
@@ -16,13 +16,15 @@ import {
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
-         Phone, Mail, Link2, Clock, Pencil, Trash2,
+         Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
          FileText, CalendarDays, Sparkles, Megaphone } from "lucide-react";
+import { FaWhatsapp, FaInstagram, FaFacebook } from "react-icons/fa";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
 import ScheduleDisplay from "./components/ScheduleDisplay";
 import LocationPicker from "../LocationPicker/LocationPicker";
+import LocationDisplay from "./components/LocationDisplay";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 import PromotionModal from "./PromotionModal";
 import PromotionCard from "./PromotionCard";
@@ -53,26 +55,49 @@ const MOCK_POSTS = [
 
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const isValidPhone = (v) => v.replace(/\D/g, "").length >= 8;
+const isValidUrl = (v) => { try { new URL(v); return true; } catch { return false; } };
 
-const normalizeBusiness = (d) => ({
-  name:         d?.name        || "",
-  email:        d?.email       || "",
-  phone:        d?.phone       || "",
-  link:         d?.link ? String(d.link) : "",
-  description:  d?.description || "",
-  profileImage: d?.profileImage?.url || d?.profileImage || null,
-  coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
-  schedules:    d?.schedules || [],
-  categories:   Array.isArray(d?.categories) ? d.categories : [],
-  location: d?.address?.lat && d?.address?.lng
+// wa.me para Argentina necesita: 54 9 <código de área> <número>, sin el 0 inicial.
+// El teléfono del negocio ya se guarda como (área) número — mismo criterio que
+// se usa en Contacto.jsx para el WhatsApp de soporte.
+const toWhatsappNumber = (phone) => {
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) digits = digits.slice(1);
+  return `549${digits}`;
+};
+
+const normalizeBusiness = (d) => {
+  // location puede venir del shape crudo del backend (d.address, con lat/lng
+  // sueltos) o de un businessData ya normalizado anteriormente (d.location,
+  // objeto plano {lat,lng,address}). Si solo miráramos d.address, cada vez
+  // que se vuelve a normalizar un dato ya normalizado (ej. handleEdit /
+  // handleCancel, que llaman normalizeBusiness(businessData)) la ubicación
+  // se perdía, porque businessData ya no tiene .address, tiene .location.
+  const addr = d?.address || d?.location;
+  const location = addr?.lat && addr?.lng
     ? {
-        idAddress: d.address.idAddress || null,
-        lat:       parseFloat(d.address.lat),
-        lng:       parseFloat(d.address.lng),
-        address:   d.address.address || d.address.street || "",
+        idAddress: addr.idAddress || null,
+        lat:       parseFloat(addr.lat),
+        lng:       parseFloat(addr.lng),
+        address:   addr.address || addr.street || "",
       }
-    : null,
-});
+    : null;
+
+  return {
+    name:         d?.name        || "",
+    email:        d?.email       || "",
+    phone:        d?.phone       || "",
+    link:         d?.link ? String(d.link) : "",
+    instagram:    d?.instagram   || "",
+    facebook:     d?.facebook    || "",
+    description:  d?.description || "",
+    profileImage: d?.profileImage?.url || d?.profileImage || null,
+    coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
+    schedules:    d?.schedules || [],
+    category:     d?.category || null,
+    location,
+  };
+};
 
 const normalizePost = (p) => {
   if (p.text && Array.isArray(p.images) && typeof p.images[0] === "string") {
@@ -88,6 +113,28 @@ const normalizePost = (p) => {
     type:         "post",
     businessName: p.nameCommerce,
     createdAt:    p.postedAt,
+  };
+};
+
+// Convierte el EventResponseDto crudo del backend (idEvent, description,
+// startDate/endDate ISO, address, images) a la forma que espera el form de
+// edición de CreatePostModal (id, text, title, date/time, endDate/endTime,
+// location, imageDetails). Sin esto, "Editar" abría el modal vacío porque
+// los nombres de campo no coincidían con lo que el form necesita.
+const normalizeEvent = (ev) => {
+  const [startDatePart, startTimePart] = (ev.startDate || "").split("T");
+  const [endDatePart,   endTimePart]   = (ev.endDate   || "").split("T");
+  const sortedImages = (ev.images || []).slice().sort((a, b) => (a.imageOrder ?? 0) - (b.imageOrder ?? 0));
+  return {
+    id:           ev.idEvent,
+    text:         ev.description || "",
+    title:        ev.title || "",
+    date:         startDatePart || "",
+    time:         startTimePart ? startTimePart.slice(0, 5) : "",
+    endDate:      endDatePart || "",
+    endTime:      endTimePart ? endTimePart.slice(0, 5) : "",
+    location:     ev.address?.address || ev.address?.street || "",
+    imageDetails: sortedImages.map((i) => ({ id: i.idImage, url: i.url, order: i.imageOrder })),
   };
 };
 
@@ -111,6 +158,38 @@ const DEFAULT_SCHEDULE = {
   Dom: { cerrado: true,  deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "22:00" } },
 };
 
+const DAY_LABELS = { Lun: "Lunes", Mar: "Martes", Mie: "Miércoles", Jue: "Jueves", Vie: "Viernes", Sab: "Sábado", Dom: "Domingo" };
+
+// Misma lógica que en ScheduleEditor.jsx (duplicada a propósito: mantener
+// ese archivo exportando solo el componente evita romper el fast-refresh).
+const toMinutes = (t) => {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+const isInvalidRange = (open, close) => {
+  const o = toMinutes(open);
+  const c = toMinutes(close);
+  if (o == null || c == null) return false;
+  return c <= o;
+};
+
+// Recorre los 7 días y devuelve el primer día con un horario que no tiene
+// sentido (cierre antes o igual que la apertura), para bloquear el guardado.
+const findInvalidScheduleDay = (schedule) => {
+  for (const day of Object.keys(schedule || {})) {
+    const hoy = schedule[day];
+    if (!hoy || hoy.cerrado) continue;
+    if (hoy.deCorrido) {
+      if (isInvalidRange(hoy.open, hoy.close)) return day;
+    } else {
+      if (isInvalidRange(hoy.manana?.open, hoy.manana?.close)) return day;
+      if (isInvalidRange(hoy.tarde?.open, hoy.tarde?.close)) return day;
+    }
+  }
+  return null;
+};
+
 const useFormValidation = () => {
   const [errors, setErrors] = useState({});
   const validate = useCallback((field, value, rules) => {
@@ -119,6 +198,7 @@ const useFormValidation = () => {
     else if (rules.maxLength && value?.length > rules.maxLength) error = `Máximo ${rules.maxLength} caracteres`;
     else if (rules.email && value && !isValidEmail(value)) error = "Correo inválido";
     else if (rules.phone && value && !isValidPhone(value)) error = "Número inválido (mín. 8 dígitos)";
+    else if (rules.url && value && !isValidUrl(value)) error = "URL inválida (ej: https://...)";
     setErrors((p) => ({ ...p, [field]: error }));
     return !error;
   }, []);
@@ -181,6 +261,15 @@ const ProfileHeader = ({
 
   const [posts,      setPosts]     = useState([]);
   const [activeTab,  setActiveTab] = useState("posts");
+  const [expandedEventIds, setExpandedEventIds] = useState(() => new Set());
+  const EVENT_DESC_LIMIT = 220;
+  const toggleEventExpanded = (idEvent) => {
+    setExpandedEventIds(prev => {
+      const next = new Set(prev);
+      if (next.has(idEvent)) next.delete(idEvent); else next.add(idEvent);
+      return next;
+    });
+  };
   const [businessId, setBusinessId]= useState(null);
   const [events, setEvents] = useState([]);
 
@@ -202,15 +291,15 @@ const ProfileHeader = ({
   const [highlightKey, setHighlightKey] = useState(null);
 
   const [businessData, setBusinessData] = useState({
-    name:"", email:"", phone:"", link:"", description:"",
-    profileImage:null, coverImage:null, location:null, categories:[],
+    name:"", email:"", phone:"", link:"", instagram:"", facebook:"", description:"",
+    profileImage:null, coverImage:null, location:null, category:null,
   });
   const [schedule,      setSchedule]      = useState(DEFAULT_SCHEDULE);
   const [draft,         setDraft]         = useState(businessData);
   const [draftSchedule, setDraftSchedule] = useState(schedule);
 
   const [allCategories,    setAllCategories]    = useState([]);
-  const [draftCategories,  setDraftCategories]  = useState([]);
+  const [draftCategory,    setDraftCategory]    = useState(null);
 
   const [pendingCover,  setPendingCover]  = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
@@ -257,7 +346,7 @@ const ProfileHeader = ({
     if (externalData) {
       const d = normalizeBusiness(externalData);
       setBusinessData(d); setDraft(d);
-      setDraftCategories(d.categories);
+      setDraftCategory(d.category);
       if (d.schedules && d.schedules.length > 0) {
         const loaded = scheduleFromBackend(d.schedules);
         setSchedule(loaded); setDraftSchedule(loaded);
@@ -325,7 +414,7 @@ const ProfileHeader = ({
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
         setBusinessData(d); setDraft(d);
-        setDraftCategories(d.categories);
+        setDraftCategory(d.category);
         if (d.schedules && d.schedules.length > 0) {
           const loaded = scheduleFromBackend(d.schedules);
           setSchedule(loaded); setDraftSchedule(loaded);
@@ -334,7 +423,7 @@ const ProfileHeader = ({
       } else {
         const d = normalizeBusiness({ name: user.name ? `${user.name} ${user.lastname || ""}`.trim() : "" });
         setBusinessData(d); setDraft(d);
-        setDraftCategories([]);
+        setDraftCategory(null);
       }
     } catch (err) { flashError(err.message || "Error al cargar el negocio"); }
     finally { setLoad("business", false); }
@@ -373,7 +462,7 @@ const ProfileHeader = ({
   const handleEdit = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
-    setDraftCategories(businessData.categories);
+    setDraftCategory(businessData.category);
     setIsEditing(true);
     setErrorMsg(""); setSuccessMsg("");
     setPendingCover(null); setPendingAvatar(null);
@@ -383,7 +472,7 @@ const ProfileHeader = ({
   const handleCancel = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
-    setDraftCategories(businessData.categories);
+    setDraftCategory(businessData.category);
     setIsEditing(false);
     setErrorMsg(""); setSuccessMsg("");
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
@@ -401,17 +490,72 @@ const ProfileHeader = ({
     setDraft((p) => ({ ...p, phone: fmt }));
   }, []);
 
-  const toggleDraftCategory = useCallback((cat) => {
-    setDraftCategories(prev => {
-      const exists = prev.some(c => c.idCategory === cat.idCategory);
-      return exists
-        ? prev.filter(c => c.idCategory !== cat.idCategory)
-        : [...prev, cat];
-    });
+  // Selección única: si tocás la categoría ya elegida, la deseleccionás;
+  // si tocás otra, la reemplaza (nunca queda más de una activa).
+  const selectDraftCategory = useCallback((cat) => {
+    setDraftCategory(prev =>
+      prev && String(prev.idCategory) === String(cat.idCategory) ? null : cat
+    );
   }, []);
 
+  // Comparación con String() porque el id puede venir como number del backend
+  // y como string desde otros puntos del form; sin esto la categoría guardada
+  // nunca aparecía marcada al editar.
   const isDraftCategorySelected = useCallback((cat) =>
-    draftCategories.some(c => c.idCategory === cat.idCategory), [draftCategories]);
+    !!draftCategory && String(draftCategory.idCategory) === String(cat.idCategory), [draftCategory]);
+
+  // Fallback para contextos NO seguros (HTTP en red local, sin HTTPS/localhost),
+  // donde navigator.clipboard directamente no existe. Usa el método viejo
+  // (deprecado pero soportado) con un textarea oculto.
+  const legacyCopy = (text) => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    let succeeded = false;
+    try {
+      succeeded = document.execCommand("copy");
+    } catch {
+      succeeded = false;
+    }
+    document.body.removeChild(textarea);
+    return succeeded;
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: businessData.name || "Dónde Queda?",
+      text: `Mirá ${businessData.name || "este negocio"} en Dónde Queda`,
+      url,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch { /* el usuario canceló, no hacemos nada */ }
+      return;
+    }
+
+    // Clipboard API moderna (requiere HTTPS o localhost)
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(url);
+        flashSuccess("🔗 Link copiado al portapapeles");
+        return;
+      } catch {
+        // seguimos al fallback
+      }
+    }
+
+    // Fallback para HTTP/red local
+    if (legacyCopy(url)) {
+      flashSuccess("🔗 Link copiado al portapapeles");
+    } else {
+      flashError("No se pudo copiar el link");
+    }
+  };
 
   const handleSave = async () => {
     if (!isOwner) { flashError("No tenés permisos para editar este negocio"); return; }
@@ -420,19 +564,31 @@ const ProfileHeader = ({
     const desc  = t(draft.description);
     const email = t(draft.email);
     const phone = t(draft.phone);
+    const link       = t(draft.link);
+    const instagram  = t(draft.instagram);
+    const facebook   = t(draft.facebook);
     let valid = true;
     if (!validate("name", name, { required: true, maxLength: 100 })) valid = false;
     if (!validate("description", desc, { required: true, maxLength: 500 })) valid = false;
     if (email && !validate("email", email, { email: true })) valid = false;
     if (phone && !validate("phone", phone, { phone: true })) valid = false;
+    if (link      && !validate("link",      link,      { url: true })) valid = false;
+    if (instagram && !validate("instagram", instagram, { url: true })) valid = false;
+    if (facebook  && !validate("facebook",  facebook,  { url: true })) valid = false;
     if (!valid) { flashError("Revisá los campos marcados"); return; }
+
+    const invalidDay = findInvalidScheduleDay(draftSchedule);
+    if (invalidDay) {
+      flashError(`El horario del ${DAY_LABELS[invalidDay]} no es válido: el cierre debe ser después de la apertura`);
+      return;
+    }
 
     setLoad("savingBusiness", true);
     try {
       const cleanPhone = draft.phone.replace(/\D/g, "");
       const payload = {
         name, description: desc, email, phone: cleanPhone,
-        link: t(draft.link), location: draft.location || null,
+        link, instagram, facebook, location: draft.location || null,
       };
 
       let currentBusinessId = businessId;
@@ -458,17 +614,12 @@ const ProfileHeader = ({
         }
       }
 
-      if (idToUse) {
-        const currentIds = businessData.categories.map(c => c.idCategory);
-        const draftIds   = draftCategories.map(c => c.idCategory);
-        const toAdd    = draftIds.filter(id => !currentIds.includes(id));
-        const toRemove = currentIds.filter(id => !draftIds.includes(id));
+      if (idToUse && draftCategory && String(draftCategory.idCategory) !== String(businessData.category?.idCategory)) {
         try {
-          if (toAdd.length > 0)    await addCommerceCategories(idToUse, toAdd);
-          if (toRemove.length > 0) await removeCommerceCategories(idToUse, toRemove);
+          await setCommerceCategory(idToUse, draftCategory.idCategory);
         } catch (catError) {
-          console.warn("⚠️ Error sincronizando categorías:", catError.message);
-          flashInfo("Datos guardados. Hubo un problema con las categorías, intentá de nuevo.");
+          console.warn("⚠️ Error guardando la categoría:", catError.message);
+          flashInfo("Datos guardados. Hubo un problema con la categoría, intentá de nuevo.");
         }
       }
 
@@ -477,7 +628,7 @@ const ProfileHeader = ({
         if (biz) {
           const d = normalizeBusiness(biz);
           setBusinessData(d); setDraft(d);
-          setDraftCategories(d.categories);
+          setDraftCategory(d.category);
           if (d.schedules && d.schedules.length > 0) {
             const loaded = scheduleFromBackend(d.schedules);
             setSchedule(loaded); setDraftSchedule(loaded);
@@ -548,7 +699,7 @@ const ProfileHeader = ({
           startDate:       toLocalDateTime(data.date, data.time),
           endDate:         toLocalDateTime(data.endDate || data.date, data.endTime || data.time),
           idCommerceOwner: id,
-          address:         null,
+          address:         data.location ? { address: data.location } : null,
         };
 
         if (editingPost) {
@@ -692,9 +843,14 @@ const ProfileHeader = ({
             onDiscard={handleAvatarDiscard}
           />
 
-          {isOwner && (
-            <div className={styles.topActions}>
-              {!isEditing ? (
+          <div className={styles.topActions}>
+            {!isEditing && (
+              <button className={styles.btnShare} onClick={handleShare} title="Compartir">
+                <Share2 size={14}/> Compartir
+              </button>
+            )}
+            {isOwner && (
+              !isEditing ? (
                 <button className={styles.btnEdit} onClick={handleEdit}><Edit2 size={14}/> Editar perfil</button>
               ) : (
                 <>
@@ -705,9 +861,9 @@ const ProfileHeader = ({
                       : <><Check size={14}/> Guardar</>}
                   </button>
                 </>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
         </div>
 
         <div className={styles.profileMeta}>
@@ -723,13 +879,11 @@ const ProfileHeader = ({
             <>
               <h1 className={styles.businessName}>{businessData.name || "Sin nombre"}</h1>
 
-              {businessData.categories.length > 0 && (
+              {businessData.category && (
                 <div className={styles.categoryChipsView}>
-                  {businessData.categories.map(cat => (
-                    <span key={cat.idCategory} className={styles.categoryChipView}>
-                      {cat.name}
-                    </span>
-                  ))}
+                  <span className={styles.categoryChipView}>
+                    {businessData.category.name}
+                  </span>
                 </div>
               )}
 
@@ -753,25 +907,25 @@ const ProfileHeader = ({
                 <span className={styles.charCount}>{draft.description.length}/500</span>
 
                 <div className={styles.categoryEditorSection}>
-                  <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categorías</p>
-                  <div className={styles.categoryChipsEdit}>
+                  <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categoría</p>
+                  <div className={styles.categoryChipsEdit} role="radiogroup" aria-label="Categoría del negocio">
                     {allCategories.map(cat => (
                       <button
                         key={cat.idCategory}
                         type="button"
+                        role="radio"
+                        aria-checked={isDraftCategorySelected(cat)}
                         className={`${styles.categoryChipEdit} ${isDraftCategorySelected(cat) ? styles.categoryChipEditSelected : ""}`}
-                        onClick={() => toggleDraftCategory(cat)}
+                        onClick={() => selectDraftCategory(cat)}
                       >
                         {isDraftCategorySelected(cat) && <span>✓ </span>}
                         {cat.name}
                       </button>
                     ))}
                   </div>
-                  {draftCategories.length > 0 && (
-                    <p className={styles.categoryCount}>
-                      {draftCategories.length} categoría{draftCategories.length !== 1 ? "s" : ""} seleccionada{draftCategories.length !== 1 ? "s" : ""}
-                    </p>
-                  )}
+                  <p className={styles.categoryCount}>
+                    {draftCategory ? `Categoría: ${draftCategory.name}` : "Elegí una categoría"}
+                  </p>
                 </div>
               </>
             ) : (
@@ -815,6 +969,17 @@ const ProfileHeader = ({
                   {businessData.phone || "Sin teléfono"}
                 </span>
               )}
+              {!isEditing && businessData.phone && (
+                <a
+                  className={styles.whatsappBtn}
+                  href={`https://wa.me/${toWhatsappNumber(businessData.phone)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Escribir por WhatsApp"
+                >
+                  <FaWhatsapp size={15} />
+                </a>
+              )}
             </div>
 
             <div className={styles.contactRow}>
@@ -837,13 +1002,54 @@ const ProfileHeader = ({
             <div className={styles.contactRow}>
               <Link2 size={16} className={styles.contactIcon}/>
               {isEditing ? (
-                <input className={styles.editInput} type="url" value={String(draft.link || "")}
-                  onChange={handleInputChange("link")} placeholder="https://tusitio.com" maxLength={200}/>
+                <input className={`${styles.editInput} ${errors.link ? styles.inputError : ""}`}
+                  type="url" value={String(draft.link || "")}
+                  onChange={(e) => { handleInputChange("link")(e); validate("link", e.target.value, { url: true }); }}
+                  placeholder="https://tusitio.com" maxLength={200}/>
+              ) : businessData.link ? (
+                <a className={styles.contactText}
+                   href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
+                   target="_blank" rel="noopener noreferrer">
+                  {businessData.link}
+                </a>
               ) : (
-                <span className={businessData.link ? styles.contactText : styles.contactEmpty}>
-                  {businessData.link || "Sin link"}
-                </span>
+                <span className={styles.contactEmpty}>Sin link</span>
               )}
+              {errors.link && <span className={styles.fieldError}>{errors.link}</span>}
+            </div>
+
+            <div className={styles.contactRow}>
+              <FaInstagram size={16} className={styles.contactIcon}/>
+              {isEditing ? (
+                <input className={`${styles.editInput} ${errors.instagram ? styles.inputError : ""}`}
+                  type="url" value={String(draft.instagram || "")}
+                  onChange={(e) => { handleInputChange("instagram")(e); validate("instagram", e.target.value, { url: true }); }}
+                  placeholder="https://instagram.com/tunegocio" maxLength={200}/>
+              ) : businessData.instagram ? (
+                <a className={styles.contactText} href={businessData.instagram} target="_blank" rel="noopener noreferrer">
+                  {businessData.instagram}
+                </a>
+              ) : (
+                <span className={styles.contactEmpty}>Sin Instagram</span>
+              )}
+              {errors.instagram && <span className={styles.fieldError}>{errors.instagram}</span>}
+            </div>
+
+            <div className={styles.contactRow}>
+              <FaFacebook size={16} className={styles.contactIcon}/>
+              {isEditing ? (
+                <input className={`${styles.editInput} ${errors.facebook ? styles.inputError : ""}`}
+                  type="url" value={String(draft.facebook || "")}
+                  onChange={(e) => { handleInputChange("facebook")(e); validate("facebook", e.target.value, { url: true }); }}
+                  placeholder="https://facebook.com/tunegocio" maxLength={200}/>
+              ) : businessData.facebook ? (
+                <a className={styles.contactText} href={businessData.facebook} target="_blank" rel="noopener noreferrer">
+                  {businessData.facebook}
+                </a>
+              ) : (
+                <span className={styles.contactEmpty}>Sin Facebook</span>
+              )}
+              {errors.facebook && <span className={styles.fieldError}>{errors.facebook}</span>}
             </div>
 
             {isEditing ? (
@@ -856,8 +1062,7 @@ const ProfileHeader = ({
               </div>
             ) : businessData.location?.lat ? (
               <div style={{ marginTop: 14 }}>
-                <p className={styles.infoSectionTitle} style={{ marginBottom: 8 }}>Ubicación</p>
-                <LocationPicker label="" value={businessData.location} onChange={() => {}} />
+                <LocationDisplay location={businessData.location} label="Ubicación" />
               </div>
             ) : null}
           </div>
@@ -979,12 +1184,27 @@ const ProfileHeader = ({
                   {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[0]}</span>}
                   {ev.startDate && <span className={styles.eventMetaItem}><Clock size={13}/>{ev.startDate.split('T')[1]?.slice(0,5)}</span>}
                 </div>
-                {ev.description && <p className={styles.descriptionText} style={{padding: "0 18px 10px"}}>{ev.description}</p>}
+                {ev.description && (
+                  <p className={styles.descriptionText} style={{padding: "0 18px 10px"}}>
+                    {ev.description.length > EVENT_DESC_LIMIT && !expandedEventIds.has(ev.idEvent)
+                      ? `${ev.description.slice(0, EVENT_DESC_LIMIT).trim()}…`
+                      : ev.description}
+                    {ev.description.length > EVENT_DESC_LIMIT && (
+                      <button
+                        type="button"
+                        className={styles.verMasBtn}
+                        onClick={() => toggleEventExpanded(ev.idEvent)}
+                      >
+                        {expandedEventIds.has(ev.idEvent) ? " Ver menos" : " Ver más"}
+                      </button>
+                    )}
+                  </p>
+                )}
               </div>
               {isOwner && (
                 <div className={styles.eventBody}>
                   <div className={styles.postActions}>
-                    <button className={styles.btnPostEdit} onClick={() => openModal("event", ev)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                    <button className={styles.btnPostEdit} onClick={() => openModal("event", normalizeEvent(ev))} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
                     <button className={styles.btnPostDelete} onClick={() => handleDeletePost(ev.idEvent, "event")} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
                   </div>
                 </div>

@@ -60,7 +60,7 @@
 }
 
 .dragOver {
-  box-shadow: inset 0 0 0 4px #3498db;
+  box-shadow: inset 0 0 0 4px #B00020;
 }
 
 /* Skeleton de portada */
@@ -280,7 +280,7 @@
   align-items: center;
   gap: 5px;
   padding: 6px 14px;
-  background: #2ecc71;
+  background: #16a34a;
   border: none;
   border-radius: 20px;
   color: white;
@@ -289,7 +289,7 @@
   cursor: pointer;
   transition: background 0.14s ease, transform 0.1s ease;
 }
-.toolBtnConfirm:hover { background: #27ae60; transform: scale(1.03); }
+.toolBtnConfirm:hover { background: #15803d; transform: scale(1.03); }
 
 .toolBtnDiscard {
   display: flex;
