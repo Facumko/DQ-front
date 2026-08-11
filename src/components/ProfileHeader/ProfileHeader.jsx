@@ -18,7 +18,7 @@ import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
          Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
          FileText, CalendarDays, Sparkles, Megaphone } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
+import { FaWhatsapp, FaInstagram, FaFacebook } from "react-icons/fa";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
@@ -54,6 +54,7 @@ const MOCK_POSTS = [
 
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const isValidPhone = (v) => v.replace(/\D/g, "").length >= 8;
+const isValidUrl = (v) => { try { new URL(v); return true; } catch { return false; } };
 
 // wa.me para Argentina necesita: 54 9 <código de área> <número>, sin el 0 inicial.
 // El teléfono del negocio ya se guarda como (área) número — mismo criterio que
@@ -69,6 +70,8 @@ const normalizeBusiness = (d) => ({
   email:        d?.email       || "",
   phone:        d?.phone       || "",
   link:         d?.link ? String(d.link) : "",
+  instagram:    d?.instagram   || "",
+  facebook:     d?.facebook    || "",
   description:  d?.description || "",
   profileImage: d?.profileImage?.url || d?.profileImage || null,
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
@@ -151,6 +154,7 @@ const useFormValidation = () => {
     else if (rules.maxLength && value?.length > rules.maxLength) error = `Máximo ${rules.maxLength} caracteres`;
     else if (rules.email && value && !isValidEmail(value)) error = "Correo inválido";
     else if (rules.phone && value && !isValidPhone(value)) error = "Número inválido (mín. 8 dígitos)";
+    else if (rules.url && value && !isValidUrl(value)) error = "URL inválida (ej: https://...)";
     setErrors((p) => ({ ...p, [field]: error }));
     return !error;
   }, []);
@@ -239,7 +243,7 @@ const ProfileHeader = ({
   const navigate = useNavigate();
 
   const [businessData, setBusinessData] = useState({
-    name:"", email:"", phone:"", link:"", description:"",
+    name:"", email:"", phone:"", link:"", instagram:"", facebook:"", description:"",
     profileImage:null, coverImage:null, location:null, categories:[],
   });
   const [schedule,      setSchedule]      = useState(DEFAULT_SCHEDULE);
@@ -430,6 +434,28 @@ const ProfileHeader = ({
   const isDraftCategorySelected = useCallback((cat) =>
     draftCategories.some(c => c.idCategory === cat.idCategory), [draftCategories]);
 
+  // Fallback para contextos NO seguros (HTTP en red local, sin HTTPS/localhost),
+  // donde navigator.clipboard directamente no existe. Usa el método viejo
+  // (deprecado pero soportado) con un textarea oculto.
+  const legacyCopy = (text) => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    let succeeded = false;
+    try {
+      succeeded = document.execCommand("copy");
+    } catch {
+      succeeded = false;
+    }
+    document.body.removeChild(textarea);
+    return succeeded;
+  };
+
   const handleShare = async () => {
     const url = window.location.href;
     const shareData = {
@@ -441,10 +467,22 @@ const ProfileHeader = ({
       try { await navigator.share(shareData); } catch { /* el usuario canceló, no hacemos nada */ }
       return;
     }
-    try {
-      await navigator.clipboard.writeText(url);
+
+    // Clipboard API moderna (requiere HTTPS o localhost)
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(url);
+        flashSuccess("🔗 Link copiado al portapapeles");
+        return;
+      } catch {
+        // seguimos al fallback
+      }
+    }
+
+    // Fallback para HTTP/red local
+    if (legacyCopy(url)) {
       flashSuccess("🔗 Link copiado al portapapeles");
-    } catch {
+    } else {
       flashError("No se pudo copiar el link");
     }
   };
@@ -456,11 +494,17 @@ const ProfileHeader = ({
     const desc  = t(draft.description);
     const email = t(draft.email);
     const phone = t(draft.phone);
+    const link       = t(draft.link);
+    const instagram  = t(draft.instagram);
+    const facebook   = t(draft.facebook);
     let valid = true;
     if (!validate("name", name, { required: true, maxLength: 100 })) valid = false;
     if (!validate("description", desc, { required: true, maxLength: 500 })) valid = false;
     if (email && !validate("email", email, { email: true })) valid = false;
     if (phone && !validate("phone", phone, { phone: true })) valid = false;
+    if (link      && !validate("link",      link,      { url: true })) valid = false;
+    if (instagram && !validate("instagram", instagram, { url: true })) valid = false;
+    if (facebook  && !validate("facebook",  facebook,  { url: true })) valid = false;
     if (!valid) { flashError("Revisá los campos marcados"); return; }
 
     setLoad("savingBusiness", true);
@@ -468,7 +512,7 @@ const ProfileHeader = ({
       const cleanPhone = draft.phone.replace(/\D/g, "");
       const payload = {
         name, description: desc, email, phone: cleanPhone,
-        link: t(draft.link), location: draft.location || null,
+        link, instagram, facebook, location: draft.location || null,
       };
 
       let currentBusinessId = businessId;
@@ -889,13 +933,54 @@ const ProfileHeader = ({
             <div className={styles.contactRow}>
               <Link2 size={16} className={styles.contactIcon}/>
               {isEditing ? (
-                <input className={styles.editInput} type="url" value={String(draft.link || "")}
-                  onChange={handleInputChange("link")} placeholder="https://tusitio.com" maxLength={200}/>
+                <input className={`${styles.editInput} ${errors.link ? styles.inputError : ""}`}
+                  type="url" value={String(draft.link || "")}
+                  onChange={(e) => { handleInputChange("link")(e); validate("link", e.target.value, { url: true }); }}
+                  placeholder="https://tusitio.com" maxLength={200}/>
+              ) : businessData.link ? (
+                <a className={styles.contactText}
+                   href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
+                   target="_blank" rel="noopener noreferrer">
+                  {businessData.link}
+                </a>
               ) : (
-                <span className={businessData.link ? styles.contactText : styles.contactEmpty}>
-                  {businessData.link || "Sin link"}
-                </span>
+                <span className={styles.contactEmpty}>Sin link</span>
               )}
+              {errors.link && <span className={styles.fieldError}>{errors.link}</span>}
+            </div>
+
+            <div className={styles.contactRow}>
+              <FaInstagram size={16} className={styles.contactIcon}/>
+              {isEditing ? (
+                <input className={`${styles.editInput} ${errors.instagram ? styles.inputError : ""}`}
+                  type="url" value={String(draft.instagram || "")}
+                  onChange={(e) => { handleInputChange("instagram")(e); validate("instagram", e.target.value, { url: true }); }}
+                  placeholder="https://instagram.com/tunegocio" maxLength={200}/>
+              ) : businessData.instagram ? (
+                <a className={styles.contactText} href={businessData.instagram} target="_blank" rel="noopener noreferrer">
+                  {businessData.instagram}
+                </a>
+              ) : (
+                <span className={styles.contactEmpty}>Sin Instagram</span>
+              )}
+              {errors.instagram && <span className={styles.fieldError}>{errors.instagram}</span>}
+            </div>
+
+            <div className={styles.contactRow}>
+              <FaFacebook size={16} className={styles.contactIcon}/>
+              {isEditing ? (
+                <input className={`${styles.editInput} ${errors.facebook ? styles.inputError : ""}`}
+                  type="url" value={String(draft.facebook || "")}
+                  onChange={(e) => { handleInputChange("facebook")(e); validate("facebook", e.target.value, { url: true }); }}
+                  placeholder="https://facebook.com/tunegocio" maxLength={200}/>
+              ) : businessData.facebook ? (
+                <a className={styles.contactText} href={businessData.facebook} target="_blank" rel="noopener noreferrer">
+                  {businessData.facebook}
+                </a>
+              ) : (
+                <span className={styles.contactEmpty}>Sin Facebook</span>
+              )}
+              {errors.facebook && <span className={styles.fieldError}>{errors.facebook}</span>}
             </div>
 
             {isEditing ? (
