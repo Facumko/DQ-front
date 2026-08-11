@@ -462,6 +462,19 @@
   display: block;
 }
 
+.scheduleWarning {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin: 4px 0 0;
+}
+
 /* ══════════════════════════════════════════
    HORARIOS
 ══════════════════════════════════════════ */
@@ -911,7 +924,7 @@
 
 .scheduleGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
   gap: 16px;
 }
 
@@ -921,6 +934,9 @@
   border-radius: var(--radius-md);
   padding: 16px;
   transition: border-color var(--transition);
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .dayCard:hover {
@@ -1018,6 +1034,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .timeGroup label {
@@ -1028,19 +1045,38 @@
 }
 
 .timeInput {
-  padding: 6px 8px;
+  padding: 6px 6px 6px 10px;
   border: 1.5px solid var(--border);
   border-radius: 6px;
   font-size: 0.85rem;
   font-family: inherit;
   color: var(--text);
   transition: border-color var(--transition);
-  width: 80px;
+  width: 118px;
+  min-width: 118px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
 }
 
 .timeInput:focus {
   border-color: var(--brand);
   outline: none;
+}
+
+/* El ícono nativo del reloj (Chrome/Edge/Safari) se dibuja pegado al texto
+   si no se le reserva espacio propio; sin esto se superponía con los dígitos. */
+.timeInput::-webkit-calendar-picker-indicator {
+  margin-left: 6px;
+  padding: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.timeInput::-webkit-datetime-edit {
+  display: flex;
+  align-items: center;
 }
 
 .timeSep {
@@ -1053,6 +1089,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .shiftLabel {

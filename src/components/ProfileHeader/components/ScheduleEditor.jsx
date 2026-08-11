@@ -1,6 +1,20 @@
 import React from "react";
-import { Clock, ToggleLeft, ToggleRight } from "lucide-react";
+import { Clock, ToggleLeft, ToggleRight, AlertTriangle } from "lucide-react";
 import styles from "../ProfileHeader.module.css";
+
+// "HH:MM" a minutos, para poder comparar. Si cierra antes o igual que cuando
+// abre (ej: abre 21:00, cierra 20:00), es un horario que no tiene sentido.
+const toMinutes = (t) => {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+const isInvalidRange = (open, close) => {
+  const o = toMinutes(open);
+  const c = toMinutes(close);
+  if (o == null || c == null) return false;
+  return c <= o;
+};
 
 const ScheduleEditor = ({ schedule, onChange }) => {
   const days = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
@@ -80,6 +94,11 @@ const ScheduleEditor = ({ schedule, onChange }) => {
                           className={styles.timeInput}
                         />
                       </div>
+                      {isInvalidRange(hoy.open, hoy.close) && (
+                        <p className={styles.scheduleWarning}>
+                          <AlertTriangle size={13} /> El cierre debería ser después de la apertura
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className={styles.timeInputs}>
@@ -101,6 +120,11 @@ const ScheduleEditor = ({ schedule, onChange }) => {
                           />
                         </div>
                       </div>
+                      {isInvalidRange(hoy.manana.open, hoy.manana.close) && (
+                        <p className={styles.scheduleWarning}>
+                          <AlertTriangle size={13} /> El cierre debería ser después de la apertura
+                        </p>
+                      )}
                       <div className={styles.shiftGroup}>
                         <span className={styles.shiftLabel}>Tarde</span>
                         <div className={styles.timeGroup}>
@@ -119,6 +143,11 @@ const ScheduleEditor = ({ schedule, onChange }) => {
                           />
                         </div>
                       </div>
+                      {isInvalidRange(hoy.tarde.open, hoy.tarde.close) && (
+                        <p className={styles.scheduleWarning}>
+                          <AlertTriangle size={13} /> El cierre debería ser después de la apertura
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

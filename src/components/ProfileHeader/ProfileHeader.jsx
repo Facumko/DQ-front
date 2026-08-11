@@ -7,7 +7,7 @@ import {
   createPost, getPostsByCommerce, deletePost, updatePostText,
   addImagesToPost, deleteImagesFromPost,
   replaceCommerceSchedules, scheduleFromBackend,
-  getCategories, addCommerceCategories, removeCommerceCategories,
+  getCategories, setCommerceCategory,
   createEvent, updateEvent, deleteEvent,
   addImagesToEvent, deleteImagesFromEvent,
   toLocalDateTime, getEventsByCommerce,
@@ -76,7 +76,7 @@ const normalizeBusiness = (d) => ({
   profileImage: d?.profileImage?.url || d?.profileImage || null,
   coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
   schedules:    d?.schedules || [],
-  categories:   Array.isArray(d?.categories) ? d.categories : [],
+  category:     d?.category || null,
   location: d?.address?.lat && d?.address?.lng
     ? {
         idAddress: d.address.idAddress || null,
@@ -144,6 +144,38 @@ const DEFAULT_SCHEDULE = {
   Vie: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
   Sab: { cerrado: false, deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "21:00" } },
   Dom: { cerrado: true,  deCorrido: false, manana: { open: "08:00", close: "12:00" }, tarde: { open: "16:00", close: "22:00" } },
+};
+
+const DAY_LABELS = { Lun: "Lunes", Mar: "Martes", Mie: "Miércoles", Jue: "Jueves", Vie: "Viernes", Sab: "Sábado", Dom: "Domingo" };
+
+// Misma lógica que en ScheduleEditor.jsx (duplicada a propósito: mantener
+// ese archivo exportando solo el componente evita romper el fast-refresh).
+const toMinutes = (t) => {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+const isInvalidRange = (open, close) => {
+  const o = toMinutes(open);
+  const c = toMinutes(close);
+  if (o == null || c == null) return false;
+  return c <= o;
+};
+
+// Recorre los 7 días y devuelve el primer día con un horario que no tiene
+// sentido (cierre antes o igual que la apertura), para bloquear el guardado.
+const findInvalidScheduleDay = (schedule) => {
+  for (const day of Object.keys(schedule || {})) {
+    const hoy = schedule[day];
+    if (!hoy || hoy.cerrado) continue;
+    if (hoy.deCorrido) {
+      if (isInvalidRange(hoy.open, hoy.close)) return day;
+    } else {
+      if (isInvalidRange(hoy.manana?.open, hoy.manana?.close)) return day;
+      if (isInvalidRange(hoy.tarde?.open, hoy.tarde?.close)) return day;
+    }
+  }
+  return null;
 };
 
 const useFormValidation = () => {
@@ -244,14 +276,14 @@ const ProfileHeader = ({
 
   const [businessData, setBusinessData] = useState({
     name:"", email:"", phone:"", link:"", instagram:"", facebook:"", description:"",
-    profileImage:null, coverImage:null, location:null, categories:[],
+    profileImage:null, coverImage:null, location:null, category:null,
   });
   const [schedule,      setSchedule]      = useState(DEFAULT_SCHEDULE);
   const [draft,         setDraft]         = useState(businessData);
   const [draftSchedule, setDraftSchedule] = useState(schedule);
 
   const [allCategories,    setAllCategories]    = useState([]);
-  const [draftCategories,  setDraftCategories]  = useState([]);
+  const [draftCategory,    setDraftCategory]    = useState(null);
 
   const [pendingCover,  setPendingCover]  = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
@@ -298,7 +330,7 @@ const ProfileHeader = ({
     if (externalData) {
       const d = normalizeBusiness(externalData);
       setBusinessData(d); setDraft(d);
-      setDraftCategories(d.categories);
+      setDraftCategory(d.category);
       if (d.schedules && d.schedules.length > 0) {
         const loaded = scheduleFromBackend(d.schedules);
         setSchedule(loaded); setDraftSchedule(loaded);
@@ -346,7 +378,7 @@ const ProfileHeader = ({
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
         setBusinessData(d); setDraft(d);
-        setDraftCategories(d.categories);
+        setDraftCategory(d.category);
         if (d.schedules && d.schedules.length > 0) {
           const loaded = scheduleFromBackend(d.schedules);
           setSchedule(loaded); setDraftSchedule(loaded);
@@ -355,7 +387,7 @@ const ProfileHeader = ({
       } else {
         const d = normalizeBusiness({ name: user.name ? `${user.name} ${user.lastname || ""}`.trim() : "" });
         setBusinessData(d); setDraft(d);
-        setDraftCategories([]);
+        setDraftCategory(null);
       }
     } catch (err) { flashError(err.message || "Error al cargar el negocio"); }
     finally { setLoad("business", false); }
@@ -394,7 +426,7 @@ const ProfileHeader = ({
   const handleEdit = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
-    setDraftCategories(businessData.categories);
+    setDraftCategory(businessData.category);
     setIsEditing(true);
     setErrorMsg(""); setSuccessMsg("");
     setPendingCover(null); setPendingAvatar(null);
@@ -404,7 +436,7 @@ const ProfileHeader = ({
   const handleCancel = () => {
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
-    setDraftCategories(businessData.categories);
+    setDraftCategory(businessData.category);
     setIsEditing(false);
     setErrorMsg(""); setSuccessMsg("");
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
@@ -422,17 +454,19 @@ const ProfileHeader = ({
     setDraft((p) => ({ ...p, phone: fmt }));
   }, []);
 
-  const toggleDraftCategory = useCallback((cat) => {
-    setDraftCategories(prev => {
-      const exists = prev.some(c => c.idCategory === cat.idCategory);
-      return exists
-        ? prev.filter(c => c.idCategory !== cat.idCategory)
-        : [...prev, cat];
-    });
+  // Selección única: si tocás la categoría ya elegida, la deseleccionás;
+  // si tocás otra, la reemplaza (nunca queda más de una activa).
+  const selectDraftCategory = useCallback((cat) => {
+    setDraftCategory(prev =>
+      prev && String(prev.idCategory) === String(cat.idCategory) ? null : cat
+    );
   }, []);
 
+  // Comparación con String() porque el id puede venir como number del backend
+  // y como string desde otros puntos del form; sin esto la categoría guardada
+  // nunca aparecía marcada al editar.
   const isDraftCategorySelected = useCallback((cat) =>
-    draftCategories.some(c => c.idCategory === cat.idCategory), [draftCategories]);
+    !!draftCategory && String(draftCategory.idCategory) === String(cat.idCategory), [draftCategory]);
 
   // Fallback para contextos NO seguros (HTTP en red local, sin HTTPS/localhost),
   // donde navigator.clipboard directamente no existe. Usa el método viejo
@@ -507,6 +541,12 @@ const ProfileHeader = ({
     if (facebook  && !validate("facebook",  facebook,  { url: true })) valid = false;
     if (!valid) { flashError("Revisá los campos marcados"); return; }
 
+    const invalidDay = findInvalidScheduleDay(draftSchedule);
+    if (invalidDay) {
+      flashError(`El horario del ${DAY_LABELS[invalidDay]} no es válido: el cierre debe ser después de la apertura`);
+      return;
+    }
+
     setLoad("savingBusiness", true);
     try {
       const cleanPhone = draft.phone.replace(/\D/g, "");
@@ -538,17 +578,12 @@ const ProfileHeader = ({
         }
       }
 
-      if (idToUse) {
-        const currentIds = businessData.categories.map(c => c.idCategory);
-        const draftIds   = draftCategories.map(c => c.idCategory);
-        const toAdd    = draftIds.filter(id => !currentIds.includes(id));
-        const toRemove = currentIds.filter(id => !draftIds.includes(id));
+      if (idToUse && draftCategory && String(draftCategory.idCategory) !== String(businessData.category?.idCategory)) {
         try {
-          if (toAdd.length > 0)    await addCommerceCategories(idToUse, toAdd);
-          if (toRemove.length > 0) await removeCommerceCategories(idToUse, toRemove);
+          await setCommerceCategory(idToUse, draftCategory.idCategory);
         } catch (catError) {
-          console.warn("⚠️ Error sincronizando categorías:", catError.message);
-          flashInfo("Datos guardados. Hubo un problema con las categorías, intentá de nuevo.");
+          console.warn("⚠️ Error guardando la categoría:", catError.message);
+          flashInfo("Datos guardados. Hubo un problema con la categoría, intentá de nuevo.");
         }
       }
 
@@ -557,7 +592,7 @@ const ProfileHeader = ({
         if (biz) {
           const d = normalizeBusiness(biz);
           setBusinessData(d); setDraft(d);
-          setDraftCategories(d.categories);
+          setDraftCategory(d.category);
           if (d.schedules && d.schedules.length > 0) {
             const loaded = scheduleFromBackend(d.schedules);
             setSchedule(loaded); setDraftSchedule(loaded);
@@ -808,13 +843,11 @@ const ProfileHeader = ({
             <>
               <h1 className={styles.businessName}>{businessData.name || "Sin nombre"}</h1>
 
-              {businessData.categories.length > 0 && (
+              {businessData.category && (
                 <div className={styles.categoryChipsView}>
-                  {businessData.categories.map(cat => (
-                    <span key={cat.idCategory} className={styles.categoryChipView}>
-                      {cat.name}
-                    </span>
-                  ))}
+                  <span className={styles.categoryChipView}>
+                    {businessData.category.name}
+                  </span>
                 </div>
               )}
 
@@ -838,25 +871,25 @@ const ProfileHeader = ({
                 <span className={styles.charCount}>{draft.description.length}/500</span>
 
                 <div className={styles.categoryEditorSection}>
-                  <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categorías</p>
-                  <div className={styles.categoryChipsEdit}>
+                  <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categoría</p>
+                  <div className={styles.categoryChipsEdit} role="radiogroup" aria-label="Categoría del negocio">
                     {allCategories.map(cat => (
                       <button
                         key={cat.idCategory}
                         type="button"
+                        role="radio"
+                        aria-checked={isDraftCategorySelected(cat)}
                         className={`${styles.categoryChipEdit} ${isDraftCategorySelected(cat) ? styles.categoryChipEditSelected : ""}`}
-                        onClick={() => toggleDraftCategory(cat)}
+                        onClick={() => selectDraftCategory(cat)}
                       >
                         {isDraftCategorySelected(cat) && <span>✓ </span>}
                         {cat.name}
                       </button>
                     ))}
                   </div>
-                  {draftCategories.length > 0 && (
-                    <p className={styles.categoryCount}>
-                      {draftCategories.length} categoría{draftCategories.length !== 1 ? "s" : ""} seleccionada{draftCategories.length !== 1 ? "s" : ""}
-                    </p>
-                  )}
+                  <p className={styles.categoryCount}>
+                    {draftCategory ? `Categoría: ${draftCategory.name}` : "Elegí una categoría"}
+                  </p>
                 </div>
               </>
             ) : (

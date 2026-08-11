@@ -95,9 +95,15 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
     }
   }, []);
 
+  // Tope de 255: coincide con el varchar(255) real de "address" en la base,
+  // que es el único campo que se muestra (input de búsqueda, perfil del
+  // negocio). El campo interno "street" (varchar(100), no se muestra en
+  // ningún lado) se recorta aparte en Api.jsx, sin depender de este límite.
+  const ADDRESS_MAX_LENGTH = 255;
+
   // Debounce del input
   const handleSearchInput = (e) => {
-    const val = e.target.value;
+    const val = e.target.value.slice(0, ADDRESS_MAX_LENGTH);
     setSearchQuery(val);
     setShowSuggestions(false);
     clearTimeout(debounceRef.current);
@@ -108,7 +114,7 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
   const handleSuggestionSelect = (suggestion) => {
     const lat  = parseFloat(suggestion.lat);
     const lng  = parseFloat(suggestion.lon);
-    const addr = suggestion.display_name;
+    const addr = suggestion.display_name.slice(0, ADDRESS_MAX_LENGTH);
 
     setSearchQuery(addr);
     setMarkerPos({ lat, lng });
@@ -188,8 +194,10 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
             onChange={handleSearchInput}
             onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit(e)}
             autoComplete="off"
+            maxLength={ADDRESS_MAX_LENGTH}
           />
           {searching && <span className={styles.searchSpinner} />}
+          <span className={styles.charCount}>{searchQuery.length}/{ADDRESS_MAX_LENGTH}</span>
 
           {/* Sugerencias */}
           {showSuggestions && suggestions.length > 0 && (
