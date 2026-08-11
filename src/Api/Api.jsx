@@ -584,7 +584,10 @@ export const getMyBusiness = async () => {
       description:  business.description,
       email:        business.email,
       phone:        business.phone,
-      link:         business.link,
+      link:         business.website,
+      instagram:    business.instagram,
+      facebook:     business.facebook,
+      whatsapp:     business.whatsapp,
       branchOf:     business.branchOf,
       profileImage: business.profileImage?.url || null,
       coverImage:   business.coverImage?.url   || null,
@@ -619,7 +622,10 @@ export const getBusinessById = async (businessId) => {
     description:  business.description  || '',
     email:        business.email        || '',
     phone:        business.phone        || '',
-    link:         business.link         || '',
+    link:         business.website      || '',
+    instagram:    business.instagram    || '',
+    facebook:     business.facebook     || '',
+    whatsapp:     business.whatsapp     || '',
     branchOf:     business.branchOf     || null,
     profileImage: business.profileImage?.url || null,
     coverImage:   business.coverImage?.url   || null,
@@ -686,6 +692,8 @@ export const updateBusiness = async (businessId, businessData) => {
   if (businessData.email       !== undefined) dataToSend.email       = businessData.email.trim() || null;
   if (businessData.phone       !== undefined) dataToSend.phone       = businessData.phone.replace(/\D/g, '') || null;
   if (businessData.link        !== undefined) dataToSend.website     = businessData.link.trim() || null;
+  if (businessData.instagram   !== undefined) dataToSend.instagram   = businessData.instagram.trim() || null;
+  if (businessData.facebook    !== undefined) dataToSend.facebook    = businessData.facebook.trim() || null;
   if (businessData.branchOf    !== undefined) dataToSend.branchOf    = businessData.branchOf;
   if (businessData.location    !== undefined) dataToSend.address     = buildAddressDto(businessData.location);
 
@@ -704,7 +712,10 @@ export const updateBusiness = async (businessId, businessData) => {
     description:  response.description,
     email:        response.email,
     phone:        response.phone,
-    link:         response.link,
+    link:         response.website,
+    instagram:    response.instagram,
+    facebook:     response.facebook,
+    whatsapp:     response.whatsapp,
     branchOf:     response.branchOf,
     profileImage: response.profileImage?.url || null,
     coverImage:   response.coverImage?.url   || null,
