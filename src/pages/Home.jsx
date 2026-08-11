@@ -236,6 +236,7 @@ const Home = () => {
   const [feedHasMore,         setFeedHasMore]         = useState(true);
   const [currentImageIndex,   setCurrentImageIndex]   = useState({});
   const [apiCategories,       setApiCategories]       = useState([]);
+  const [sideFeatured,        setSideFeatured]        = useState([]); // cajas laterales: misma fuente que el carrusel (/destacado → featured)
   const sectionsRef = useRef([]);
 
   const FEED_SIZE = 10;
@@ -278,6 +279,47 @@ const Home = () => {
     };
   };
 
+  // ── Normalizar item de las cajas laterales ─────────────────────────────
+  // Misma fuente y misma forma de extraer datos que el carrusel (FeaturedItemDto: { type, data }),
+  // pero viene del array "featured" de /destacado, que el backend ya separa del "carousel".
+  // No toca normalizeFeaturedItem ni la carga del carrusel de arriba.
+  const normalizeFeaturedBox = (item) => {
+    const d = item.data || {};
+    const type = item.type; // 'EVENT' | 'POST' | 'PROMOTION' | 'COMMERCE'
+
+    // El comercio dueño del contenido: cada tipo lo expone distinto según el backend
+    const commerce   = d.commerceOwner || d.commerce || {};
+    const commerceId = d.idCommerce || commerce.idCommerce || d.commerceId
+                        || (type === "COMMERCE" ? (d.idCommerce || d.id) : null);
+
+    const businessName  = d.commerceName || d.nameCommerce || commerce.name || d.name || "Comercio";
+    const businessImage = d.commerceProfileImageUrl || commerce.profileImage?.url
+                        || d.profileImage?.url || d.coverImage?.url || null;
+    const category = commerce.categories?.[0]?.name || d.categories?.[0]?.name || "";
+
+    const address  = d.address || commerce.address || null;
+    const location = address ? (address.district || address.street || address.address || "") : "";
+
+    const title = d.title || d.name || (d.description ? d.description.slice(0, 60) : "") || businessName;
+
+    const badgeMap  = { EVENT: "Evento", POST: "Publicación", PROMOTION: "Promoción", COMMERCE: "Destacado" };
+    const badgeText = badgeMap[type] || "Destacado";
+
+    const itemId = d.idEvent || d.idPost || d.idPromotion || d.idCommerce || null;
+
+    // Mismo criterio de link que el carrusel (siempre al negocio), pero acá además
+    // apuntamos a la publicación/evento puntual cuando esa vista es pública (posts y eventos lo son).
+    // Las promociones no tienen vista pública propia todavía, así que van al perfil del negocio nomás.
+    let link = `/negocios/${commerceId || ""}`;
+    if (type === "POST"  && commerceId && d.idPost)  link = `/negocios/${commerceId}?tab=posts&item=${d.idPost}`;
+    if (type === "EVENT" && commerceId && d.idEvent) link = `/negocios/${commerceId}?tab=events&item=${d.idEvent}`;
+
+    return {
+      key: `${type}-${itemId ?? "x"}-${commerceId ?? "x"}`,
+      type, badgeText, title, businessName, businessImage, category, location, link,
+    };
+  };
+
   // ── Helpers feed ──────────────────────────────────────────────────────
   const formatTimeAgo = (dateStr) => {
     if (!dateStr) return "";
@@ -293,7 +335,7 @@ const Home = () => {
     const url  = post.businessId ? `${window.location.origin}/negocios/${post.businessId}` : window.location.href;
     const text = `${post.businessName}: ${post.content?.slice(0, 80)}...`;
     if (navigator.share) {
-      try { await navigator.share({ title: post.businessName, text, url }); } catch {}
+      try { await navigator.share({ title: post.businessName, text, url }); } catch { /* usuario canceló el share nativo */ }
     } else {
       await navigator.clipboard.writeText(url);
       alert("¡Link copiado al portapapeles!");
@@ -359,6 +401,11 @@ const Home = () => {
         if (Array.isArray(items) && items.length > 0) {
           setHeroSlides(items.map(normalizeFeaturedItem));
           setCurrentSlide(0);
+        }
+        // Cajas laterales: lo que el backend ya separa como "featured" (no está en el carrusel)
+        const boxItems = data?.featured;
+        if (Array.isArray(boxItems) && boxItems.length > 0) {
+          setSideFeatured(boxItems.map(normalizeFeaturedBox));
         }
       })
       .catch(() => {}); // fallback silencioso → se queda con el mock
@@ -464,22 +511,54 @@ const Home = () => {
             </div>
           </div>
 
-          <div className={styles.sidebar}>
-            {MOCK_DATA.featuredBusinesses.map((business) => (
-              <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
-                <div className={styles.businessHeader}>
-                  <img src={business.logo} alt={business.name} className={styles.businessLogo} onError={handleImageError} />
-                  <div className={styles.businessInfo}>
-                    <h3 className={styles.businessName}>{business.name}</h3>
-                    <p className={styles.businessCategory}>{business.category}</p>
+          <div className={`${styles.sidebar} ${sideFeatured.length > 0 ? styles.sidebarMarquee : ""}`}>
+            {sideFeatured.length > 0 ? (
+              <div
+                className={styles.sidebarTrack}
+                style={{ "--marquee-duration": `${Math.max(sideFeatured.length * 6, 18)}s` }}
+              >
+                {[...sideFeatured, ...sideFeatured].map((business, i) => (
+                  <Link to={business.link} key={`${business.key}-${i}`} className={styles.businessCard}>
+                    <span className={`${styles.businessBar} ${styles["businessBar" + business.type]}`}>
+                      {business.badgeText} · {business.title}
+                    </span>
+                    <div className={styles.businessHeader}>
+                      <img
+                        src={business.businessImage || PLACEHOLDER_IMAGE}
+                        alt={business.businessName}
+                        className={styles.businessLogo}
+                        onError={handleImageError}
+                      />
+                      <div className={styles.businessInfo}>
+                        <h3 className={styles.businessName}>{business.businessName}</h3>
+                        {business.category && <p className={styles.businessCategory}>{business.category}</p>}
+                      </div>
+                    </div>
+                    {business.location && (
+                      <div className={styles.businessLocation}>
+                        <MapPin size={14} /><span>{business.location}</span>
+                      </div>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              MOCK_DATA.featuredBusinesses.map((business) => (
+                <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
+                  <div className={styles.businessHeader}>
+                    <img src={business.logo} alt={business.name} className={styles.businessLogo} onError={handleImageError} />
+                    <div className={styles.businessInfo}>
+                      <h3 className={styles.businessName}>{business.name}</h3>
+                      <p className={styles.businessCategory}>{business.category}</p>
+                    </div>
                   </div>
-                </div>
-                <div className={styles.businessLocation}>
-                  <MapPin size={14} /><span>{business.location}</span>
-                </div>
-                <div className={styles.businessPromotion}>{business.promotion}</div>
-              </Link>
-            ))}
+                  <div className={styles.businessLocation}>
+                    <MapPin size={14} /><span>{business.location}</span>
+                  </div>
+                  <div className={styles.businessPromotion}>{business.promotion}</div>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </section>

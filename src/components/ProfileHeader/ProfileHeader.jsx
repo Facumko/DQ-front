@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import {
   getMyBusiness, getBusinessById, updateBusiness, createBusiness,
@@ -197,6 +197,10 @@ const ProfileHeader = ({
   const [showPlanRestrictedModal, setShowPlanRestrictedModal] = useState(false);
   const navigate = useNavigate();
 
+  // Deep-link desde las cajas del Home: /negocios/:id?tab=posts&item=123
+  const [searchParams] = useSearchParams();
+  const [highlightKey, setHighlightKey] = useState(null);
+
   const [businessData, setBusinessData] = useState({
     name:"", email:"", phone:"", link:"", description:"",
     profileImage:null, coverImage:null, location:null, categories:[],
@@ -267,6 +271,26 @@ const ProfileHeader = ({
     if (user?.id_user) loadBusinessData();
     else setLoading((p) => ({ ...p, business: false }));
   }, [user?.id_user, externalData, useMock]);
+
+  // ── Deep-link desde las cajas del Home (?tab=posts|events&item=ID) ─────
+  // Espera a que posts/eventos terminen de cargar para que el elemento ya esté en el DOM.
+  useEffect(() => {
+    if (loading.posts) return;
+    const tabParam  = searchParams.get("tab");
+    const itemParam = searchParams.get("item");
+    if (tabParam !== "posts" && tabParam !== "events") return;
+
+    setActiveTab(tabParam);
+    const key = `${tabParam}-${itemParam}`;
+    setHighlightKey(key);
+
+    const scrollTimer = setTimeout(() => {
+      document.getElementById(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    const clearTimer = setTimeout(() => setHighlightKey(null), 3000);
+
+    return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
+  }, [loading.posts, searchParams]);
 
   const flash = (setter, msg, ms = 3500) => { setter(msg); setTimeout(() => setter(""), ms); };
   const flashError   = (m) => flash(setErrorMsg,   m, 5000);
@@ -913,7 +937,11 @@ const ProfileHeader = ({
               <p className={styles.emptyDesc}>{isOwner ? "¡Creá la primera publicación!" : "Este negocio no ha publicado nada todavía."}</p>
             </div>
           ) : sortedPosts.map((post) => (
-            <div key={post.id} className={styles.postCard}>
+            <div
+              key={post.id}
+              id={`posts-${post.id}`}
+              className={`${styles.postCard} ${highlightKey === `posts-${post.id}` ? styles.cardHighlighted : ""}`}
+            >
               {post.images?.length > 0 && <PostGallery images={post.images} showThumbnails={true}/>}
               <div className={styles.postBody}>
                 <p className={styles.postText}>{post.text}</p>
@@ -939,7 +967,11 @@ const ProfileHeader = ({
               <p className={styles.emptyDesc}>{isOwner ? "¡Creá el primer evento!" : "Este negocio no tiene eventos todavía."}</p>
             </div>
           ) : sortedEvents.map((ev) => (
-            <div key={ev.idEvent} className={styles.eventCard}>
+            <div
+              key={ev.idEvent}
+              id={`events-${ev.idEvent}`}
+              className={`${styles.eventCard} ${highlightKey === `events-${ev.idEvent}` ? styles.cardHighlighted : ""}`}
+            >
               {ev.images?.length > 0 && <PostGallery images={ev.images.map(i => i.url || i)} showThumbnails={true}/>}
               <div className={styles.eventHeader}>
                 <h3 className={styles.eventTitle}>{ev.title}</h3>
