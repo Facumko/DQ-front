@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { createBusiness, addCommerceCategories } from "../../Api/Api";
+import { createBusiness, setCommerceCategory } from "../../Api/Api";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
 import CreatorInfo from "./CreatorInfo";
@@ -80,14 +80,14 @@ function FormCommerce() {
 
       const created = await createBusiness(businessData);
 
-      // Si el usuario seleccionó categorías, las agregamos en un segundo request
+      // El backend solo admite una categoría por comercio; BusinessInfo ya
+      // restringe la selección a una sola, así que tomamos la primera.
       if (formData.selectedCategories.length > 0) {
         try {
-          const categoryIds = formData.selectedCategories.map(c => c.idCategory);
-          await addCommerceCategories(created.id_business, categoryIds);
+          await setCommerceCategory(created.id_business, formData.selectedCategories[0].idCategory);
         } catch (categoryError) {
-          // No bloqueamos la navegación si falla la asignación de categorías
-          console.warn("No se pudieron asignar las categorías:", categoryError.message);
+          // No bloqueamos la navegación si falla la asignación de categoría
+          console.warn("No se pudo asignar la categoría:", categoryError.message);
         }
       }
 

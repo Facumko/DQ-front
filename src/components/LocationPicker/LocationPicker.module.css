@@ -64,6 +64,14 @@
 
 @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
 
+.charCount {
+  display: block;
+  text-align: right;
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
 /* Sugerencias */
 .suggestions {
   position: absolute;

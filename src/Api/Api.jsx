@@ -53,8 +53,7 @@ const ENDPOINTS = {
   SAVED_POST_REMOVE:   (idPost)     => `/usuario/eliminar/post/guardado/${idPost}`,
   SAVED_POSTS_GET:     '/usuario/traer/mis/posts/guardados',
   REPLACE_SCHEDULES: (commerceId) => `/comercio/reemplazar/horarios/${commerceId}`, 
-  ADD_CATEGORIES_TO_COMMERCE:    (commerceId) => `/comercio/agregar/categorias/${commerceId}`,
-  REMOVE_CATEGORIES_FROM_COMMERCE: (commerceId) => `/comercio/eliminar/categorias/${commerceId}`,
+  SET_COMMERCE_CATEGORY: (commerceId) => `/comercio/establecer/categoria/${commerceId}`,
   GET_COMMERCES_BY_CATEGORIES:   '/comercio/traer/por/categorias',
 };
 
@@ -536,22 +535,25 @@ export const uploadImage = async (imageData) => { validateParams({imageData},['i
 // NEGOCIOS
 // ============================================
 
-// ── Normaliza string de Nominatim → ≤100 chars ──────────────────────────────
-const normalizeAddressString = (address) => {
+// ── Normaliza string de Nominatim → recorte a un límite dado ───────────────
+const normalizeAddressString = (address, maxLength = 255) => {
   if (!address) return null;
   const parts = address.split(",").map(p => p.trim()).filter(Boolean);
   const meaningful = parts.slice(0, 3).join(", ");
-  return meaningful.substring(0, 100);
+  return meaningful.substring(0, maxLength);
 };
 
 // ── Construye AddressDto ─────────────────────────────────────────────────────
+// `address` es el único campo que el frontend muestra en algún lado (input de
+// búsqueda, perfil del negocio), así que usa su límite real de la base: 255.
+// `street` no se despliega en ningún lado hoy, pero la base solo admite 100,
+// así que se recorta aparte y en silencio — no depende de lo que el usuario ve.
 const buildAddressDto = (location) => {
   if (!location?.lat || !location?.lng) return null;
-  const addressStr = normalizeAddressString(location.address);
   return {
     idAddress: location.idAddress ?? null,
-    address:   addressStr,
-    street:    addressStr,
+    address:   normalizeAddressString(location.address, 255),
+    street:    normalizeAddressString(location.address, 100),
     district:  null,
     location:  null,
     lat:       location.lat,
@@ -593,8 +595,7 @@ export const getMyBusiness = async () => {
       coverImage:   business.coverImage?.url   || null,
       schedules:    business.schedules || [],
       address:      business.address   || null, // ← faltaba
-      categories: Array.isArray(business.categories) ? business.categories : [],  
-      
+      category:     business.category  || null,
     };
   } catch (error) {
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
@@ -631,7 +632,7 @@ export const getBusinessById = async (businessId) => {
     coverImage:   business.coverImage?.url   || null,
     schedules:    business.schedules    || [],
     address:      business.address      || null, // ← faltaba
-    categories: Array.isArray(business.categories) ? business.categories : [],
+    category:     business.category     || null,
   };
 };
 
@@ -938,24 +939,11 @@ export const getMainFeed = async (page = 0, size = 10) => {
 // ============================================
 // CATEGORIAS
 // ============================================
-export const addCommerceCategories = async (commerceId, categoryIds) => {
-  validateParams({ commerceId, categoryIds }, ['commerceId', 'categoryIds']);
-  if (!Array.isArray(categoryIds) || categoryIds.length === 0) throw new Error('Debés seleccionar al menos una categoría');
-  return apiRequest('POST', ENDPOINTS.ADD_CATEGORIES_TO_COMMERCE(commerceId), categoryIds);
-};
-
-export const removeCommerceCategories = async (commerceId, categoryIds) => {
-  validateParams({ commerceId, categoryIds }, ['commerceId', 'categoryIds']);
-  if (!Array.isArray(categoryIds) || categoryIds.length === 0) throw new Error('Debés seleccionar al menos una categoría');
-  const queryParams = categoryIds.map(id => `categoryIds=${id}`).join('&');
-  try {
-    const { accessToken } = getStoredTokens();
-    const response = await axios.delete(
-      `${API_URL}${ENDPOINTS.REMOVE_CATEGORIES_FROM_COMMERCE(commerceId)}?${queryParams}`,
-      { headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) }, timeout: TIMEOUT }
-    );
-    return response.data;
-  } catch (error) { throw handleApiError(error, 'removeCommerceCategories'); }
+// El backend solo soporta UNA categoría por comercio (campo `category`, no
+// `categories`), asignada vía este endpoint dedicado — no vía el DTO de comercio.
+export const setCommerceCategory = async (commerceId, idCategory) => {
+  validateParams({ commerceId, idCategory }, ['commerceId', 'idCategory']);
+  return apiRequest('PUT', `${ENDPOINTS.SET_COMMERCE_CATEGORY(commerceId)}?idCategory=${idCategory}`);
 };
 
 export const getCommercesByCategories = async (categoryIds) => {
@@ -1188,7 +1176,7 @@ export default {
   capitalizeFirstLetter, validateEmail, validatePasswordStrength,
   replaceCommerceSchedules,
   scheduleToBackend,
-  scheduleFromBackend, addCommerceCategories, removeCommerceCategories, getCommercesByCategories,
+  scheduleFromBackend, setCommerceCategory, getCommercesByCategories,
   createEvent, getAllEvents, getEventById, updateEvent, deleteEvent, addImagesToEvent, deleteImagesFromEvent, toLocalDateTime,
   getFeaturedSection,getPromotionTags,
   getMisPromociones,
