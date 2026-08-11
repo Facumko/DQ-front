@@ -224,6 +224,42 @@
 }
 .btnEdit:hover { border-color: var(--brand); color: var(--brand); }
 
+/* Compartir: acción secundaria, disponible para cualquiera (no solo el dueño) —
+   por eso va "ghost" (sin fondo ni borde), más liviana que btnEdit, que es la
+   acción principal del dueño. */
+.btnShare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 30px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btnShare:hover { background: var(--border); color: var(--text); }
+
+/* WhatsApp: color de marca reconocible a propósito (verde WhatsApp), como
+   círculo sólido para que se lea como ícono de acción rápida, no como texto. */
+.whatsappBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #25d366;
+  color: white;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.whatsappBtn:hover { transform: scale(1.08); box-shadow: 0 2px 8px rgba(37, 211, 102, 0.4); }
+
 .btnSave {
   display: flex;
   align-items: center;

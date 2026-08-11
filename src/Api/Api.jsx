@@ -637,12 +637,12 @@ export const createBusiness = async (businessData) => {
   const dataToSend = {
     name:        businessData.name.trim(),
     description: businessData.description.trim(),
-    phone:       businessData.phone?.trim()     || '',
-    website:     businessData.website?.trim()   || '',
+    phone:       businessData.phone?.trim()     || null,
+    website:     businessData.website?.trim()   || null,
     instagram:   businessData.instagram?.trim() || null,
     facebook:    businessData.facebook?.trim()  || null,
     whatsapp:    businessData.whatsapp?.trim()  || null,
-    email:       businessData.email?.trim()     || '',
+    email:       businessData.email?.trim()     || null,
     branchOf:    businessData.branchOf          || null,
     schedules:   businessData.schedules ? scheduleToBackend(businessData.schedules) : [],
     address:     buildAddressDto(businessData.location),
@@ -683,9 +683,9 @@ export const updateBusiness = async (businessId, businessData) => {
   const dataToSend = {};
   if (businessData.name        !== undefined) dataToSend.name        = businessData.name.trim();
   if (businessData.description !== undefined) dataToSend.description = businessData.description.trim();
-  if (businessData.email       !== undefined) dataToSend.email       = businessData.email.trim();
-  if (businessData.phone       !== undefined) dataToSend.phone       = businessData.phone.replace(/\D/g, '');
-  if (businessData.link        !== undefined) dataToSend.website     = businessData.link.trim();
+  if (businessData.email       !== undefined) dataToSend.email       = businessData.email.trim() || null;
+  if (businessData.phone       !== undefined) dataToSend.phone       = businessData.phone.replace(/\D/g, '') || null;
+  if (businessData.link        !== undefined) dataToSend.website     = businessData.link.trim() || null;
   if (businessData.branchOf    !== undefined) dataToSend.branchOf    = businessData.branchOf;
   if (businessData.location    !== undefined) dataToSend.address     = buildAddressDto(businessData.location);
 

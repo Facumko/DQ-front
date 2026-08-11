@@ -63,18 +63,21 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     str.replace(/[^A-Za-z0-9\s&()/'.-]/g, "").slice(0, 100)
 
   useEffect(() => {
-    const { businessName, businessDescription, email, instagram, facebook, website } = formData
+    const { businessName, businessDescription, email, instagram, facebook, website, businessPhone } = formData
     const newErrors = {}
     if (email     && !isValidEmail(email))   newErrors.email     = "Formato de correo inválido"
     if (instagram && !isValidUrl(instagram)) newErrors.instagram = "URL no válida"
     if (facebook  && !isValidUrl(facebook))  newErrors.facebook  = "URL no válida"
     if (website   && !isValidUrl(website))   newErrors.website   = "URL no válida"
+    const phoneDigits = businessPhone.replace(/\D/g, "")
+    if (phoneDigits && phoneDigits.length < 10) newErrors.businessPhone = "Ingresá el teléfono completo (10 dígitos)"
     setErrors(newErrors)
     const hasError = Object.values(newErrors).some(Boolean)
     setIsValid(
       businessName.trim().length >= 3 &&
       businessDescription.trim().length >= 10 &&
       businessDescription.trim().length <= 500 &&
+      formData.selectedCategories.length === 1 &&
       !hasError
     )
   }, [formData])
@@ -103,13 +106,11 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     }))
   }
 
-  const toggleCategory = (cat) => {
+  const selectCategory = (cat) => {
     setFormData(prev => {
       const already = prev.selectedCategories.some(c => c.idCategory === cat.idCategory)
-      const updated = already
-        ? prev.selectedCategories.filter(c => c.idCategory !== cat.idCategory)
-        : [...prev.selectedCategories, cat]
-      return { ...prev, selectedCategories: updated }
+      // Click de nuevo sobre la ya seleccionada = deselecciona. Click sobre otra = la reemplaza.
+      return { ...prev, selectedCategories: already ? [] : [cat] }
     })
   }
 
@@ -168,14 +169,13 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           <div className="char-counter">{formData.businessDescription.length}/500</div>
         </div>
 
-        {/* Categorías — chips multi-selección */}
+        {/* Categoría — selección única */}
         <div className="form-group full-width">
           <label>
-            Categorías
-            <span className="category-recommended-badge">Recomendado</span>
+            Categoría *
           </label>
           <p className="field-note category-hint">
-            Seleccioná las categorías que mejor describan tu negocio. Podés elegir más de una.
+            Seleccioná la categoría que mejor describa tu negocio.
           </p>
           <div className="category-chips-wrap">
             {categories.map(cat => (
@@ -183,17 +183,15 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
                 key={cat.idCategory}
                 type="button"
                 className={`category-chip ${isCategorySelected(cat) ? "category-chip--selected" : ""}`}
-                onClick={() => toggleCategory(cat)}
+                onClick={() => selectCategory(cat)}
               >
                 {isCategorySelected(cat) && <span className="category-chip-check">✓</span>}
                 {cat.name}
               </button>
             ))}
           </div>
-          {formData.selectedCategories.length > 0 && (
-            <p className="category-selected-count">
-              {formData.selectedCategories.length} categoría{formData.selectedCategories.length !== 1 ? "s" : ""} seleccionada{formData.selectedCategories.length !== 1 ? "s" : ""}
-            </p>
+          {formData.selectedCategories.length === 0 && (
+            <p className="field-note">Elegí una categoría para continuar</p>
           )}
         </div>
 
@@ -223,6 +221,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             maxLength={15}
             inputMode="numeric"
           />
+          {errors.businessPhone && <small className="error-message">{errors.businessPhone}</small>}
         </div>
 
         <div className="form-group">
