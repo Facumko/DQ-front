@@ -16,8 +16,9 @@ import {
 } from "../../Api/Api";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
-         Phone, Mail, Link2, Clock, Pencil, Trash2,
+         Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
          FileText, CalendarDays, Sparkles, Megaphone } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
@@ -53,6 +54,15 @@ const MOCK_POSTS = [
 
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const isValidPhone = (v) => v.replace(/\D/g, "").length >= 8;
+
+// wa.me para Argentina necesita: 54 9 <código de área> <número>, sin el 0 inicial.
+// El teléfono del negocio ya se guarda como (área) número — mismo criterio que
+// se usa en Contacto.jsx para el WhatsApp de soporte.
+const toWhatsappNumber = (phone) => {
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) digits = digits.slice(1);
+  return `549${digits}`;
+};
 
 const normalizeBusiness = (d) => ({
   name:         d?.name        || "",
@@ -420,6 +430,25 @@ const ProfileHeader = ({
   const isDraftCategorySelected = useCallback((cat) =>
     draftCategories.some(c => c.idCategory === cat.idCategory), [draftCategories]);
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: businessData.name || "Dónde Queda?",
+      text: `Mirá ${businessData.name || "este negocio"} en Dónde Queda`,
+      url,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch { /* el usuario canceló, no hacemos nada */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      flashSuccess("🔗 Link copiado al portapapeles");
+    } catch {
+      flashError("No se pudo copiar el link");
+    }
+  };
+
   const handleSave = async () => {
     if (!isOwner) { flashError("No tenés permisos para editar este negocio"); return; }
     const t = (v) => (v || "").trim();
@@ -699,9 +728,14 @@ const ProfileHeader = ({
             onDiscard={handleAvatarDiscard}
           />
 
-          {isOwner && (
-            <div className={styles.topActions}>
-              {!isEditing ? (
+          <div className={styles.topActions}>
+            {!isEditing && (
+              <button className={styles.btnShare} onClick={handleShare} title="Compartir">
+                <Share2 size={14}/> Compartir
+              </button>
+            )}
+            {isOwner && (
+              !isEditing ? (
                 <button className={styles.btnEdit} onClick={handleEdit}><Edit2 size={14}/> Editar perfil</button>
               ) : (
                 <>
@@ -712,9 +746,9 @@ const ProfileHeader = ({
                       : <><Check size={14}/> Guardar</>}
                   </button>
                 </>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
         </div>
 
         <div className={styles.profileMeta}>
@@ -821,6 +855,17 @@ const ProfileHeader = ({
                 <span className={businessData.phone ? styles.contactText : styles.contactEmpty}>
                   {businessData.phone || "Sin teléfono"}
                 </span>
+              )}
+              {!isEditing && businessData.phone && (
+                <a
+                  className={styles.whatsappBtn}
+                  href={`https://wa.me/${toWhatsappNumber(businessData.phone)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Escribir por WhatsApp"
+                >
+                  <FaWhatsapp size={15} />
+                </a>
               )}
             </div>
 

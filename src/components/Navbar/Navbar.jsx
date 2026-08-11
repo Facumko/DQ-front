@@ -42,7 +42,27 @@ const Navbar = () => {
   const [suggestions, setSuggestions]               = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions]       = useState(false);
+  const [showRecent, setShowRecent]                 = useState(false);
+  const RECENT_SEARCHES_KEY = "dq_recent_searches";
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY)) || []; } catch { return []; }
+  });
   const searchTimeoutRef = useRef(null);
+
+  const saveRecentSearch = useCallback((term) => {
+    const clean = term.trim();
+    if (!clean) return;
+    setRecentSearches(prev => {
+      const updated = [clean, ...prev.filter(s => s.toLowerCase() !== clean.toLowerCase())].slice(0, 5);
+      try { localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated)); } catch { /* localStorage no disponible */ }
+      return updated;
+    });
+  }, []);
+
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches([]);
+    try { localStorage.removeItem(RECENT_SEARCHES_KEY); } catch { /* localStorage no disponible */ }
+  }, []);
 
   // Sincronizar input con URL cuando estamos en /search
   useEffect(() => {
@@ -73,6 +93,7 @@ const Navbar = () => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowSuggestions(false);
+        setShowRecent(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -84,6 +105,7 @@ const Navbar = () => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setShowSuggestions(false);
+        setShowRecent(false);
         setShowMenu(false);
         setShowBusinesses(false);
       }
@@ -98,6 +120,7 @@ const Navbar = () => {
 
   const handleSearchChange = useCallback((text) => {
     setSearchText(text);
+    setShowRecent(false);
 
     // Si estamos en /search, actualizar URL en tiempo real sin dropdown
     if (location.pathname === "/search") {
@@ -111,6 +134,7 @@ const Navbar = () => {
     if (text.trim().length === 0) {
       setSuggestions([]);
       setShowSuggestions(false);
+      setShowRecent(true);
       return;
     }
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -131,9 +155,18 @@ const Navbar = () => {
 
   const handleSearch = useCallback(() => {
     if (!searchText.trim()) return;
+    saveRecentSearch(searchText);
     navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
     setShowSuggestions(false);
-  }, [searchText, navigate]);
+    setShowRecent(false);
+  }, [searchText, navigate, saveRecentSearch]);
+
+  const handleRecentSearchClick = useCallback((term) => {
+    setSearchText(term);
+    saveRecentSearch(term);
+    navigate(`/search?q=${encodeURIComponent(term)}`);
+    setShowRecent(false);
+  }, [navigate, saveRecentSearch]);
 
   const handleKeyPress = useCallback(
     (e) => { if (e.key === "Enter") handleSearch(); },
@@ -194,9 +227,44 @@ const Navbar = () => {
             className={styles.searchInput}
             value={searchText}
             onChange={(e) => handleSearchChange(e.target.value)}
+            onFocus={() => { if (!searchText.trim() && recentSearches.length > 0) setShowRecent(true); }}
             onKeyPress={handleKeyPress}
             maxLength={80}
           />
+
+          {/* Búsquedas recientes — solo cuando el input está vacío y en foco */}
+          {location.pathname !== "/search" && showRecent && recentSearches.length > 0 && (
+            <div className={styles.suggestions}>
+              <div
+                style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "8px 14px", fontSize: "0.78rem", color: "#8a8a8a",
+                }}
+              >
+                <span>Búsquedas recientes</span>
+                <button
+                  type="button"
+                  onClick={clearRecentSearches}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "#8a8a8a", fontSize: "0.78rem", textDecoration: "underline", padding: 0,
+                  }}
+                >
+                  Borrar
+                </button>
+              </div>
+              {recentSearches.map((term, idx) => (
+                <div
+                  key={idx}
+                  className={styles.suggestionItem}
+                  onClick={() => handleRecentSearchClick(term)}
+                >
+                  <FaSearch size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                  <span className={styles.suggestionName}>{term}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Sugerencias — solo fuera de /search */}
           {location.pathname !== "/search" && (showSuggestions || loadingSuggestions) && (
@@ -218,6 +286,7 @@ const Navbar = () => {
                   <div
                     className={styles.suggestionItem}
                     onClick={() => {
+                      saveRecentSearch(searchText);
                       navigate(`/negocios/${commerce.idCommerce}`);
                       setShowSuggestions(false);
                       setSearchText("");
