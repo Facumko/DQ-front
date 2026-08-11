@@ -1,0 +1,80 @@
+/* ── LocationDisplay (solo lectura) ── */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+}
+
+.addressRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.addressIcon {
+  color: #B00020;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.addressText {
+  font-size: 0.85rem;
+  color: #444;
+  line-height: 1.4;
+}
+
+/* ── Mapa (fijo, sin controles de edición) ── */
+.mapWrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1.5px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.map {
+  height: 220px;
+  width: 100%;
+}
+
+/* Resguardo: que los controles +/- de Leaflet nunca superen a la navbar
+   (mismo criterio que en LocationPicker.module.css) */
+.mapWrap :global(.leaflet-top),
+.mapWrap :global(.leaflet-bottom) {
+  z-index: 900;
+}
+
+/* ── Botón "Cómo llegar" ── */
+.directionsBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  padding: 9px 16px;
+  background: #B00020;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+.directionsBtn:hover { background: #8a0018; }
+
+@media (max-width: 600px) {
+  .map { height: 180px; }
+  .directionsBtn { width: 100%; justify-content: center; }
+}

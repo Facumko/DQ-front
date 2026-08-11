@@ -24,6 +24,7 @@ import PostGallery from "./PostGallery";
 import ScheduleEditor from "./components/ScheduleEditor";
 import ScheduleDisplay from "./components/ScheduleDisplay";
 import LocationPicker from "../LocationPicker/LocationPicker";
+import LocationDisplay from "./components/LocationDisplay";
 import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 import PromotionModal from "./PromotionModal";
 import PromotionCard from "./PromotionCard";
@@ -65,27 +66,38 @@ const toWhatsappNumber = (phone) => {
   return `549${digits}`;
 };
 
-const normalizeBusiness = (d) => ({
-  name:         d?.name        || "",
-  email:        d?.email       || "",
-  phone:        d?.phone       || "",
-  link:         d?.link ? String(d.link) : "",
-  instagram:    d?.instagram   || "",
-  facebook:     d?.facebook    || "",
-  description:  d?.description || "",
-  profileImage: d?.profileImage?.url || d?.profileImage || null,
-  coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
-  schedules:    d?.schedules || [],
-  category:     d?.category || null,
-  location: d?.address?.lat && d?.address?.lng
+const normalizeBusiness = (d) => {
+  // location puede venir del shape crudo del backend (d.address, con lat/lng
+  // sueltos) o de un businessData ya normalizado anteriormente (d.location,
+  // objeto plano {lat,lng,address}). Si solo miráramos d.address, cada vez
+  // que se vuelve a normalizar un dato ya normalizado (ej. handleEdit /
+  // handleCancel, que llaman normalizeBusiness(businessData)) la ubicación
+  // se perdía, porque businessData ya no tiene .address, tiene .location.
+  const addr = d?.address || d?.location;
+  const location = addr?.lat && addr?.lng
     ? {
-        idAddress: d.address.idAddress || null,
-        lat:       parseFloat(d.address.lat),
-        lng:       parseFloat(d.address.lng),
-        address:   d.address.address || d.address.street || "",
+        idAddress: addr.idAddress || null,
+        lat:       parseFloat(addr.lat),
+        lng:       parseFloat(addr.lng),
+        address:   addr.address || addr.street || "",
       }
-    : null,
-});
+    : null;
+
+  return {
+    name:         d?.name        || "",
+    email:        d?.email       || "",
+    phone:        d?.phone       || "",
+    link:         d?.link ? String(d.link) : "",
+    instagram:    d?.instagram   || "",
+    facebook:     d?.facebook    || "",
+    description:  d?.description || "",
+    profileImage: d?.profileImage?.url || d?.profileImage || null,
+    coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
+    schedules:    d?.schedules || [],
+    category:     d?.category || null,
+    location,
+  };
+};
 
 const normalizePost = (p) => {
   if (p.text && Array.isArray(p.images) && typeof p.images[0] === "string") {
@@ -1026,8 +1038,7 @@ const ProfileHeader = ({
               </div>
             ) : businessData.location?.lat ? (
               <div style={{ marginTop: 14 }}>
-                <p className={styles.infoSectionTitle} style={{ marginBottom: 8 }}>Ubicación</p>
-                <LocationPicker label="" value={businessData.location} onChange={() => {}} />
+                <LocationDisplay location={businessData.location} label="Ubicación" />
               </div>
             ) : null}
           </div>

@@ -55,6 +55,8 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
   const [searchError,   setSearchError]   = useState("");
   const [suggestions,   setSuggestions]   = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locating,      setLocating]      = useState(false);
+  const [locationError, setLocationError] = useState("");
   const debounceRef = useRef(null);
 
   // Sincronizar si value cambia desde afuera
@@ -131,18 +133,15 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
     await searchAddress(searchQuery);
   };
 
-  // Clic en el mapa
-  const handleMapClick = useCallback(async ({ lat, lng }) => {
-    setMarkerPos({ lat, lng });
-
-    // Reverse geocoding para obtener la dirección
+  // Reverse geocoding compartido: dado lat/lng, obtiene la dirección legible
+  const reverseGeocode = useCallback(async (lat, lng) => {
     try {
       const res  = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
         { headers: { "Accept-Language": "es" } }
       );
       const data = await res.json();
-      const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      const addr = (data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`).slice(0, ADDRESS_MAX_LENGTH);
       setSearchQuery(addr);
       onChange({ lat, lng, address: addr });
     } catch {
@@ -152,24 +151,49 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
     }
   }, [onChange]);
 
+  // Clic en el mapa
+  const handleMapClick = useCallback(async ({ lat, lng }) => {
+    setMarkerPos({ lat, lng });
+    await reverseGeocode(lat, lng);
+  }, [reverseGeocode]);
+
   // Arrastrar marcador
   const handleMarkerDrag = useCallback(async (e) => {
     const { lat, lng } = e.target.getLatLng();
     setMarkerPos({ lat, lng });
+    await reverseGeocode(lat, lng);
+  }, [reverseGeocode]);
 
-    try {
-      const res  = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-        { headers: { "Accept-Language": "es" } }
-      );
-      const data = await res.json();
-      const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      setSearchQuery(addr);
-      onChange({ lat, lng, address: addr });
-    } catch {
-      onChange({ lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+  // "Usar mi ubicación actual" (GPS)
+  const handleUseMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError("Tu navegador no soporta geolocalización. Probá buscar la dirección o hacer clic en el mapa.");
+      return;
     }
-  }, [onChange]);
+    setLocationError("");
+    setSearchError("");
+    setLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setMarkerPos({ lat, lng });
+        setMapCenter({ lat, lng });
+        await reverseGeocode(lat, lng);
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setLocationError(
+          err.code === err.PERMISSION_DENIED
+            ? "No pudimos acceder a tu ubicación. Revisá los permisos de ubicación del navegador."
+            : "No pudimos obtener tu ubicación. Probá buscar la dirección o hacer clic en el mapa."
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [reverseGeocode]);
 
   const handleClear = () => {
     setMarkerPos(null);
@@ -222,7 +246,7 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
           onClick={handleSearchSubmit}
           disabled={searching || !searchQuery.trim()}
         >
-          Buscar
+          Ubicar en el mapa
         </button>
 
         {markerPos && (
@@ -232,10 +256,21 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
         )}
       </div>
 
+      <button
+        type="button"
+        className={styles.gpsBtn}
+        onClick={handleUseMyLocation}
+        disabled={locating}
+      >
+        {locating ? <span className={styles.gpsSpinner} /> : <span aria-hidden="true">📍</span>}
+        {locating ? "Obteniendo tu ubicación…" : "Usar mi ubicación actual"}
+      </button>
+
       {searchError && <p className={styles.searchError}>{searchError}</p>}
+      {locationError && <p className={styles.searchError}>{locationError}</p>}
 
       <p className={styles.hint}>
-        💡 También podés hacer clic directamente en el mapa o arrastrar el marcador para ajustar la posición.
+        💡 Escribí la dirección y presioná Enter o "Ubicar en el mapa", usá tu ubicación actual, o hacé clic y arrastrá el marcador rojo para ajustar la posición con precisión.
       </p>
 
       {/* ── Mapa ── */}
@@ -267,7 +302,7 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
         {/* Overlay cuando no hay ubicación seleccionada */}
         {!markerPos && (
           <div className={styles.mapOverlay}>
-            <span>Buscá una dirección o hacé clic en el mapa</span>
+            <span>Buscá una dirección, usá tu ubicación o hacé clic en el mapa</span>
           </div>
         )}
       </div>
