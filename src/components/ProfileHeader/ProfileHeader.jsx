@@ -363,11 +363,14 @@ const ProfileHeader = ({
   const flashInfo    = (m) => flash(setInfoMsg,    m);
   const setLoad = (key, val) => setLoading((p) => ({ ...p, [key]: val }));
 
-  const loadPromotions = useCallback(async () => {
-    if (!isOwner) return;
+  // idCommerce: comercio actualmente mostrado. Se lo pasamos a getMisPromociones
+  // para filtrar client-side y que no se mezclen promos de otros comercios del
+  // mismo dueño (el endpoint del back solo filtra por usuario, no por comercio).
+  const loadPromotions = useCallback(async (idCommerce) => {
+    if (!isOwner || !idCommerce) return;
     try {
       const [promos, tags] = await Promise.all([
-        getMisPromociones(),
+        getMisPromociones(idCommerce),
         getPromotionTags(),
       ]);
       setPromotions(Array.isArray(promos) ? promos : []);
@@ -415,7 +418,7 @@ const ProfileHeader = ({
       ]);
       setPosts(Array.isArray(rawPosts) ? rawPosts.map(normalizePost) : []);
       setEvents(Array.isArray(rawEvents) ? rawEvents : []);
-      if (isOwner) await loadPromotions();
+      if (isOwner) await loadPromotions(id);
     } catch { setPosts([]); setEvents([]); }
     finally { setLoad("posts", false); }
   };
@@ -737,7 +740,7 @@ const ProfileHeader = ({
         if (imageFile) await uploadPromotionImage(result.idPromotion, imageFile);
         flashSuccess("✅ Promoción creada");
       }
-      await loadPromotions();
+      await loadPromotions(businessId);
       setShowPromotionModal(false);
       setEditingPromotion(null);
     } catch (err) {
@@ -1211,8 +1214,8 @@ const ProfileHeader = ({
                   key={promo.idPromotion}
                   promotion={promo}
                   onEdit={(p) => { setPromotionFormError(""); setEditingPromotion(p); setShowPromotionModal(true); }}
-                  onDeleted={() => loadPromotions()}
-                  onStatusChanged={() => loadPromotions()}
+                  onDeleted={() => loadPromotions(businessId)}
+                  onStatusChanged={() => loadPromotions(businessId)}
                   onError={(msg) => flashError(msg)}
                 />
               ))}

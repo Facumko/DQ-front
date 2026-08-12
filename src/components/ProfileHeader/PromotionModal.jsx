@@ -91,6 +91,9 @@ const PromotionModal = ({
     const e = {};
     if (!form.title.trim()) e.title = "El título es requerido";
     if (form.title.trim().length > 100) e.title = "Máximo 100 caracteres";
+    if (form.startDate && form.endDate && form.endDate < form.startDate) {
+      e.endDate = "La fecha de fin no puede ser anterior a la de inicio";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -100,7 +103,14 @@ const PromotionModal = ({
     const dto = {
       title: form.title.trim(),
       description: form.description.trim() || null,
-      tags: form.tags,
+      // El backend (PromotionDto) no tiene un campo genérico "tags": tiene
+      // promotionalTags y descriptiveTags por separado. Este modal solo
+      // maneja tags de tipo PROMOTIONAL (viene de getPromotionTags(), que
+      // pega contra /etiqueta/promocion), así que van en promotionalTags.
+      // Mandar "tags" a secas hacía que el backend recibiera esos arrays en
+      // null y tirara 500 al crear la promoción.
+      promotionalTags: form.tags,
+      descriptiveTags: [],
       startDate: form.startDate ? `${form.startDate}T00:00:00` : null,
       endDate: form.endDate ? `${form.endDate}T23:59:59` : null,
       idLinkedPost: linked?.type === "post" ? linked.item.id : null,
@@ -242,17 +252,24 @@ const PromotionModal = ({
                   type="date"
                   className={styles.input}
                   value={form.startDate}
-                  onChange={e => handleChange("startDate", e.target.value)}
+                  onChange={e => {
+                    handleChange("startDate", e.target.value);
+                    if (errors.endDate) setErrors(p => ({ ...p, endDate: "" }));
+                  }}
                 />
               </div>
               <div className={styles.field}>
                 <label className={styles.label}><Calendar size={13} /> Fin</label>
                 <input
                   type="date"
-                  className={styles.input}
+                  className={`${styles.input} ${errors.endDate ? styles.inputError : ""}`}
                   value={form.endDate}
+                  min={form.startDate || undefined}
                   onChange={e => handleChange("endDate", e.target.value)}
                 />
+                {errors.endDate && (
+                  <span className={styles.errorMsg}><AlertCircle size={12} />{errors.endDate}</span>
+                )}
               </div>
             </div>
 
@@ -317,4 +334,4 @@ const PromotionModal = ({
   );
 };
 
-export default PromotionModal;  
+export default PromotionModal;
