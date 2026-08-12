@@ -4,7 +4,7 @@ import { getMyUser, updateUser } from "../../Api/Api";
 import styles from "./Profile.module.css";
 import {
   User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle,
-  Loader, Eye, EyeOff, RefreshCw, Shield, AtSign, RotateCcw, Info
+  Loader, Eye, EyeOff, Shield, AtSign, RotateCcw, Info
 } from "lucide-react";
 
 /* ─────────────────────────────────────────
@@ -109,8 +109,6 @@ export default function Profile() {
   const [pwData,        setPwData]        = useState({ current: "", next: "", confirm: "" });
   const [pwVis,         setPwVis]         = useState({ current: false, next: false, confirm: false });
 
-  const [confirmModal, setConfirmModal] = useState(null);
-
   /* ── Toast ── */
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
@@ -146,7 +144,8 @@ export default function Profile() {
   const errors = useMemo(() => {
     const e = {};
     Object.keys(RULES).forEach((k) => {
-      if (k === "password" || k === "username") return; // password: solo en "Seguridad". username: no editable aún.
+      // password: solo en "Seguridad". username y email: no editables desde acá.
+      if (k === "password" || k === "username" || k === "email") return;
       const err = RULES[k].validate?.(formData[k]?.trim?.() ?? formData[k], formData);
       if (err) e[k] = err;
     });
@@ -157,14 +156,16 @@ export default function Profile() {
 
   const hasUnsavedChanges = useMemo(() => {
     if (!originalData) return false;
-    return Object.keys(originalData).some((k) => k !== "username" && formData[k] !== originalData[k]);
+    return Object.keys(originalData).some((k) => k !== "username" && k !== "email" && formData[k] !== originalData[k]);
   }, [formData, originalData]);
 
   /* ── Handlers de inputs ── */
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     const max = RULES[name]?.max;
-    setFormData((p) => ({ ...p, [name]: max ? value.slice(0, max) : value }));
+    // Teléfono: solo dígitos y separadores típicos de formato (antes aceptaba letras)
+    const cleaned = name === "phone" ? value.replace(/[^\d\s()+-]/g, "") : value;
+    setFormData((p) => ({ ...p, [name]: max ? cleaned.slice(0, max) : cleaned }));
     setTouched((p) => ({ ...p, [name]: true }));
   }, []);
 
@@ -195,14 +196,13 @@ export default function Profile() {
     }
     const dataToSend = {};
     Object.keys(originalData).forEach((k) => {
-      if (k === "username") return; // el backend todavía no soporta editarlo
+      if (k === "username" || k === "email") return; // no editables desde acá (ver nota en RULES/FIELD_ROWS)
       const nv = formData[k]?.trim?.() ?? formData[k];
       if (nv !== originalData[k]) dataToSend[k] = nv;
     });
     if (!Object.keys(dataToSend).length) {
       showToast("No hay cambios para guardar.", "error"); return;
     }
-    if (dataToSend.email) { setConfirmModal(dataToSend); return; }
     doSave(dataToSend);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, originalData, isFormValid, showToast]);
@@ -305,7 +305,7 @@ export default function Profile() {
       { key: "phone",    label: "Teléfono",           icon: Phone,  type: "tel",   ph: "(364) 4123456",        req: false },
     ],
     [
-      { key: "email",         label: "Email principal",       icon: Mail, type: "email", ph: "vos@ejemplo.com",          req: true  },
+      { key: "email",         label: "Email principal",       icon: Mail, type: "email", ph: "vos@ejemplo.com",          req: true, editable: false },
       { key: "recoveryEmail", label: "Email de recuperación", icon: Mail, type: "email", ph: "recuperacion@ejemplo.com", req: false },
     ],
   ];
@@ -356,19 +356,6 @@ export default function Profile() {
               </>
             )}
           </div>
-
-          {isEditing && hasUnsavedChanges && (
-            <div className={styles.pendingBadge}>
-              <span className={styles.pendingDot} />
-              Cambios sin guardar
-            </div>
-          )}
-
-          {isEditing && (
-            <p className={styles.requiredHint}>
-              <span className={styles.req}>*</span> campos obligatorios
-            </p>
-          )}
         </aside>
 
         {/* ════ MAIN ════ */}
@@ -487,7 +474,7 @@ export default function Profile() {
                         <input
                           type={pwVis[key] ? "text" : "password"}
                           value={pwData[key]}
-                          onChange={(e) => setPwData((p) => ({ ...p, [key]: e.target.value }))}
+                          onChange={(e) => setPwData((p) => ({ ...p, [key]: e.target.value.slice(0, 100) }))}
                           className={styles.input}
                           placeholder={label}
                           maxLength={100}
@@ -497,6 +484,9 @@ export default function Profile() {
                           onClick={() => setPwVis((p) => ({ ...p, [key]: !p[key] }))} tabIndex={-1}>
                           {pwVis[key] ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
+                      </div>
+                      <div className={styles.fieldFooter}>
+                        <span className={styles.charCount}>{pwData[key].length}/100</span>
                       </div>
                     </div>
                   ))}
@@ -540,45 +530,6 @@ export default function Profile() {
           )}
         </main>
       </div>
-
-      {/* Modal confirmación cambio de email */}
-      {confirmModal && (
-        <div className={styles.overlay} onClick={() => setConfirmModal(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalIconWrap}><AlertCircle size={28} /></div>
-            <h3 className={styles.modalTitle}>Confirmá el cambio de email</h3>
-            <p className={styles.modalDesc}>
-              Tu email es tu clave de acceso. Asegurate de tener acceso al nuevo antes de confirmar.
-            </p>
-
-            <div className={styles.emailDiff}>
-              <div className={styles.emailBox}>
-                <span className={styles.emailTag}>Actual</span>
-                <span className={styles.emailOld}>{originalData?.email}</span>
-              </div>
-              <RefreshCw size={15} className={styles.emailArrow} />
-              <div className={styles.emailBox}>
-                <span className={styles.emailTag}>Nuevo</span>
-                <span className={styles.emailNew}>{confirmModal?.email}</span>
-              </div>
-            </div>
-
-            <div className={styles.infoBox}>
-              <Info size={15} />
-              <p>A partir del cambio usarás el nuevo email para iniciar sesión.</p>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button className={styles.btnSave} onClick={() => { const d = confirmModal; setConfirmModal(null); doSave(d); }}>
-                <Check size={14} /> Confirmar cambio
-              </button>
-              <button className={styles.btnCancel} onClick={() => setConfirmModal(null)}>
-                <X size={14} /> Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

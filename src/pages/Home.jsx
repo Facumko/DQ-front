@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
 import styles from "./Home.module.css";
-import { getMainFeed, getCategories, getFeaturedSection } from "../Api/Api";
+import { getMainFeed, getCategories, getFeaturedSection, getBusinessById } from "../Api/Api";
 import { UserContext } from "./UserContext";
 import {
   Calendar,
@@ -16,7 +16,6 @@ import {
   ExternalLink,
   Star,
   Clock,
-  MapPin,
   Building2,
   Share2,
   Bookmark,
@@ -295,10 +294,8 @@ const Home = () => {
     const businessName  = d.commerceName || d.nameCommerce || commerce.name || d.name || "Comercio";
     const businessImage = d.commerceProfileImageUrl || commerce.profileImage?.url
                         || d.profileImage?.url || d.coverImage?.url || null;
-    const category = commerce.categories?.[0]?.name || d.categories?.[0]?.name || "";
-
-    const address  = d.address || commerce.address || null;
-    const location = address ? (address.district || address.street || address.address || "") : "";
+    // "category" es objeto único por comercio (no array).
+    const category = commerce.category?.name || d.category?.name || "";
 
     const title = d.title || d.name || (d.description ? d.description.slice(0, 60) : "") || businessName;
 
@@ -313,10 +310,19 @@ const Home = () => {
     let link = `/negocios/${commerceId || ""}`;
     if (type === "POST"  && commerceId && d.idPost)  link = `/negocios/${commerceId}?tab=posts&item=${d.idPost}`;
     if (type === "EVENT" && commerceId && d.idEvent) link = `/negocios/${commerceId}?tab=events&item=${d.idEvent}`;
+    if (type === "PROMOTION" && commerceId) {
+      // El backend ya manda a dónde apunta la promo (redirectType/redirectTargetId
+      // del PromotionResponseDto), sin necesidad de pedir nada más.
+      const rt = (d.redirectType || "").toUpperCase();
+      if (rt === "POST"  && d.redirectTargetId) link = `/negocios/${commerceId}?tab=posts&item=${d.redirectTargetId}`;
+      if (rt === "EVENT" && d.redirectTargetId) link = `/negocios/${commerceId}?tab=events&item=${d.redirectTargetId}`;
+      // Si la promo no tiene publicación/evento vinculado (redirectType "NONE" o vacío),
+      // no hay a dónde apuntar más específico que el negocio.
+    }
 
     return {
       key: `${type}-${itemId ?? "x"}-${commerceId ?? "x"}`,
-      type, badgeText, title, businessName, businessImage, category, location, link,
+      type, badgeText, title, businessName, businessImage, category, link, commerceId,
     };
   };
 
@@ -413,6 +419,36 @@ const Home = () => {
     loadFeed(0);
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Enriquecer categoría de las cajas laterales ─────────────────────────
+  // PostResponseDto y PromotionResponseDto (lo que trae /destacado para esos tipos)
+  // no incluyen la categoría del comercio — solo EventResponseDto la trae completa
+  // (vía commerceOwner.category). Para no dejar ese campo vacío, pedimos el negocio
+  // completo (mismo GET que ya usa ProfileHeader) solo para los que faltan, una vez por comercio.
+  const enrichedCommerceIds = useRef(new Set());
+  useEffect(() => {
+    const idsToFetch = [...new Set(
+      sideFeatured
+        .filter((b) => b.commerceId && !enrichedCommerceIds.current.has(b.commerceId) && !b.category)
+        .map((b) => b.commerceId)
+    )];
+    if (idsToFetch.length === 0) return;
+    idsToFetch.forEach((id) => enrichedCommerceIds.current.add(id)); // evita reintentos en cada render
+
+    let cancelled = false;
+    Promise.all(idsToFetch.map((id) => getBusinessById(id).catch(() => null)))
+      .then((results) => {
+        if (cancelled) return;
+        const byId = {};
+        idsToFetch.forEach((id, i) => { byId[id] = results[i]; });
+        setSideFeatured((prev) => prev.map((b) => {
+          const extra = byId[b.commerceId];
+          if (!extra) return b;
+          return { ...b, category: b.category || extra.category?.name || "" };
+        }));
+      });
+    return () => { cancelled = true; };
+  }, [sideFeatured]);
 
   // ── Effect intersection observer para animaciones ─────────────────────
   useEffect(() => {
@@ -519,9 +555,6 @@ const Home = () => {
               >
                 {[...sideFeatured, ...sideFeatured].map((business, i) => (
                   <Link to={business.link} key={`${business.key}-${i}`} className={styles.businessCard}>
-                    <span className={`${styles.businessBar} ${styles["businessBar" + business.type]}`}>
-                      {business.badgeText} · {business.title}
-                    </span>
                     <div className={styles.businessHeader}>
                       <img
                         src={business.businessImage || PLACEHOLDER_IMAGE}
@@ -534,11 +567,12 @@ const Home = () => {
                         {business.category && <p className={styles.businessCategory}>{business.category}</p>}
                       </div>
                     </div>
-                    {business.location && (
-                      <div className={styles.businessLocation}>
-                        <MapPin size={14} /><span>{business.location}</span>
-                      </div>
-                    )}
+                    <div className={styles.businessFooter}>
+                      <span className={`${styles.businessBadge} ${styles["badge" + business.type]}`}>
+                        {business.badgeText}
+                      </span>
+                      <p className={styles.businessTitle}>{business.title}</p>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -552,10 +586,10 @@ const Home = () => {
                       <p className={styles.businessCategory}>{business.category}</p>
                     </div>
                   </div>
-                  <div className={styles.businessLocation}>
-                    <MapPin size={14} /><span>{business.location}</span>
+                  <div className={styles.businessFooter}>
+                    <span className={`${styles.businessBadge} ${styles.badgePROMOTION}`}>Promoción</span>
+                    <p className={styles.businessTitle}>{business.promotion}</p>
                   </div>
-                  <div className={styles.businessPromotion}>{business.promotion}</div>
                 </Link>
               ))
             )}
