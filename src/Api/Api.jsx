@@ -574,29 +574,75 @@ export const getAllCommerces = async () => {
   }
 };
 
+// Clave de localStorage donde se recuerda el último comercio PROPIO que el
+// usuario visitó (ver Negocios.jsx). Se usa como desempate en getMyBusiness()
+// cuando el usuario tiene más de un comercio.
+const LAST_COMMERCE_KEY = 'dq_last_commerce_id';
+
+const normalizeCommerceBasic = (business) => ({
+  id_business:  business.idCommerce,
+  id_user:      business.idOwner,
+  name:         business.name,
+  description:  business.description,
+  email:        business.email,
+  phone:        business.phone,
+  link:         business.website,
+  instagram:    business.instagram,
+  facebook:     business.facebook,
+  whatsapp:     business.whatsapp,
+  branchOf:     business.branchOf,
+  profileImage: business.profileImage?.url || null,
+  coverImage:   business.coverImage?.url   || null,
+  schedules:    business.schedules || [],
+  address:      business.address   || null,
+  category:     business.category  || null,
+});
+
+/**
+ * Trae TODOS los comercios del usuario logueado (sin recortar a uno solo).
+ * Usar esta función, no getMyBusiness(), en cualquier flujo que necesite
+ * saber/mostrar que el usuario puede tener más de un comercio (ej. un
+ * selector de negocio, validaciones, etc.).
+ */
+export const getMyCommerces = async () => {
+  try {
+    const response = await apiRequest('GET', ENDPOINTS.GET_MY_BUSINESSES);
+    const list = Array.isArray(response) ? response : response ? [response] : [];
+    return list.filter(Boolean).map(normalizeCommerceBasic);
+  } catch (error) {
+    if (error.message?.includes('404')) return [];
+    throw error;
+  }
+};
+
+/**
+ * Trae "un" comercio del usuario logueado — pensado para el caso simple de
+ * un usuario con un solo comercio (o para compatibilidad con código viejo).
+ *
+ * ⚠️ CAVEAT: si el usuario tiene VARIOS comercios, este endpoint no tiene
+ * forma de saber cuál te interesa mostrar. Para no quedar siempre pegado al
+ * primero de la lista (bug reportado: "todo lo creado en un comercio se
+ * mezclaba con los demás"), se usa como desempate el último comercio propio
+ * que el usuario visitó (localStorage, ver Negocios.jsx). Si no hay ninguno
+ * recordado, cae al primero de la lista.
+ *
+ * Para cualquier flujo que ya sepa qué comercio quiere mostrar, usar
+ * getBusinessById(id) en su lugar — es la única forma 100% correcta.
+ */
 export const getMyBusiness = async () => {
   try {
     const response = await apiRequest('GET', ENDPOINTS.GET_MY_BUSINESSES);
-    const business = Array.isArray(response) ? response[0] : response;
-    if (!business) return null;
-    return {
-      id_business:  business.idCommerce,
-      id_user:      business.idOwner,
-      name:         business.name,
-      description:  business.description,
-      email:        business.email,
-      phone:        business.phone,
-      link:         business.website,
-      instagram:    business.instagram,
-      facebook:     business.facebook,
-      whatsapp:     business.whatsapp,
-      branchOf:     business.branchOf,
-      profileImage: business.profileImage?.url || null,
-      coverImage:   business.coverImage?.url   || null,
-      schedules:    business.schedules || [],
-      address:      business.address   || null, // ← faltaba
-      category:     business.category  || null,
-    };
+    const list = Array.isArray(response) ? response : response ? [response] : [];
+    if (list.length === 0) return null;
+
+    let business = list[0];
+    if (list.length > 1) {
+      const lastId = localStorage.getItem(LAST_COMMERCE_KEY);
+      const remembered = lastId && list.find((b) => String(b.idCommerce) === String(lastId));
+      if (remembered) business = remembered;
+    }
+
+    return normalizeCommerceBasic(business);
   } catch (error) {
     if (error.message.includes('404') || error.message.includes('no encontrado')) {
       if (isDevelopment) console.log("ℹ️ Sin negocio (404)");
@@ -1070,10 +1116,32 @@ export const getEventsByCommerce = async (commerceId) => {
 export const getPromotionTags = async () =>
   apiRequest('GET', '/etiqueta/promocion');
 
-export const getMisPromociones = async () => {
+/**
+ * Trae las promociones del usuario logueado.
+ *
+ * OJO: el endpoint /promocion/traer/mis/promociones filtra en el backend
+ * SOLO por el usuario dueño (id_user), no por comercio. Si el usuario tiene
+ * varios comercios (ej. carnicería + rotisería + verdulería), este endpoint
+ * devuelve las promociones de TODOS mezcladas.
+ *
+ * Como PromotionResponseDto sí incluye `idCommerce` en cada promoción,
+ * filtramos acá del lado del cliente por el comercio que se está viendo,
+ * para que cada perfil de negocio muestre únicamente sus propias promos.
+ *
+ * Lo ideal a futuro es que el backend agregue un filtro por idCommerce
+ * directamente en el endpoint (o una ruta dedicada tipo
+ * /promocion/traer/comercio/{idCommerce}), para no traer de más por red.
+ *
+ * @param {number|string} [idCommerce] - si se pasa, filtra el resultado a
+ *   ese comercio. Si se omite, devuelve todas las promociones del usuario
+ *   sin filtrar (comportamiento anterior, por compatibilidad).
+ */
+export const getMisPromociones = async (idCommerce) => {
   try {
     const response = await apiRequest('GET', '/promocion/traer/mis/promociones');
-    return Array.isArray(response) ? response : [];
+    const promos = Array.isArray(response) ? response : [];
+    if (idCommerce == null) return promos;
+    return promos.filter((p) => Number(p.idCommerce) === Number(idCommerce));
   } catch (error) {
     if (error.status === 403) throw { ...error, isPlanError: true };
     if (error.message?.includes('404')) return [];
@@ -1165,7 +1233,7 @@ export default {
   getCategories,
   getImages, uploadImage,
   getAllCommerces,
-  getMyBusiness, getBusinessByUserId, getBusinessById, createBusiness, updateBusiness,
+  getMyBusiness, getMyCommerces, getBusinessByUserId, getBusinessById, createBusiness, updateBusiness,
   uploadProfileImage, uploadCoverImage, uploadGalleryImages,
   createPost, getAllPosts, getPostById, getPostsByCommerce,
   updatePost, updatePostText, deletePost, addImagesToPost, deleteImagesFromPost,

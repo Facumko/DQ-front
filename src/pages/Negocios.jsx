@@ -18,6 +18,15 @@ const Negocios = () => {
 
   const isOwner = !!user && !!businessData && Number(businessData.id_user) === Number(user.id_user);
 
+  // Recordar el último comercio PROPIO visitado, para que /mi-negocio (que no
+  // trae un id en la URL) no siempre le muestre al usuario su primer comercio
+  // cuando tiene varios — ver getMyBusiness() en Api.jsx.
+  useEffect(() => {
+    if (isOwner && businessData?.id_business) {
+      localStorage.setItem('dq_last_commerce_id', String(businessData.id_business));
+    }
+  }, [isOwner, businessData?.id_business]);
+
   useEffect(() => {
     const load = async () => {
       try {
