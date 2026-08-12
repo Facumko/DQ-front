@@ -4,7 +4,7 @@ import { getAllEvents } from "../Api/Api";
 import styles from "./Eventos.module.css";
 import { Calendar, Sparkles, Loader, AlertCircle } from "lucide-react";
 
-// Paleta para diferenciar eventos por categoría del comercio
+// Paleta para diferenciar eventos por categoría del comercio (el backend no manda color)
 const EVENT_COLORS = ["#B00020", "#1976D2", "#43A047", "#FB8C00", "#8E24AA", "#D81B60", "#00897B", "#5E35B1"];
 
 // Hash simple y estable: misma categoría → siempre el mismo color
@@ -47,7 +47,7 @@ const Eventos = () => {
         if (cancelled) return;
         const list = Array.isArray(data) ? data : [];
         const normalized = list
-          .filter((ev) => ev.active !== false && ev.startDate)
+          .filter((ev) => ev.active !== false && ev.startDate) // solo eventos reales y activos
           .map(normalizeEvent);
         setEvents(normalized);
       })
@@ -87,12 +87,6 @@ const Eventos = () => {
               </span>
             </div>
           )}
-        </div>
-
-        <div className={styles.heroWave}>
-          <svg viewBox="0 0 1440 32" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0,16 C360,32 1080,0 1440,16 L1440,32 L0,32 Z" fill="#f4f5f8" />
-          </svg>
         </div>
       </div>
 
