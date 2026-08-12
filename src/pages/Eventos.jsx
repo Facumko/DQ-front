@@ -1,63 +1,117 @@
 import React, { useMemo, useState, useEffect } from "react";
-import EventCalendar, { MOCK_EVENTS, getUpcomingCount } from "../components/EventCalendar/EventCalendar";
+import EventCalendar, { getUpcomingCount } from "../components/EventCalendar/EventCalendar";
 import { getAllEvents } from "../Api/Api";
 import styles from "./Eventos.module.css";
-import { Calendar, Sparkles } from "lucide-react";
+import { Calendar, Sparkles, Loader, AlertCircle } from "lucide-react";
+
+// Paleta para diferenciar eventos por categoría del comercio
+const EVENT_COLORS = ["#B00020", "#1976D2", "#43A047", "#FB8C00", "#8E24AA", "#D81B60", "#00897B", "#5E35B1"];
+
+// Hash simple y estable: misma categoría → siempre el mismo color
+const colorForCategory = (name) => {
+  if (!name) return EVENT_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return EVENT_COLORS[Math.abs(hash) % EVENT_COLORS.length];
+};
+
+// EventResponseDto (real) → forma que espera <EventCalendar/>
+const normalizeEvent = (ev) => {
+  const category = ev.commerceOwner?.category?.name || "Evento";
+  return {
+    id:          ev.idEvent,
+    title:       ev.title || "Sin título",
+    date:        ev.startDate?.split("T")[0],
+    time:        ev.startDate?.split("T")[1]?.slice(0, 5),
+    endTime:     ev.endDate?.split("T")[1]?.slice(0, 5),
+    location:    ev.address?.address || ev.address?.street || "",
+    business:    ev.commerceOwner?.name || "",
+    description: ev.description || "",
+    category,
+    color:       colorForCategory(category),
+  };
+};
 
 const Eventos = () => {
-  const [events, setEvents] = useState(MOCK_EVENTS);
+  const [events,  setEvents]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
     getAllEvents()
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const normalized = data.map((ev) => ({
-            id:          ev.idEvent,
-            title:       ev.title,
-            date:        ev.startDate?.split("T")[0],
-            time:        ev.startDate?.split("T")[1]?.slice(0, 5),
-            endTime:     ev.endDate?.split("T")[1]?.slice(0, 5),
-            location:    ev.address?.address || "",
-            business:    ev.nameCommerce || "",
-            description: ev.description || "",
-            category:    ev.categories?.[0]?.name || "Evento",
-            color:       "#B00020",
-          }));
-          setEvents(normalized);
-        }
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const normalized = list
+          .filter((ev) => ev.active !== false && ev.startDate)
+          .map(normalizeEvent);
+        setEvents(normalized);
       })
-      .catch(() => {}); // si falla usa los mock
+      .catch(() => {
+        if (!cancelled) setError("No pudimos cargar los eventos. Intentá de nuevo más tarde.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   const upcoming = useMemo(() => getUpcomingCount(events), [events]);
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.headerIcon}>
-            <Calendar size={28} />
+      <div className={styles.hero}>
+        <div className={styles.header}>
+          <div className={styles.headerContent}>
+            <div className={styles.headerIcon}>
+              <Calendar size={28} />
+            </div>
+            <div>
+              <h1 className={styles.title}>Eventos</h1>
+              <p className={styles.subtitle}>
+                Descubrí lo que está pasando en tu ciudad
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className={styles.title}>Eventos</h1>
-            <p className={styles.subtitle}>
-              Descubrí lo que está pasando en tu ciudad
-            </p>
-          </div>
+
+          {upcoming > 0 && (
+            <div className={styles.upcomingBadge}>
+              <Sparkles size={15} className={styles.sparkle} />
+              <span>
+                <strong>{upcoming}</strong> evento{upcoming !== 1 ? "s" : ""} próximos
+              </span>
+            </div>
+          )}
         </div>
 
-        {upcoming > 0 && (
-          <div className={styles.upcomingBadge}>
-            <Sparkles size={15} className={styles.sparkle} />
-            <span>
-              <strong>{upcoming}</strong> evento{upcoming !== 1 ? "s" : ""} próximos
-            </span>
-          </div>
-        )}
+        <div className={styles.heroWave}>
+          <svg viewBox="0 0 1440 32" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,16 C360,32 1080,0 1440,16 L1440,32 L0,32 Z" fill="#f4f5f8" />
+          </svg>
+        </div>
       </div>
 
+      {error && (
+        <div className={styles.errorBanner}>
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+
       <div className={styles.calendarWrapper}>
-        <EventCalendar events={events} />
+        {loading ? (
+          <div className={styles.loadingState}>
+            <Loader size={26} className={styles.spin} />
+            <p>Cargando eventos…</p>
+          </div>
+        ) : (
+          <EventCalendar events={events} />
+        )}
       </div>
     </div>
   );

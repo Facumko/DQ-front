@@ -8,75 +8,6 @@ import {
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
-// MOCK DATA  (reemplazar con llamada al backend)
-// ─────────────────────────────────────────────
-export const MOCK_EVENTS = [
-  {
-    id: 1, title: "Noche de Jazz en Vivo",
-    date: "2026-02-08", time: "20:00", endTime: "23:00",
-    location: "Café Central", business: "Café Central",
-    category: "Música", color: "#B00020",
-    description: "Una velada especial con los mejores músicos de jazz. Entrada libre con consumición.",
-  },
-  {
-    id: 2, title: "Taller de Barismo",
-    date: "2026-02-12", time: "10:00", endTime: "12:00",
-    location: "Coffee Lab", business: "Coffee Lab",
-    category: "Gastronomía", color: "#FB8C00",
-    description: "Aprendé los secretos del café de especialidad. Incluye degustación y certificado.",
-  },
-  {
-    id: 3, title: "Clase de Yoga al Aire Libre",
-    date: "2026-02-15", time: "08:00", endTime: "09:30",
-    location: "Parque Central", business: "FitLife Studio",
-    category: "Deportes", color: "#43A047",
-    description: "Iniciá el día con energía. Clase para todos los niveles en el parque.",
-  },
-  {
-    id: 4, title: "Feria de Emprendedores",
-    date: "2026-02-15", time: "14:00", endTime: "20:00",
-    location: "Plaza Mayor", business: "Comunidad Local",
-    category: "Comercio", color: "#1976D2",
-    description: "Más de 50 emprendedores locales. Artesanías, gastronomía y tecnología.",
-  },
-  {
-    id: 5, title: "Degustación de Vinos",
-    date: "2026-02-20", time: "19:30", endTime: "22:00",
-    location: "Bodega del Centro", business: "Bodega del Centro",
-    category: "Gastronomía", color: "#8E24AA",
-    description: "Cata guiada de vinos argentinos con maridaje. Capacidad limitada.",
-  },
-  {
-    id: 6, title: "Workshop de Fotografía",
-    date: "2026-02-22", time: "15:00", endTime: "18:00",
-    location: "Estudio Imagen", business: "Estudio Imagen",
-    category: "Arte", color: "#D81B60",
-    description: "Técnicas de fotografía urbana. Trae tu cámara o smartphone.",
-  },
-  {
-    id: 7, title: "Happy Hour 2x1",
-    date: "2026-02-27", time: "18:00", endTime: "21:00",
-    location: "Bar La Esquina", business: "Bar La Esquina",
-    category: "Gastronomía", color: "#FB8C00",
-    description: "Cócteles 2x1 de 18 a 21 hs. Música en vivo a partir de las 20.",
-  },
-  {
-    id: 8, title: "Mercado Artesanal",
-    date: "2026-03-07", time: "10:00", endTime: "18:00",
-    location: "Patio del Centro", business: "Arte Local",
-    category: "Arte", color: "#D81B60",
-    description: "Feria mensual de artesanos y diseñadores locales.",
-  },
-  {
-    id: 9, title: "Torneo de Ajedrez",
-    date: "2026-03-14", time: "15:00", endTime: "20:00",
-    location: "Biblioteca Municipal", business: "Club Ajedrez",
-    category: "Deportes", color: "#43A047",
-    description: "Torneo abierto para todas las categorías. Premios para los tres primeros.",
-  },
-];
-
-// ─────────────────────────────────────────────
 // CONSTANTES
 // ─────────────────────────────────────────────
 const DAYS_SHORT = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -317,7 +248,7 @@ const WeekView = ({ anchorDate, eventsByDate, onDayClick }) => {
 // ─────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
-const EventCalendar = ({ events = MOCK_EVENTS, compact = false }) => {
+const EventCalendar = ({ events = [], compact = false }) => {
   const today = useMemo(() => new Date(), []);
 
   const [view,       setView      ] = useState("month");
