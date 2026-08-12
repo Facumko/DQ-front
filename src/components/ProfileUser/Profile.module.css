@@ -391,15 +391,6 @@
   min-height: 16px;
 }
 
-.charCount {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.7rem;
-  color: #6b7280;
-}
-.charNear { color: #f59e0b; }
-
 /* Botón restaurar */
 .undoBtn {
   display: inline-flex;

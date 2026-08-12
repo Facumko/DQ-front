@@ -4,7 +4,7 @@ import { getMyUser, updateUser } from "../../Api/Api";
 import styles from "./Profile.module.css";
 import {
   User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle,
-  Loader, Eye, EyeOff, Shield, AtSign, RotateCcw, Info
+  Loader, Eye, EyeOff, Shield, RotateCcw
 } from "lucide-react";
 
 /* ─────────────────────────────────────────
@@ -59,12 +59,12 @@ const RULES = {
     },
   },
   phone: {
-    max: 20,
+    max: 14, // '+' opcional + hasta 13 dígitos
     validate: (v) => {
       if (!v) return null;
       const digits = v.replace(/\D/g, "");
-      if (digits.length < 7)                              return "Mínimo 7 dígitos";
-      if (digits.length > 15)                             return "Máximo 15 dígitos";
+      if (digits.length < 8)                              return "Mínimo 8 dígitos";
+      if (digits.length > 13)                             return "Máximo 13 dígitos";
       return null;
     },
   },
@@ -159,12 +159,27 @@ export default function Profile() {
     return Object.keys(originalData).some((k) => k !== "username" && k !== "email" && formData[k] !== originalData[k]);
   }, [formData, originalData]);
 
+  /* ── Helpers de formateo en vivo ── */
+  // Nombre/Apellido: solo letras y espacios, capitalizando cada palabra mientras se escribe
+  const capitalizeWords = (v) =>
+    v
+      .toLowerCase()
+      .replace(/(^|\s)([a-záéíóúüñ])/g, (_, sep, letter) => sep + letter.toUpperCase());
+
   /* ── Handlers de inputs ── */
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     const max = RULES[name]?.max;
-    // Teléfono: solo dígitos y separadores típicos de formato (antes aceptaba letras)
-    const cleaned = name === "phone" ? value.replace(/[^\d\s()+-]/g, "") : value;
+
+    let cleaned = value;
+    if (name === "phone") {
+      // Teléfono AR: solo dígitos, espacios (separador visual) y '+' opcional al inicio
+      cleaned = value.replace(/[^\d\s+]/g, "").replace(/(?!^)\+/g, "");
+    } else if (name === "name" || name === "lastname") {
+      // Solo letras y espacios, con cada palabra capitalizada
+      cleaned = capitalizeWords(value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]/g, ""));
+    }
+
     setFormData((p) => ({ ...p, [name]: max ? cleaned.slice(0, max) : cleaned }));
     setTouched((p) => ({ ...p, [name]: true }));
   }, []);
@@ -301,12 +316,8 @@ export default function Profile() {
       { key: "lastname", label: "Apellido",          icon: User,   type: "text",  ph: "Tu apellido",          req: false },
     ],
     [
-      { key: "username", label: "Nombre de usuario", icon: AtSign, type: "text",  ph: "ej: usuario_123",      req: false, editable: false },
-      { key: "phone",    label: "Teléfono",           icon: Phone,  type: "tel",   ph: "(364) 4123456",        req: false },
-    ],
-    [
-      { key: "email",         label: "Email principal",       icon: Mail, type: "email", ph: "vos@ejemplo.com",          req: true, editable: false },
-      { key: "recoveryEmail", label: "Email de recuperación", icon: Mail, type: "email", ph: "recuperacion@ejemplo.com", req: false },
+      { key: "phone",          label: "Teléfono",               icon: Phone, type: "tel",   ph: "+54 9 11 23456789",        req: false },
+      { key: "recoveryEmail",  label: "Email de recuperación",  icon: Mail,  type: "email", ph: "recuperacion@ejemplo.com", req: false },
     ],
   ];
 
@@ -371,7 +382,7 @@ export default function Profile() {
             <div className={styles.formBody}>
               {FIELD_ROWS.map((row, ri) => (
                 <div key={ri} className={styles.fieldRow}>
-                  {row.map(({ key, label, icon, type, ph, req, editable = true }) => {
+                  {row.map(({ key, label, icon, type, ph, req }) => {
                     const state   = fState(key);
                     const val     = formData[key] || "";
                     const changed = isEditing && originalData?.[key] !== formData[key];
@@ -396,7 +407,7 @@ export default function Profile() {
                                 onBlur={handleBlur}
                                 className={styles.input}
                                 placeholder={ph}
-                                disabled={loading || !editable}
+                                disabled={loading}
                                 maxLength={RULES[key]?.max}
                                 aria-required={req}
                                 aria-invalid={state === "error"}
@@ -407,30 +418,17 @@ export default function Profile() {
                               </span>
                             </div>
 
-                            {!editable && (
-                              <p className={styles.fieldError} role="note">
-                                <Info size={11} /> Todavía no se puede editar desde acá
-                              </p>
-                            )}
-
-                            {editable && state === "error" && errors[key] && (
+                            {state === "error" && errors[key] && (
                               <p className={styles.fieldError} role="alert">
                                 <AlertCircle size={11} /> {errors[key]}
                               </p>
                             )}
 
-                            {editable && (
+                            {changed && (
                               <div className={styles.fieldFooter}>
-                                {RULES[key]?.max && (
-                                  <span className={`${styles.charCount} ${val.length >= RULES[key].max * 0.88 ? styles.charNear : ""}`}>
-                                    {val.length}/{RULES[key].max}
-                                  </span>
-                                )}
-                                {changed && (
-                                  <button className={styles.undoBtn} onClick={() => handleUndoField(key)} type="button">
-                                    <RotateCcw size={11} /> Restaurar
-                                  </button>
-                                )}
+                                <button className={styles.undoBtn} onClick={() => handleUndoField(key)} type="button">
+                                  <RotateCcw size={11} /> Restaurar
+                                </button>
                               </div>
                             )}
                           </>
@@ -484,9 +482,6 @@ export default function Profile() {
                           onClick={() => setPwVis((p) => ({ ...p, [key]: !p[key] }))} tabIndex={-1}>
                           {pwVis[key] ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
-                      </div>
-                      <div className={styles.fieldFooter}>
-                        <span className={styles.charCount}>{pwData[key].length}/100</span>
                       </div>
                     </div>
                   ))}
