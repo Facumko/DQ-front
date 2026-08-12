@@ -191,6 +191,13 @@
   transform: translateX(2px);
 }
 
+.catLoading {
+  display: block;
+  padding: 10px 4px;
+  font-size: 0.85rem;
+  color: #999;
+}
+
 /* ── Lista de categorías ────────────────────────────────────── */
 .catList {
   display: flex;

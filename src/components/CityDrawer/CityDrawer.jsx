@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getCategories } from "../../Api/Api";
 import styles from "./CityDrawer.module.css";
 import {
   FaUtensils, FaHeartbeat, FaGavel, FaGraduationCap,
@@ -9,23 +10,30 @@ import {
   FaCarAlt, FaFlask, FaCamera, FaLandmark
 } from "react-icons/fa";
 
-const CATEGORIAS = [
-  { id: "gastronomia",     label: "Gastronomía",         icon: FaUtensils,      color: "#e67e22" },
-  { id: "salud",           label: "Salud y Medicina",    icon: FaHeartbeat,     color: "#27ae60" },
-  { id: "legal",           label: "Legal y Contable",    icon: FaGavel,         color: "#2980b9" },
-  { id: "educacion",       label: "Educación",           icon: FaGraduationCap, color: "#8e44ad" },
-  { id: "comercio",        label: "Comercio",            icon: FaShoppingBag,   color: "#16a085" },
-  { id: "servicios",       label: "Servicios del Hogar", icon: FaWrench,        color: "#d35400" },
-  { id: "inmobiliaria",    label: "Inmobiliaria",        icon: FaHome,          color: "#c0392b" },
-  { id: "entretenimiento", label: "Entretenimiento",     icon: FaMusic,         color: "#e91e8c" },
-  { id: "belleza",         label: "Belleza y Estética",  icon: FaCut,           color: "#9b59b6" },
-  { id: "deportes",        label: "Deportes y Fitness",  icon: FaDumbbell,      color: "#1abc9c" },
-  { id: "mascotas",        label: "Mascotas",            icon: FaPaw,           color: "#f39c12" },
-  { id: "automotor",       label: "Automotor",           icon: FaCarAlt,        color: "#7f8c8d" },
-  { id: "farmacia",        label: "Farmacias",           icon: FaFlask,         color: "#2ecc71" },
-  { id: "fotografia",      label: "Fotografía",          icon: FaCamera,        color: "#e74c3c" },
-  { id: "publico",         label: "Entes Públicos",      icon: FaLandmark,      color: "#34495e" },
+// Estilo visual (ícono + color) por categoría, matcheado por nombre.
+// El backend (CategoryDto) solo manda { idCategory, name, description } —
+// esto es puramente decorativo, la fuente de verdad de qué categorías existen es la API.
+const CATEGORY_STYLES = [
+  { match: /gastronom|comida|restaurant|café|bar\b/i,        icon: FaUtensils,      color: "#e67e22" },
+  { match: /salud|médic|medicin|clínic/i,                    icon: FaHeartbeat,     color: "#27ae60" },
+  { match: /legal|contable|abogad|contad/i,                  icon: FaGavel,         color: "#2980b9" },
+  { match: /educaci|escuela|academia|curso/i,                icon: FaGraduationCap, color: "#8e44ad" },
+  { match: /comercio|tienda|shopping|retail/i,                icon: FaShoppingBag,   color: "#16a085" },
+  { match: /servicio|hogar|reparaci|plomer|electric/i,        icon: FaWrench,        color: "#d35400" },
+  { match: /inmobiliari|propiedad|alquiler/i,                 icon: FaHome,          color: "#c0392b" },
+  { match: /entretenimiento|música|music|diversión/i,         icon: FaMusic,         color: "#e91e8c" },
+  { match: /bellez|estétic|peluquer|spa/i,                    icon: FaCut,           color: "#9b59b6" },
+  { match: /deporte|fitness|gimnasio/i,                       icon: FaDumbbell,      color: "#1abc9c" },
+  { match: /mascota|veterinari|pet\b/i,                       icon: FaPaw,           color: "#f39c12" },
+  { match: /automotor|auto\b|vehículo|mecánic/i,              icon: FaCarAlt,        color: "#7f8c8d" },
+  { match: /farmacia/i,                                       icon: FaFlask,         color: "#2ecc71" },
+  { match: /foto/i,                                           icon: FaCamera,        color: "#e74c3c" },
+  { match: /públic|municipal|gobierno/i,                      icon: FaLandmark,      color: "#34495e" },
 ];
+const DEFAULT_CATEGORY_STYLE = { icon: FaStore, color: "#B00020" };
+
+const getCategoryStyle = (name) =>
+  CATEGORY_STYLES.find((s) => s.match.test(name || "")) || DEFAULT_CATEGORY_STYLE;
 
 const EXPLORAR = [
   { id: "mapa",      label: "Mapa de la ciudad",       sublabel: "Encontrá negocios cerca tuyo", icon: FaMapMarkedAlt, color: "#B00020", link: "/mapa",        highlight: true  },
@@ -37,6 +45,20 @@ const EXPLORAR = [
 const CityDrawer = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const bodyRef  = useRef(null);
+
+  const [categories,        setCategories]        = useState([]);
+  const [loadingCategories, setLoadingCategories]  = useState(true);
+  const hasFetchedRef = useRef(false);
+
+  // Traer categorías reales del backend la primera vez que se abre el drawer
+  useEffect(() => {
+    if (!isOpen || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    getCategories()
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]))
+      .finally(() => setLoadingCategories(false));
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -54,6 +76,12 @@ const CityDrawer = ({ isOpen, onClose }) => {
   }, [isOpen]);
 
   const handleNavigate = (link) => { navigate(link); onClose(); };
+
+  // Misma ruta y misma lógica de filtrado que ya usa SearchPage (categoryIds numérico),
+  // así los negocios que se muestran son los negocios reales de esa categoría.
+  const handleCategoryClick = (cat) => {
+    handleNavigate(`/search?categoryIds=${cat.idCategory}`);
+  };
 
   return (
     <>
@@ -101,18 +129,25 @@ const CityDrawer = ({ isOpen, onClose }) => {
 
           <div className={styles.section}>
             <span className={styles.sectionLabel}>Categorías</span>
-            <div className={styles.catList}>
-              {CATEGORIAS.map((cat) => {
-                const Icon = cat.icon;
-                return (
-                  <button key={cat.id} className={styles.catRow} onClick={() => handleNavigate(`/search?categoria=${cat.id}`)}>
-                    <div className={styles.catIconWrap} style={{ background: `${cat.color}18`, color: cat.color }}><Icon /></div>
-                    <span className={styles.catLabel}>{cat.label}</span>
-                    <FaChevronRight className={styles.catArrow} />
-                  </button>
-                );
-              })}
-            </div>
+
+            {loadingCategories ? (
+              <span className={styles.catLoading}>Cargando categorías...</span>
+            ) : categories.length === 0 ? (
+              <span className={styles.catLoading}>No hay categorías disponibles</span>
+            ) : (
+              <div className={styles.catList}>
+                {categories.map((cat) => {
+                  const { icon: Icon, color } = getCategoryStyle(cat.name);
+                  return (
+                    <button key={cat.idCategory} className={styles.catRow} onClick={() => handleCategoryClick(cat)}>
+                      <div className={styles.catIconWrap} style={{ background: `${color}18`, color }}><Icon /></div>
+                      <span className={styles.catLabel}>{cat.name}</span>
+                      <FaChevronRight className={styles.catArrow} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
         </div>
