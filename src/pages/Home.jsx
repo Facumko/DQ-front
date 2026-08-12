@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
 import styles from "./Home.module.css";
-import { getMainFeed, getCategories, getFeaturedSection } from "../Api/Api";
+import { getMainFeed, getCategories, getFeaturedSection, getBusinessById } from "../Api/Api";
 import { UserContext } from "./UserContext";
 import {
   Calendar,
@@ -16,7 +16,6 @@ import {
   ExternalLink,
   Star,
   Clock,
-  MapPin,
   Building2,
   Share2,
   Bookmark,
@@ -236,6 +235,7 @@ const Home = () => {
   const [feedHasMore,         setFeedHasMore]         = useState(true);
   const [currentImageIndex,   setCurrentImageIndex]   = useState({});
   const [apiCategories,       setApiCategories]       = useState([]);
+  const [sideFeatured,        setSideFeatured]        = useState([]); // cajas laterales: misma fuente que el carrusel (/destacado → featured)
   const sectionsRef = useRef([]);
 
   const FEED_SIZE = 10;
@@ -278,6 +278,54 @@ const Home = () => {
     };
   };
 
+  // ── Normalizar item de las cajas laterales ─────────────────────────────
+  // Misma fuente y misma forma de extraer datos que el carrusel (FeaturedItemDto: { type, data }),
+  // pero viene del array "featured" de /destacado, que el backend ya separa del "carousel".
+  // No toca normalizeFeaturedItem ni la carga del carrusel de arriba.
+  const normalizeFeaturedBox = (item) => {
+    const d = item.data || {};
+    const type = item.type; // 'EVENT' | 'POST' | 'PROMOTION' | 'COMMERCE'
+
+    // El comercio dueño del contenido: cada tipo lo expone distinto según el backend
+    const commerce   = d.commerceOwner || d.commerce || {};
+    const commerceId = d.idCommerce || commerce.idCommerce || d.commerceId
+                        || (type === "COMMERCE" ? (d.idCommerce || d.id) : null);
+
+    const businessName  = d.commerceName || d.nameCommerce || commerce.name || d.name || "Comercio";
+    const businessImage = d.commerceProfileImageUrl || commerce.profileImage?.url
+                        || d.profileImage?.url || d.coverImage?.url || null;
+    // "category" es objeto único por comercio (no array).
+    const category = commerce.category?.name || d.category?.name || "";
+
+    const title = d.title || d.name || (d.description ? d.description.slice(0, 60) : "") || businessName;
+
+    const badgeMap  = { EVENT: "Evento", POST: "Publicación", PROMOTION: "Promoción", COMMERCE: "Destacado" };
+    const badgeText = badgeMap[type] || "Destacado";
+
+    const itemId = d.idEvent || d.idPost || d.idPromotion || d.idCommerce || null;
+
+    // Mismo criterio de link que el carrusel (siempre al negocio), pero acá además
+    // apuntamos a la publicación/evento puntual cuando esa vista es pública (posts y eventos lo son).
+    // Las promociones no tienen vista pública propia todavía, así que van al perfil del negocio nomás.
+    let link = `/negocios/${commerceId || ""}`;
+    if (type === "POST"  && commerceId && d.idPost)  link = `/negocios/${commerceId}?tab=posts&item=${d.idPost}`;
+    if (type === "EVENT" && commerceId && d.idEvent) link = `/negocios/${commerceId}?tab=events&item=${d.idEvent}`;
+    if (type === "PROMOTION" && commerceId) {
+      // El backend ya manda a dónde apunta la promo (redirectType/redirectTargetId
+      // del PromotionResponseDto), sin necesidad de pedir nada más.
+      const rt = (d.redirectType || "").toUpperCase();
+      if (rt === "POST"  && d.redirectTargetId) link = `/negocios/${commerceId}?tab=posts&item=${d.redirectTargetId}`;
+      if (rt === "EVENT" && d.redirectTargetId) link = `/negocios/${commerceId}?tab=events&item=${d.redirectTargetId}`;
+      // Si la promo no tiene publicación/evento vinculado (redirectType "NONE" o vacío),
+      // no hay a dónde apuntar más específico que el negocio.
+    }
+
+    return {
+      key: `${type}-${itemId ?? "x"}-${commerceId ?? "x"}`,
+      type, badgeText, title, businessName, businessImage, category, link, commerceId,
+    };
+  };
+
   // ── Helpers feed ──────────────────────────────────────────────────────
   const formatTimeAgo = (dateStr) => {
     if (!dateStr) return "";
@@ -293,7 +341,7 @@ const Home = () => {
     const url  = post.businessId ? `${window.location.origin}/negocios/${post.businessId}` : window.location.href;
     const text = `${post.businessName}: ${post.content?.slice(0, 80)}...`;
     if (navigator.share) {
-      try { await navigator.share({ title: post.businessName, text, url }); } catch {}
+      try { await navigator.share({ title: post.businessName, text, url }); } catch { /* usuario canceló el share nativo */ }
     } else {
       await navigator.clipboard.writeText(url);
       alert("¡Link copiado al portapapeles!");
@@ -360,12 +408,47 @@ const Home = () => {
           setHeroSlides(items.map(normalizeFeaturedItem));
           setCurrentSlide(0);
         }
+        // Cajas laterales: lo que el backend ya separa como "featured" (no está en el carrusel)
+        const boxItems = data?.featured;
+        if (Array.isArray(boxItems) && boxItems.length > 0) {
+          setSideFeatured(boxItems.map(normalizeFeaturedBox));
+        }
       })
       .catch(() => {}); // fallback silencioso → se queda con el mock
 
     loadFeed(0);
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Enriquecer categoría de las cajas laterales ─────────────────────────
+  // PostResponseDto y PromotionResponseDto (lo que trae /destacado para esos tipos)
+  // no incluyen la categoría del comercio — solo EventResponseDto la trae completa
+  // (vía commerceOwner.category). Para no dejar ese campo vacío, pedimos el negocio
+  // completo (mismo GET que ya usa ProfileHeader) solo para los que faltan, una vez por comercio.
+  const enrichedCommerceIds = useRef(new Set());
+  useEffect(() => {
+    const idsToFetch = [...new Set(
+      sideFeatured
+        .filter((b) => b.commerceId && !enrichedCommerceIds.current.has(b.commerceId) && !b.category)
+        .map((b) => b.commerceId)
+    )];
+    if (idsToFetch.length === 0) return;
+    idsToFetch.forEach((id) => enrichedCommerceIds.current.add(id)); // evita reintentos en cada render
+
+    let cancelled = false;
+    Promise.all(idsToFetch.map((id) => getBusinessById(id).catch(() => null)))
+      .then((results) => {
+        if (cancelled) return;
+        const byId = {};
+        idsToFetch.forEach((id, i) => { byId[id] = results[i]; });
+        setSideFeatured((prev) => prev.map((b) => {
+          const extra = byId[b.commerceId];
+          if (!extra) return b;
+          return { ...b, category: b.category || extra.category?.name || "" };
+        }));
+      });
+    return () => { cancelled = true; };
+  }, [sideFeatured]);
 
   // ── Effect intersection observer para animaciones ─────────────────────
   useEffect(() => {
@@ -464,22 +547,52 @@ const Home = () => {
             </div>
           </div>
 
-          <div className={styles.sidebar}>
-            {MOCK_DATA.featuredBusinesses.map((business) => (
-              <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
-                <div className={styles.businessHeader}>
-                  <img src={business.logo} alt={business.name} className={styles.businessLogo} onError={handleImageError} />
-                  <div className={styles.businessInfo}>
-                    <h3 className={styles.businessName}>{business.name}</h3>
-                    <p className={styles.businessCategory}>{business.category}</p>
+          <div className={`${styles.sidebar} ${sideFeatured.length > 0 ? styles.sidebarMarquee : ""}`}>
+            {sideFeatured.length > 0 ? (
+              <div
+                className={styles.sidebarTrack}
+                style={{ "--marquee-duration": `${Math.max(sideFeatured.length * 6, 18)}s` }}
+              >
+                {[...sideFeatured, ...sideFeatured].map((business, i) => (
+                  <Link to={business.link} key={`${business.key}-${i}`} className={styles.businessCard}>
+                    <div className={styles.businessHeader}>
+                      <img
+                        src={business.businessImage || PLACEHOLDER_IMAGE}
+                        alt={business.businessName}
+                        className={styles.businessLogo}
+                        onError={handleImageError}
+                      />
+                      <div className={styles.businessInfo}>
+                        <h3 className={styles.businessName}>{business.businessName}</h3>
+                        {business.category && <p className={styles.businessCategory}>{business.category}</p>}
+                      </div>
+                    </div>
+                    <div className={styles.businessFooter}>
+                      <span className={`${styles.businessBadge} ${styles["badge" + business.type]}`}>
+                        {business.badgeText}
+                      </span>
+                      <p className={styles.businessTitle}>{business.title}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              MOCK_DATA.featuredBusinesses.map((business) => (
+                <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
+                  <div className={styles.businessHeader}>
+                    <img src={business.logo} alt={business.name} className={styles.businessLogo} onError={handleImageError} />
+                    <div className={styles.businessInfo}>
+                      <h3 className={styles.businessName}>{business.name}</h3>
+                      <p className={styles.businessCategory}>{business.category}</p>
+                    </div>
                   </div>
-                </div>
-                <div className={styles.businessLocation}>
-                  <MapPin size={14} /><span>{business.location}</span>
-                </div>
-                <div className={styles.businessPromotion}>{business.promotion}</div>
-              </Link>
-            ))}
+                  <div className={styles.businessFooter}>
+                    <span className={`${styles.businessBadge} ${styles.badgePROMOTION}`}>Promoción</span>
+                    <p className={styles.businessTitle}>{business.promotion}</p>
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </section>
