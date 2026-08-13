@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-le
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getCategories, getCommercesByCategories } from "../Api/Api";
+import { getCategories, getCommercesByCategories, getAllCommerces } from "../Api/Api";
 import { UserContext } from "./UserContext";
 
 // ─── Fix íconos Leaflet + Vite ────────────────────────────────────────────────
@@ -83,7 +83,6 @@ const USER_ICON = new L.DivIcon({
 // ─── Config ───────────────────────────────────────────────────────────────────
 const DEFAULT_CENTER = [-26.7909, -60.4437];
 const DEFAULT_ZOOM   = 14;
-const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
 
 // ─── Distancia haversine (km) ─────────────────────────────────────────────────
 function haversine(lat1, lng1, lat2, lng2) {
@@ -184,16 +183,7 @@ export default function MapaPage() {
       setLoading(true);
       setError("");
       try {
-        const token = localStorage.getItem("accessToken");
-        const res = await fetch(`${API_URL}/comercio/traer`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
-          },
-        });
-        if (!res.ok) throw new Error(`Error ${res.status}`);
-        const data = await res.json();
+        const data = await getAllCommerces();
         const arr = Array.isArray(data) ? data : [data];
         const normalized = arr
           .map(normalizeBusiness)
