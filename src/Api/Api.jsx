@@ -165,7 +165,12 @@ axios.interceptors.response.use((response) => response, async (error) => {
 axios.defaults.timeout = TIMEOUT;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
+// Headers "no me muestres la página de advertencia" de los distintos túneles
+// de desarrollo. Cada proveedor usa un header distinto, así que mandamos
+// ambos: no está de más, y así no hay que tocar código si el equipo vuelve
+// a cambiar de ngrok a localtunnel (loca.lt) o viceversa.
 axios.defaults.headers.common['ngrok-skip-browser-warning'] = 'true';
+axios.defaults.headers.common['bypass-tunnel-reminder'] = 'true';
 axios.defaults.withCredentials = false;
 
 const { accessToken: _initToken } = getStoredTokens();
@@ -309,8 +314,8 @@ const shouldRetry = (error, method) => {
   return false;
 };
 const validateApiResponse = (response, endpoint) => {
-  if (typeof response==='string' && response.includes('<!DOCTYPE html>')) throw new Error(`El servidor respondió con HTML. Endpoint: ${endpoint}`);
-  if (typeof response==='string' && response.includes('ngrok')) throw new Error(`Ngrok bloqueando. Endpoint: ${endpoint}`);
+  if (typeof response==='string' && response.includes('<!DOCTYPE html>')) throw new Error(`El servidor respondió con HTML en vez de JSON (endpoint: ${endpoint}). Probablemente el túnel (ngrok/localtunnel) está mostrando su página de advertencia en vez de reenviar la petición.`);
+  if (typeof response==='string' && /ngrok|tunnel website ahead|loca\.lt/i.test(response)) throw new Error(`El túnel de desarrollo está bloqueando la petición (endpoint: ${endpoint}). Verificá que la URL en VITE_API_URL esté activa y que los headers de bypass estén configurados.`);
   return true;
 };
 const handleApiError = (error, endpoint) => {

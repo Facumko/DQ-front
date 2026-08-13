@@ -5,6 +5,7 @@ import {
   clearTokens, getStoredTokens,
   getFavoriteCommerces, addFavoriteCommerce, removeFavoriteCommerce,
   getSavedPosts, addSavedPost, removeSavedPost,
+  getMyCommerces,
 } from "../Api/Api";
 
 export const UserContext = createContext();
@@ -12,8 +13,6 @@ export const UserContext = createContext();
 const MAX_LOGIN_ATTEMPTS  = 3;
 const LOCKOUT_DURATION    = 30000;
 const ERROR_DISPLAY_DURATION = 5000;
-
-const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
 
 // ── Helpers localStorage ──────────────────────────────────────────────────
 const safeGet = (key, fallback) => {
@@ -107,22 +106,12 @@ export function UserProvider({ children }) {
   // ── Cargar negocios del usuario ───────────────────────────────────────
   const loadBusinesses = useCallback(async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${API_URL}/comercio/traer/mis/comercios`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      });
-      if (!res.ok) { setBusinesses([]); return; }
-      const data = await res.json();
-      const arr  = Array.isArray(data) ? data : data ? [data] : [];
+      const list = await getMyCommerces();
       setBusinesses(
-        arr.filter(Boolean).map((b) => ({
-          id_business:  b.idCommerce,
+        list.map((b) => ({
+          id_business:  b.id_business,
           name:         b.name,
-          profileImage: b.profileImage?.url || null,
+          profileImage: b.profileImage,
         }))
       );
     } catch { setBusinesses([]); }
