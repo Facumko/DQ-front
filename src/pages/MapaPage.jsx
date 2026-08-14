@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useContext } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getCommercesByCategories, getAllCommerces } from "../Api/Api";
 import { UserContext } from "./UserContext";
@@ -79,6 +82,31 @@ const USER_ICON = new L.DivIcon({
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
+
+// ─── Ícono de cluster (grupo de comercios cercanos agrupados) ────────────────
+// Mismo estilo/color de marca que el resto de la app. El tamaño y el color
+// escalan un poco según cuántos comercios agrupa, para dar una pista visual
+// de densidad sin necesidad de abrir el cluster.
+const createClusterIcon = (cluster) => {
+  const count = cluster.getChildCount();
+  const size  = count < 10 ? 38 : count < 50 ? 46 : 54;
+  const bg    = count < 10 ? "#B00020" : count < 50 ? "#8a0018" : "#5c0010";
+  return new L.DivIcon({
+    html: `
+      <div style="
+        width:${size}px;height:${size}px;
+        background:${bg};
+        border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        box-shadow:0 2px 10px rgba(0,0,0,0.3);
+        border:3px solid white;
+        color:#fff;font-weight:700;font-family:'Open Sans',sans-serif;
+        font-size:${count < 100 ? 14 : 12}px;
+      ">${count}</div>`,
+    className: "",
+    iconSize: [size, size],
+  });
+};
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const DEFAULT_CENTER = [-26.7909, -60.4437];
@@ -550,8 +578,15 @@ export default function MapaPage() {
                 </>
               )}
 
-              {/* Marcadores comercios */}
-              {filtered.map(biz => (
+              {/* Marcadores comercios (agrupados por cercanía) */}
+              <MarkerClusterGroup
+                iconCreateFunction={createClusterIcon}
+                maxClusterRadius={55}
+                spiderfyOnMaxZoom
+                showCoverageOnHover={false}
+                disableClusteringAtZoom={17}
+              >
+                {filtered.map(biz => (
                 <Marker
                   key={biz.id}
                   position={[biz.lat, biz.lng]}
@@ -656,7 +691,8 @@ export default function MapaPage() {
                     </div>
                   </Popup>
                 </Marker>
-              ))}
+                ))}
+              </MarkerClusterGroup>
             </MapContainer>
           )}
 
