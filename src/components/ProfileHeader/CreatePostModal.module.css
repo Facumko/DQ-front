@@ -313,17 +313,57 @@
   right: 12px;
 }
 
-.counter {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  font-size: 0.75rem;
-  padding: 4px 10px;
-  border-radius: 12px;
+.dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 2px 0;
 }
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.dot:hover { background: #9ca3af; }
+.dotActive {
+  background: #B00020;
+  transform: scale(1.3);
+}
+
+.photoToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.toolbarBtn:hover:not(:disabled) { border-color: #B00020; color: #B00020; background: #fef2f4; }
+.toolbarBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.toolbarBtnDanger { color: #dc2626; }
+.toolbarBtnDanger:hover:not(:disabled) { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
 
 .thumbs {
   display: flex;
@@ -351,24 +391,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.removeThumb {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  background: rgba(0, 0, 0, 0.65);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.75rem;
-  line-height: 1;
 }
 
 .thumb.newImage {

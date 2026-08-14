@@ -1262,6 +1262,7 @@ const ProfileHeader = ({
         onSubmit={handleSubmitPost}
         type={modalType}
         initialData={editingPost}
+        isSubmitting={loading.creatingPost}
       />
 
       <PromotionModal
