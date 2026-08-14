@@ -567,12 +567,48 @@ const buildAddressDto = (location) => {
 };
 
 
+/**
+ * Trae TODOS los comercios (para el mapa y el buscador, que necesitan la
+ * lista completa, no una página a la vez).
+ *
+ * El backend ahora pagina /comercio/traer (devuelve un objeto
+ * PageCommerceResponseDto con `content`, `totalPages`, etc. en vez del
+ * array plano de antes). Acá recorremos todas las páginas y las
+ * concatenamos, para que quien llame a esta función siga recibiendo
+ * el mismo array de siempre y no tenga que enterarse del cambio.
+ */
 export const getAllCommerces = async () => {
+  const PAGE_SIZE = 200;      // tamaño grande por página, para minimizar requests
+  const MAX_PAGES  = 50;      // resguardo de seguridad (50 × 200 = 10.000 comercios)
+
   try {
     if (isDevelopment) console.log('📦 Trayendo todos los comercios...');
-    const response = await apiRequest('GET', ENDPOINTS.GET_ALL_COMMERCES);
-    if (isDevelopment) console.log('✅ Comercios obtenidos:', Array.isArray(response) ? response.length : 0);
-    return Array.isArray(response) ? response : [];
+
+    let page = 0;
+    let totalPages = 1;
+    let all = [];
+
+    do {
+      const response = await apiRequest(
+        'GET',
+        `${ENDPOINTS.GET_ALL_COMMERCES}?page=${page}&size=${PAGE_SIZE}`
+      );
+
+      // Soporta tanto el shape nuevo (paginado: { content, totalPages, ... })
+      // como el viejo (array plano), por si algún ambiente todavía lo devuelve así.
+      if (Array.isArray(response)) {
+        all = all.concat(response);
+        totalPages = 1; // el shape viejo no pagina, con esta pasada alcanza
+      } else {
+        all = all.concat(Array.isArray(response?.content) ? response.content : []);
+        totalPages = response?.totalPages ?? 1;
+      }
+
+      page++;
+    } while (page < totalPages && page < MAX_PAGES);
+
+    if (isDevelopment) console.log('✅ Comercios obtenidos:', all.length);
+    return all;
   } catch (error) {
     if (isDevelopment) console.error('❌ Error trayendo comercios:', error);
     throw error;
