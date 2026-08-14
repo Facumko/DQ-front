@@ -1036,7 +1036,17 @@ export const createEvent = async (eventData, imageFiles = []) => {
   formData.append('startDate',        eventData.startDate);   // formato ISO: "2026-04-10T20:00:00"
   formData.append('endDate',          eventData.endDate);
   formData.append('idCommerceOwner',  eventData.idCommerceOwner);
-  if (eventData.address) formData.append('address', JSON.stringify(eventData.address));
+  // El backend arma el AddressDto por binding de campos individuales (no un JSON
+  // suelto): cada propiedad va con el prefijo "address." como campo de FormData.
+  if (eventData.address) {
+    const addr = eventData.address;
+    if (addr.address)     formData.append('address.address',  addr.address);
+    if (addr.street)      formData.append('address.street',   addr.street);
+    if (addr.district)    formData.append('address.district', addr.district);
+    if (addr.location)    formData.append('address.location', addr.location);
+    if (addr.lat != null) formData.append('address.lat',      addr.lat);
+    if (addr.lng != null) formData.append('address.lng',      addr.lng);
+  }
   imageFiles.forEach(f => formData.append('images', f));
 
   try {
