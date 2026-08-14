@@ -265,6 +265,124 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
 
   if (!isOpen) return null;
 
+  // Bloques reutilizables — se renderizan en distinto orden según el tipo
+  // (eventos: título → imágenes → descripción → logística; posts: sin cambios)
+  const descriptionSection = (
+    <>
+      <textarea
+        placeholder="Escribe algo..."
+        value={text}
+        onChange={(e) => setText(e.target.value.slice(0, 1000))}
+        className={styles.textarea}
+        maxLength={1000}
+      />
+      <div className={styles.charCount}>{text.length}/1000</div>
+    </>
+  );
+
+  const imagesSection = (
+    <>
+      {/* ✅ VISTA PREVIA PRINCIPAL */}
+      {previewUrls.length > 0 && (
+        <div className={styles.mainViewer}>
+          <img
+            src={previewUrls[activeIndex]}
+            alt={`Vista previa ${activeIndex + 1}`}
+            className={styles.mainImg}
+          />
+
+          {previewUrls.length > 1 && (
+            <>
+              <button
+                type="button"
+                className={styles.navBtn}
+                onClick={() => setActiveIndex((activeIndex - 1 + previewUrls.length) % previewUrls.length)}
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className={styles.navBtn}
+                style={{ right: '12px', left: 'auto' }}
+                onClick={() => setActiveIndex((activeIndex + 1) % previewUrls.length)}
+              >
+                ›
+              </button>
+              <div className={styles.counter}>
+                {activeIndex + 1} / {previewUrls.length}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ✅ MINIATURAS con indicador visual */}
+      {previewUrls.length > 1 && (
+        <div className={styles.thumbs}>
+          {previewUrls.map((url, i) => {
+            const activeExistingCount = existingImages.filter(img =>
+              !imagesToDelete.includes(img.id)
+            ).length;
+            const isExisting = i < activeExistingCount;
+            const isNew = !isExisting;
+            return (
+              <div
+                key={i}
+                className={`${styles.thumb} ${i === activeIndex ? styles.active : ""} ${isNew ? styles.newImage : ""}`}
+                onClick={() => setActiveIndex(i)}
+                title={isNew ? "Imagen nueva" : "Imagen existente"}
+              >
+                <img src={url} alt={`Miniatura ${i + 1}`} />
+                <button
+                  type="button"
+                  className={styles.removeThumb}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveImage(i);
+                  }}
+                  title="Eliminar imagen"
+                >
+                  −
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Contador de imágenes */}
+      <div className={styles.imageCounter}>
+        <span>Total: {totalImages} / {MAX_IMAGES} imágenes</span>
+        {imagesToDelete.length > 0 && (
+          <span className={styles.deleteCount}>
+            {imagesToDelete.length} a eliminar
+          </span>
+        )}
+        {imageFiles.length > 0 && (
+          <span className={styles.newCount}>
+            {imageFiles.length} nueva{imageFiles.length > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {/* Botón agregar más */}
+      <label className={`${styles.fileLabel} ${availableSlots === 0 ? styles.disabled : ""}`}>
+        <Image size={18} />
+        {previewUrls.length === 0
+          ? "Subir imagen"
+          : `Agregar más (${availableSlots} disponibles)`}
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageChange}
+          className={styles.fileInput}
+          disabled={availableSlots === 0}
+        />
+      </label>
+    </>
+  );
+
   return (
     <div className={styles.overlay}>
       <div className={styles.modal}>
@@ -291,117 +409,9 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
         )}
 
         <div className={styles.form}>
-          <textarea
-            placeholder="Escribe algo..."
-            value={text}
-            onChange={(e) => setText(e.target.value.slice(0, 1000))}
-            className={styles.textarea}
-            maxLength={1000}
-          />
-          <div className={styles.charCount}>{text.length}/1000</div>
-
-          {/* ✅ VISTA PREVIA PRINCIPAL */}
-          {previewUrls.length > 0 && (
-            <div className={styles.mainViewer}>
-              <img
-                src={previewUrls[activeIndex]}
-                alt={`Vista previa ${activeIndex + 1}`}
-                className={styles.mainImg}
-              />
-
-              {previewUrls.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    className={styles.navBtn}
-                    onClick={() => setActiveIndex((activeIndex - 1 + previewUrls.length) % previewUrls.length)}
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.navBtn}
-                    style={{ right: '12px', left: 'auto' }}
-                    onClick={() => setActiveIndex((activeIndex + 1) % previewUrls.length)}
-                  >
-                    ›
-                  </button>
-                  <div className={styles.counter}>
-                    {activeIndex + 1} / {previewUrls.length}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* ✅ MINIATURAS con indicador visual */}
-          {previewUrls.length > 1 && (
-            <div className={styles.thumbs}>
-              {previewUrls.map((url, i) => {
-                const activeExistingCount = existingImages.filter(img =>
-                  !imagesToDelete.includes(img.id)
-                ).length;
-                const isExisting = i < activeExistingCount;
-                const isNew = !isExisting;
-                return (
-                  <div
-                    key={i}
-                    className={`${styles.thumb} ${i === activeIndex ? styles.active : ""} ${isNew ? styles.newImage : ""}`}
-                    onClick={() => setActiveIndex(i)}
-                    title={isNew ? "Imagen nueva" : "Imagen existente"}
-                  >
-                    <img src={url} alt={`Miniatura ${i + 1}`} />
-                    <button
-                      type="button"
-                      className={styles.removeThumb}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveImage(i);
-                      }}
-                      title="Eliminar imagen"
-                    >
-                      −
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Contador de imágenes */}
-          <div className={styles.imageCounter}>
-            <span>Total: {totalImages} / {MAX_IMAGES} imágenes</span>
-            {imagesToDelete.length > 0 && (
-              <span className={styles.deleteCount}>
-                {imagesToDelete.length} a eliminar
-              </span>
-            )}
-            {imageFiles.length > 0 && (
-              <span className={styles.newCount}>
-                {imageFiles.length} nueva{imageFiles.length > 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-
-          {/* Botón agregar más */}
-          <label className={`${styles.fileLabel} ${availableSlots === 0 ? styles.disabled : ""}`}>
-            <Image size={18} />
-            {previewUrls.length === 0
-              ? "Subir imagen"
-              : `Agregar más (${availableSlots} disponibles)`}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-              className={styles.fileInput}
-              disabled={availableSlots === 0}
-            />
-          </label>
-
-          {/* Campos de evento */}
-          {type === "event" && (
+          {type === "event" ? (
             <>
+              {/* 1. Título — lo primero que el usuario define mentalmente */}
               <label className={styles.fieldLabel}>
                 <span className={styles.fieldLabelText}>Título del evento</span>
                 <input
@@ -423,6 +433,13 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
                 </div>
               </label>
 
+              {/* 2. Imágenes — ancla visual del evento, antes de describirlo */}
+              {imagesSection}
+
+              {/* 3. Descripción — ahora que ya sabe de qué trata y tiene soporte visual */}
+              {descriptionSection}
+
+              {/* 4. Datos logísticos: fecha/hora y lugar, al final */}
               <div className={styles.row}>
                 <label>
                   <span className={styles.fieldLabelText}><Calendar size={14}/> Inicio</span>
@@ -487,6 +504,12 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
                   <span className={styles.charCountSmall}>{location.length}/{MAX_LOCATION_LENGTH}</span>
                 </div>
               </label>
+            </>
+          ) : (
+            <>
+              {/* Posts normales: se mantiene el orden original (descripción → imágenes) */}
+              {descriptionSection}
+              {imagesSection}
             </>
           )}
 
