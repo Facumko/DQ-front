@@ -29,6 +29,7 @@ import { CoverEditor, AvatarEditor } from "./InlineImageEditor";
 import PromotionModal from "./PromotionModal";
 import PromotionCard from "./PromotionCard";
 import PlanRestrictedModal from "./PlanRestrictedModal";
+import OnboardingQuestionnaire from "../OnboardingQuestionnaire/OnboardingQuestionnaire";
 
 const MOCK_BUSINESS = {
   idCommerce: 0,
@@ -95,6 +96,7 @@ const normalizeBusiness = (d) => {
     coverImage:   d?.coverImage?.url   || d?.coverImage   || null,
     schedules:    d?.schedules || [],
     category:     d?.category || null,
+    tags:         d?.tags || [],
     location,
   };
 };
@@ -897,6 +899,10 @@ const ProfileHeader = ({
             </>
           )}
         </div>
+
+        {isOwner && !isEditing && businessId && (
+          <OnboardingQuestionnaire businessId={businessId} tags={businessData.tags} />
+        )}
 
         <div className={styles.infoGrid}>
           <div className={styles.infoCol}>

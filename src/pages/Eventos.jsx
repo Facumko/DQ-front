@@ -4,7 +4,7 @@ import { getAllEvents } from "../Api/Api";
 import styles from "./Eventos.module.css";
 import { Calendar, Sparkles, Loader, AlertCircle } from "lucide-react";
 
-// Paleta para diferenciar eventos por categoría del comercio (el backend no manda color)
+// Paleta para diferenciar eventos por categoría del comercio
 const EVENT_COLORS = ["#B00020", "#1976D2", "#43A047", "#FB8C00", "#8E24AA", "#D81B60", "#00897B", "#5E35B1"];
 
 // Hash simple y estable: misma categoría → siempre el mismo color

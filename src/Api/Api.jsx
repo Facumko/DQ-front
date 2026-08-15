@@ -300,6 +300,66 @@ export const replaceCommerceSchedules = async (commerceId, schedule) => {
   return apiRequest('PUT', ENDPOINTS.REPLACE_SCHEDULES(commerceId), dto);
 };
 
+// ============================================
+// "Abierto ahora" — se calcula en el cliente
+// ============================================
+// No pega al backend: usa el array de ScheduleDto que ya viene incluido en
+// cada comercio (CommerceResponseDto.schedules) y lo compara contra la hora
+// local del dispositivo. Sirve para la caja "De Turno y Abierto Ahora".
+const JAVA_DAY_BY_INDEX = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+
+const timeToMinutes = (t) => {
+  if (!t) return null;
+  const [h, m] = String(t).split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+};
+
+export const isCommerceOpenNow = (commerce, now = new Date()) => {
+  const schedules = commerce?.schedules;
+  if (!Array.isArray(schedules) || schedules.length === 0) return false;
+
+  const todayJava = JAVA_DAY_BY_INDEX[now.getDay()];
+  const today = schedules.find((s) => s.day === todayJava);
+  if (!today) return false;
+
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  // El campo puede llegar como "continuous" (según el DTO real del backend)
+  // o "isContinuous" (nombre que ya se usaba en otras partes del front) —
+  // contemplamos los dos por las dudas.
+  const isContinuous = today.continuous ?? today.isContinuous ?? false;
+
+  if (isContinuous) {
+    const open  = timeToMinutes(today.morningOpening);
+    const close = timeToMinutes(today.morningClosing);
+    if (open == null || close == null) return false;
+    return nowMinutes >= open && nowMinutes < close;
+  }
+
+  const mOpen  = timeToMinutes(today.morningOpening);
+  const mClose = timeToMinutes(today.morningClosing);
+  const aOpen  = timeToMinutes(today.afternoonOpening);
+  const aClose = timeToMinutes(today.afternoonClosing);
+
+  const inMorning   = mOpen != null && mClose != null && nowMinutes >= mOpen && nowMinutes < mClose;
+  const inAfternoon = aOpen != null && aClose != null && nowMinutes >= aOpen && nowMinutes < aClose;
+  return inMorning || inAfternoon;
+};
+
+/**
+ * Determina si un evento (EventResponseDto) cae en el día de hoy — cubre
+ * tanto eventos de un solo día como los que se extienden por varios
+ * (compara solo la parte de fecha, ignorando la hora). Para la caja
+ * "¿Qué hacemos hoy?".
+ */
+export const isEventToday = (event, now = new Date()) => {
+  if (!event?.startDate) return false;
+  const todayKey = now.toISOString().slice(0, 10);
+  const startKey = event.startDate.slice(0, 10);
+  const endKey = event.endDate ? event.endDate.slice(0, 10) : startKey;
+  return todayKey >= startKey && todayKey <= endKey;
+};
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const shouldRetry = (error, method) => {
   // Reintentar automáticamente solo tiene sentido para lecturas (GET), que no
@@ -637,6 +697,7 @@ const normalizeCommerceBasic = (business) => ({
   schedules:    business.schedules || [],
   address:      business.address   || null,
   category:     business.category  || null,
+  tags:         business.tags      || [],
 });
 
 /**
@@ -720,6 +781,7 @@ export const getBusinessById = async (businessId) => {
     schedules:    business.schedules    || [],
     address:      business.address      || null, // ← faltaba
     category:     business.category     || null,
+    tags:         business.tags         || [],
   };
 };
 
@@ -1045,6 +1107,41 @@ export const getCommercesByCategories = async (categoryIds) => {
 
 
 // ============================================
+// ETIQUETAS DE COMERCIO (clasificación para "Explorá más")
+// ============================================
+// El backend ya expone POST /comercio/agregar/etiquetas/{idCommerce}, que
+// recibe un array de STRINGS (nombres de etiqueta), no de TagDto. Usamos
+// nombres fijos y en texto plano para poder filtrar después con
+// searchCommerces() (operationId del backend: searchCommercesByNameOrTag),
+// que ya matchea por nombre de comercio O de etiqueta.
+//
+// ⚠️ Asunción a confirmar con el backend (ver mensaje aparte para el equipo
+// de back): que agregar/etiquetas crea la etiqueta si el nombre no existe
+// todavía (upsert por nombre) y no falla ni duplica si ya existe.
+export const addCommerceTags = async (idCommerce, tagNames) => {
+  validateParams({ idCommerce, tagNames }, ['idCommerce', 'tagNames']);
+  if (!Array.isArray(tagNames) || tagNames.length === 0) return null;
+  return apiRequest('POST', `/comercio/agregar/etiquetas/${idCommerce}`, tagNames);
+};
+
+export const removeCommerceTagIds = async (idCommerce, tagIds) => {
+  validateParams({ idCommerce, tagIds }, ['idCommerce', 'tagIds']);
+  if (!Array.isArray(tagIds) || tagIds.length === 0) return null;
+  try {
+    const { accessToken } = getStoredTokens();
+    const response = await axios.delete(
+      `${API_URL}/comercio/eliminar/etiquetas/${idCommerce}`,
+      {
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+        data: tagIds,
+        timeout: TIMEOUT,
+      }
+    );
+    return response.data;
+  } catch (error) { throw handleApiError(error, 'removeCommerceTagIds'); }
+};
+
+// ============================================
 // DESTACADOS / CARRUSEL
 // ============================================
 export const getFeaturedSection = async (carouselPage = 0, carouselSize = 5) => {
@@ -1053,6 +1150,45 @@ export const getFeaturedSection = async (carouselPage = 0, carouselSize = 5) => 
     `/destacado?carouselPage=${carouselPage}&carouselSize=${carouselSize}`
   );
   return response; // { carousel: FeaturedItemDto[], featured: FeaturedItemDto[] }
+};
+
+/**
+ * Trae promociones activas para la caja "Promociones y Descuentos" de
+ * Explorá más.
+ *
+ * ⚠️ Solución provisoria: no existe todavía un endpoint público que liste
+ * TODAS las promociones activas de TODOS los comercios (solo está
+ * /promocion/traer/mis/promociones, que es privado y trae las del dueño
+ * logueado). Mientras tanto, reutilizamos /destacado (getFeaturedSection),
+ * que ya devuelve ítems de tipo PROMOTION dentro de su selección algorítmica
+ * para el carrusel del Home. Pedimos un lote grande y filtramos las
+ * promociones ACTIVE.
+ *
+ * Ojo: esto NO garantiza traer 100% de las promociones activas que existan
+ * — /destacado arma una selección (probablemente rotativa/curada), no un
+ * listado exhaustivo. Para que esta caja sea realmente completa hace falta
+ * que el back agregue un endpoint tipo GET /promocion/traer/activas
+ * (público, sin auth, con limit/offset como /comercio/buscar).
+ */
+export const getActivePromotions = async () => {
+  try {
+    const section = await getFeaturedSection(0, 50);
+    const items = [...(section?.carousel || []), ...(section?.featured || [])];
+    const seen = new Set();
+    const promotions = [];
+    items.forEach((item) => {
+      if (item?.type !== 'PROMOTION') return;
+      const promo = item.data;
+      if (!promo || promo.status !== 'ACTIVE') return;
+      if (seen.has(promo.idPromotion)) return;
+      seen.add(promo.idPromotion);
+      promotions.push(promo);
+    });
+    return promotions;
+  } catch (error) {
+    if (isDevelopment) console.error('❌ Error trayendo promociones activas:', error);
+    return [];
+  }
 };
 
 
@@ -1371,7 +1507,9 @@ export default {
   scheduleToBackend,
   scheduleFromBackend, setCommerceCategory, getCommercesByCategories,
   createEvent, getAllEvents, getEventById, updateEvent, deleteEvent, addImagesToEvent, deleteImagesFromEvent, toLocalDateTime,
-  getFeaturedSection,getPromotionTags,
+  getFeaturedSection,
+  getActivePromotions,
+  getPromotionTags,
   getMisPromociones,
   createPromotion,
   updatePromotion,
@@ -1390,4 +1528,8 @@ export default {
   verifyMySubscription,
   changePlan,
   cancelSubscription,
+  addCommerceTags,
+  removeCommerceTagIds,
+  isCommerceOpenNow,
+  isEventToday,
 };

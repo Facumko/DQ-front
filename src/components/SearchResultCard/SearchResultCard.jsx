@@ -1,6 +1,7 @@
 import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
+import { isCommerceOpenNow } from "../../Api/Api";
 import styles from "./SearchResultCard.module.css";
 import { Clock, Star } from "lucide-react";
 
@@ -12,8 +13,9 @@ const SearchResultCard = ({ commerce }) => {
   const isFav = favoriteCommerceIds?.has(id) ?? false;
 
   const getStatus = () => {
-    if (!commerce.schedules?.length) return { label: "Horario no disponible" };
-    return { label: "Ver horarios" };
+    if (!commerce.schedules?.length) return { label: "Horario no cargado", open: null };
+    const open = isCommerceOpenNow(commerce);
+    return { label: open ? "Abierto ahora" : "Cerrado ahora", open };
   };
 
   const status  = getStatus();
@@ -59,7 +61,7 @@ const SearchResultCard = ({ commerce }) => {
         <h3 className={styles.name}>{commerce.name}</h3>
 
         {status.label && (
-          <div className={styles.status}>
+          <div className={`${styles.status} ${status.open === true ? styles.statusOpen : status.open === false ? styles.statusClosed : ""}`}>
             <Clock size={14} />
             <span>{status.label}</span>
           </div>

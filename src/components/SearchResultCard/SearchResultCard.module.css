@@ -109,6 +109,15 @@
   margin-bottom: var(--spacing-sm);
 }
 
+.statusOpen {
+  color: #12805c;
+  font-weight: 600;
+}
+
+.statusClosed {
+  color: #9ca3af;
+}
+
 .description {
   font-size: 0.9rem;
   color: var(--gray-700);
