@@ -166,6 +166,24 @@
   margin-bottom: 3rem;
 }
 
+/* ===== SUBSECCIONES (ej. "Eventos de hoy" / "Buenos planes para hoy") ===== */
+.subsectionTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0 0 1rem 0;
+}
+
+.eventsSection {
+  margin-bottom: 2.5rem;
+}
+
+.eventsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
 /* ===== CARGAR MÁS ===== */
 .loadMoreContainer {
   text-align: center;
