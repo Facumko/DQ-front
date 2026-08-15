@@ -2,15 +2,14 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import FloatingChat from "../components/FloatingChat/FloatingChat";
 import styles from "./Home.module.css";
-import { getMainFeed, getCategories, getFeaturedSection, getBusinessById } from "../Api/Api";
+import { getMainFeed, getFeaturedSection, getBusinessById } from "../Api/Api";
 import { UserContext } from "./UserContext";
 import {
-  Calendar,
-  Utensils,
-  Tag,
-  Store,
-  Wrench,
-  TrendingUp,
+  Siren,
+  Coffee,
+  UtensilsCrossed,
+  Sparkles,
+  Percent,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -62,41 +61,7 @@ const MOCK_DATA = {
     },
   ],
 
-  featuredBusinesses: [
-    {
-      id: 1,
-      name: "Café Artesanal Luna",
-      logo: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=120&q=80",
-      category: "Cafetería",
-      location: "Centro Histórico",
-      promotion: "Café + Postre $8.500",
-    },
-    {
-      id: 2,
-      name: "Gimnasio FitLife Pro",
-      logo: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=120&q=80",
-      category: "Deportes & Fitness",
-      location: "Zona Norte",
-      promotion: "Primer mes gratis",
-    },
-    {
-      id: 3,
-      name: "Spa Wellness Center",
-      logo: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=120&q=80",
-      category: "Salud & Belleza",
-      location: "Plaza Central",
-      promotion: "Masajes 2x1",
-    },
-  ],
-
-  categoryStyles: [
-    { icon: Calendar,   gradient: "gradientBlue",   image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&q=80",  description: "Eventos destacados"   },
-    { icon: Utensils,   gradient: "gradientOrange", image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",  description: "Restaurantes y cafés" },
-    { icon: Tag,        gradient: "gradientGreen",  image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80",  description: "Descuentos especiales" },
-    { icon: Store,      gradient: "gradientPurple", image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80",  description: "Nuevos negocios"       },
-    { icon: Wrench,     gradient: "gradientRed",    image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80",  description: "Técnicos y delivery"   },
-    { icon: TrendingUp, gradient: "gradientPink",   image: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=400&q=80",  description: "Tendencias actuales"   },
-  ],
+  featuredBusinesses: [],
 
   directorySlides: [
     {
@@ -140,6 +105,72 @@ const MOCK_DATA = {
     },
   ],
 };
+
+// ============================================
+// Cajas fijas de "Explorá más"
+// ============================================
+// A diferencia de las categorías (que venían del backend), estas 6 cajas son
+// fijas y responden a una intención de búsqueda, no a un rubro. El campo
+// "explora" es la clave que va a usar SearchPage (en un próximo paso) para
+// pedir al backend el listado correspondiente a cada caja.
+const EXPLORE_BOXES = [
+  {
+    key: "emergencias",
+    icon: Siren,
+    gradient: "gradientRed",
+    image: "https://images.unsplash.com/photo-1587351021355-a479a299d2f9?w=400&q=80",
+    title: "Servicios de Emergencia y 24hs",
+    description: "Urgencias, guardias y atención inmediata",
+    link: "/search?explora=emergencias",
+  },
+  {
+    key: "hoy",
+    icon: Coffee,
+    gradient: "gradientOrange",
+    image: "https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=400&q=80",
+    title: "¿Qué hacemos hoy?",
+    description: "Cafés, heladerías, planes y eventos de hoy",
+    link: "/search?explora=hoy",
+  },
+  {
+    key: "cena",
+    icon: UtensilsCrossed,
+    gradient: "gradientPurple",
+    image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",
+    title: "¿Dónde cenar esta noche?",
+    description: "Restaurantes, bares y delivery nocturno",
+    link: "/search?explora=cena",
+  },
+  {
+    key: "abierto-ahora",
+    icon: Clock,
+    gradient: "gradientBlue",
+    image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&q=80",
+    title: "De Turno y Abierto Ahora",
+    description: "Lo que está abierto en este momento",
+    link: "/search?explora=abierto-ahora",
+  },
+  {
+    key: "nuevos",
+    icon: Sparkles,
+    gradient: "gradientPink",
+    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80",
+    title: "Nuevos en la Ciudad",
+    description: "Los últimos negocios en sumarse",
+    // Este ya funciona hoy: reutiliza el modo "agregados" que SearchPage
+    // trae de getRecentCommerces() (comercios de los últimos 30 días).
+    link: "/search?agregados=true",
+  },
+  {
+    key: "promociones",
+    icon: Percent,
+    gradient: "gradientGreen",
+    image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80",
+    title: "Promociones y Descuentos",
+    description: "Las mejores ofertas activas ahora",
+    link: "/search?explora=promociones",
+  },
+];
 
 // ============================================
 // Directorio Destacado
@@ -234,18 +265,10 @@ const Home = () => {
   const [feedError,           setFeedError]           = useState("");
   const [feedHasMore,         setFeedHasMore]         = useState(true);
   const [currentImageIndex,   setCurrentImageIndex]   = useState({});
-  const [apiCategories,       setApiCategories]       = useState([]);
   const [sideFeatured,        setSideFeatured]        = useState([]); // cajas laterales: misma fuente que el carrusel (/destacado → featured)
   const sectionsRef = useRef([]);
 
   const FEED_SIZE = 10;
-
-  // ── Cargar categorías ─────────────────────────────────────────────────
-  useEffect(() => {
-    getCategories()
-      .then((cats) => setApiCategories(Array.isArray(cats) ? cats : []))
-      .catch(() => {});
-  }, []);
 
   // ── Normalizar item del carrusel del backend ──────────────────────────
   const normalizeFeaturedItem = (item) => {
@@ -476,8 +499,6 @@ const Home = () => {
   const prevImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) - 1 + total) % total }));
 
-  const handleCategoryClick = (catId) => navigate(`/search?categoryIds=${catId}`);
-
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className={styles.homeContainer}>
@@ -597,59 +618,35 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ── CATEGORÍAS + DIRECTORIO ── */}
+      {/* ── EXPLORÁ MÁS + DIRECTORIO ── */}
       <section ref={(el) => (sectionsRef.current[1] = el)} className={`${styles.section} ${styles.categoriesSection}`}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>¿Qué estás buscando?</h2>
+          <h2 className={styles.sectionTitle}>Explorá más</h2>
           <p className={styles.sectionSubtitle}>
-            Explorá nuestras categorías más populares y encontrá exactamente lo que necesitás
+            Elegí qué necesitás en este momento y te mostramos lo que corresponde
           </p>
         </div>
 
         <div className={styles.categoriesLayout}>
           <div className={styles.categoriesGrid}>
-            {(apiCategories.length > 0 ? apiCategories : []).map((cat, i) => {
-              const style = MOCK_DATA.categoryStyles[i % MOCK_DATA.categoryStyles.length];
-              const IconComponent = style.icon;
+            {EXPLORE_BOXES.map((box) => {
+              const IconComponent = box.icon;
               return (
                 <div
-                  key={cat.idCategory}
+                  key={box.key}
                   className={styles.categoryCard}
-                  onClick={() => handleCategoryClick(cat.idCategory)}
+                  onClick={() => navigate(box.link)}
                   style={{ cursor: "pointer" }}
                 >
                   <div className={styles.categoryImageContainer}>
-                    <img src={style.image} alt={cat.name} className={styles.categoryImage} onError={handleImageError} />
-                    <div className={`${styles.categoryOverlay} ${styles[style.gradient]}`}>
+                    <img src={box.image} alt={box.title} className={styles.categoryImage} onError={handleImageError} />
+                    <div className={`${styles.categoryOverlay} ${styles[box.gradient]}`}>
                       <IconComponent size={64} className={styles.categoryIcon} />
                     </div>
                   </div>
                   <div className={styles.categoryContent}>
-                    <h3 className={styles.categoryTitle}>{cat.name}</h3>
-                    <p className={styles.categoryDescription}>{style.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-
-            {apiCategories.length === 0 && MOCK_DATA.categoryStyles.map((style, i) => {
-              const IconComponent = style.icon;
-              return (
-                <div
-                  key={i}
-                  className={styles.categoryCard}
-                  onClick={() => navigate("/search?q=")}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className={styles.categoryImageContainer}>
-                    <img src={style.image} alt="" className={styles.categoryImage} onError={handleImageError} />
-                    <div className={`${styles.categoryOverlay} ${styles[style.gradient]}`}>
-                      <IconComponent size={64} className={styles.categoryIcon} />
-                    </div>
-                  </div>
-                  <div className={styles.categoryContent}>
-                    <h3 className={styles.categoryTitle}>{style.description}</h3>
-                    <p className={styles.categoryDescription}>Explorá negocios</p>
+                    <h3 className={styles.categoryTitle}>{box.title}</h3>
+                    <p className={styles.categoryDescription}>{box.description}</p>
                   </div>
                 </div>
               );
@@ -775,7 +772,7 @@ const Home = () => {
                   {feedLoading ? "Cargando..." : "Cargar más publicaciones"}
                 </button>
               ) : (
-                <p className={styles.feedEnd}>Ya viste todo por ahora 👀</p>
+                <p className={styles.feedEnd}>Ya viste todo por ahora</p>
               )}
             </div>
           )}
