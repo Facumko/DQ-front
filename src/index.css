@@ -15,6 +15,21 @@
   /* Otros */
   --text-color: #333;
   --bg-color: #fafafa;
+
+  /* ============================================================
+     ESCALA DE Z-INDEX — única fuente de verdad para todo apilamiento
+     de la app. Cualquier overlay/modal/drawer nuevo debe usar una de
+     estas variables, nunca un número mágico suelto.
+     ============================================================ */
+  --z-navbar:         100;   /* navbar sticky */
+  --z-dropdown:       500;   /* sugerencias de búsqueda, menús flotantes dentro del flujo normal */
+  --z-fab:            800;   /* botones flotantes (ej. chat) */
+  --z-modal-backdrop: 1000;  /* fondo + caja de CUALQUIER modal de primer nivel */
+  --z-modal-content:  1010;  /* solo para casos donde el panel del modal es un elemento
+                                 fixed separado de su propio backdrop (ej. drawers laterales) */
+  --z-modal-confirm:  1100;  /* diálogos de confirmación que se abren ENCIMA de un modal
+                                 ya abierto (ej. "¿eliminar esta imagen?" dentro de un form) */
+  --z-toast:          4000;  /* notificaciones tipo toast — siempre por encima de todo */
 }
 
 /* Aplicar fuente globalmente */

@@ -51,7 +51,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-  z-index: 4000;
+  z-index: var(--z-toast);
   white-space: nowrap;
   animation: toastIn 0.25s ease;
   max-width: calc(100vw - 40px);

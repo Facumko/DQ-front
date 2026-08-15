@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "./MapaPage.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getCommercesByCategories, getAllCommerces } from "../Api/Api";
 import { UserContext } from "./UserContext";
@@ -544,7 +545,7 @@ export default function MapaPage() {
         </button>
 
         {/* Mapa */}
-        <div style={s.mapWrap}>
+        <div style={s.mapWrap} className="mapaPageWrap">
           {loading ? (
             <div style={s.mapLoading}><div style={s.spinner} /><span style={s.muted}>Cargando mapa...</span></div>
           ) : (

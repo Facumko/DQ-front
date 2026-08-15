@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  z-index: var(--z-modal-confirm); /* se abre anidado dentro de PromotionModal (.overlay) */
   padding: 16px;
   animation: fadeIn 0.15s ease;
 }
