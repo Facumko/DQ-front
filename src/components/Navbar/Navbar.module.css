@@ -13,11 +13,14 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   position: sticky;
   top: 0;
-  /* Los controles de Leaflet (.leaflet-top/.leaflet-bottom) ya se bajan a
-     z-index:900 en cada componente que embebe un mapa (LocationPicker.module.css,
-     LocationDisplay.module.css, MapaPage.css) — por eso la navbar ya no necesita
-     un z-index artificialmente alto solo para ganarles. Ver escala completa en
-     src/index.css (variables --z-*). */
+  /* Los 3 componentes que embeben un mapa Leaflet (LocationPicker,
+     LocationDisplay, MapaPage) tienen isolation:isolate en su contenedor
+     del mapa, que crea un contexto de apilamiento propio — así los
+     controles +/- de Leaflet (z-index:1000 por defecto) quedan contenidos
+     ahí adentro y nunca pueden competir con el navbar ni con ningún otro
+     elemento de la página, sea cual sea su z-index interno. Por eso la
+     navbar no necesita un z-index artificialmente alto. Ver escala
+     completa en src/index.css (variables --z-*). */
   z-index: var(--z-navbar);
   color: white;
   box-sizing: border-box;
