@@ -85,84 +85,8 @@
   right: 0;
 }
 
-/* Contador de imágenes */
-.counter {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  font-size: 0.8rem;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-weight: 500;
-  z-index: 3;
-}
-
 /* ===================================== */
-/* MINIATURAS (Thumbnails) */
-/* ===================================== */
-
-.thumbnails {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 12px 4px 4px;
-  margin-top: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: #ccc transparent;
-}
-
-.thumbnails::-webkit-scrollbar {
-  height: 6px;
-}
-
-.thumbnails::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.thumbnails::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 3px;
-}
-
-.thumbnails::-webkit-scrollbar-thumb:hover {
-  background: #999;
-}
-
-.thumbnail {
-  min-width: 70px;
-  width: 70px;
-  height: 70px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: none;
-  padding: 0;
-}
-
-.thumbnail:hover {
-  border-color: #3498db;
-  transform: scale(1.05);
-}
-
-.thumbnailActive {
-  border-color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
-}
-
-.thumbnailImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* ===================================== */
-/* DOTS (Para +10 imágenes) */
+/* DOTS (indicadores de posición) */
 /* ===================================== */
 
 .dots {
@@ -220,18 +144,6 @@
     right: 8px;
   }
 
-  .counter {
-    font-size: 0.75rem;
-    padding: 4px 10px;
-    bottom: 8px;
-  }
-
-  .thumbnail {
-    min-width: 60px;
-    width: 60px;
-    height: 60px;
-  }
-
   .leftClickArea,
   .rightClickArea {
     width: 30%;
@@ -246,12 +158,6 @@
   .navBtn {
     width: 32px;
     height: 32px;
-  }
-
-  .thumbnail {
-    min-width: 55px;
-    width: 55px;
-    height: 55px;
   }
 
   .dots {
