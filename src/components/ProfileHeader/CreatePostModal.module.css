@@ -93,7 +93,11 @@
 .form {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: scroll; /* "scroll" en vez de "auto": fuerza que el scroll esté
+    siempre activo e interactivo, sin depender de que el navegador detecte
+    bien el overflow. Si esto no alcanza, el problema no es CSS. */
+  overscroll-behavior: contain; /* evita que el scroll "se escape" hacia la
+    página de fondo en vez de quedarse adentro del modal */
   padding-right: 8px;
   display: flex;
   flex-direction: column;
@@ -369,10 +373,24 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 6px;
+  overflow-y: hidden; /* nunca recortar verticalmente, solo permitir scroll horizontal */
+  padding-bottom: 10px; /* espacio real para la scrollbar horizontal, así no tapa
+    la parte de abajo de las miniaturas (el padding de 6px que había antes no
+    alcanzaba en navegadores con scrollbar "clásica", no flotante) */
 }
 
+/* Scrollbar horizontal fina y prolija en vez de la nativa del navegador
+   (que en Windows/Linux puede medir 15-17px y comerse buena parte de una
+   miniatura de 60px si no se le deja espacio de sobra) */
+.thumbs::-webkit-scrollbar { height: 6px; }
+.thumbs::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+.thumbs::-webkit-scrollbar-track { background: transparent; }
+.thumbs { scrollbar-width: thin; scrollbar-color: #e5e7eb transparent; }
+
 .thumb {
+  box-sizing: border-box; /* así el borde de 2px queda DENTRO de los 60px
+    declarados, en vez de sumarse por fuera (no había ningún box-sizing
+    global en toda la app, así que por default el navegador usaba content-box) */
   position: relative;
   min-width: 60px;
   height: 60px;

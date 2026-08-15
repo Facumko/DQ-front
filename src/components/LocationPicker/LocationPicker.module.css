@@ -196,18 +196,15 @@
 /* ── Mapa ── */
 .mapWrap {
   position: relative;
+  isolation: isolate; /* crea un contexto de apilamiento propio: nada de
+    adentro del mapa (controles de Leaflet, que traen z-index:1000 por
+    defecto) puede escaparse a competir con el navbar u otro elemento de
+    la página, sin importar qué z-index tenga por dentro. position:relative
+    solo (sin z-index ni isolation) NO alcanza para esto. */
   border-radius: 12px;
   overflow: hidden;
   border: 1.5px solid #e5e7eb;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-/* Los controles de Leaflet (zoom +/-) traen z-index:1000 por defecto, igual
-   que la navbar tenía antes. Lo bajamos acá como resguardo extra, además de
-   haber subido el z-index de la navbar globalmente (ver Navbar.module.css). */
-.mapWrap :global(.leaflet-top),
-.mapWrap :global(.leaflet-bottom) {
-  z-index: 900;
 }
 
 .map {

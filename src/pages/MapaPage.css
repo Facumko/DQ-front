@@ -1,7 +1,0 @@
-/* Los controles de Leaflet (zoom +/-) traen z-index:1000 por defecto — el
-   mismo criterio de LocationPicker.module.css y LocationDisplay.module.css:
-   los bajamos acá para que nunca compitan con la navbar ni con ningún modal. */
-.mapaPageWrap .leaflet-top,
-.mapaPageWrap .leaflet-bottom {
-  z-index: 900;
-}

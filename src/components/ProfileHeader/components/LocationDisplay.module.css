@@ -36,6 +36,9 @@
 /* ── Mapa (fijo, sin controles de edición) ── */
 .mapWrap {
   position: relative;
+  isolation: isolate; /* contexto de apilamiento propio: contiene los
+    controles de Leaflet (z-index:1000 por defecto) para que nunca puedan
+    competir con el navbar, sin importar el z-index interno. */
   border-radius: 12px;
   overflow: hidden;
   border: 1.5px solid #e5e7eb;
@@ -45,13 +48,6 @@
 .map {
   height: 220px;
   width: 100%;
-}
-
-/* Resguardo: que los controles +/- de Leaflet nunca superen a la navbar
-   (mismo criterio que en LocationPicker.module.css) */
-.mapWrap :global(.leaflet-top),
-.mapWrap :global(.leaflet-bottom) {
-  z-index: 900;
 }
 
 /* ── Botón "Cómo llegar" ── */

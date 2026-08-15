@@ -5,7 +5,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import "./MapaPage.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getCommercesByCategories, getAllCommerces } from "../Api/Api";
 import { UserContext } from "./UserContext";
@@ -839,7 +838,7 @@ const s = {
     margin: "2px 0 0", fontSize: "0.69rem", color: "#9ca3af",
     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
   },
-  mapWrap: { flex: 1, position: "relative", overflow: "hidden" },
+  mapWrap: { flex: 1, position: "relative", overflow: "hidden", isolation: "isolate" },
   mapLoading: {
     width: "100%", height: "100%",
     display: "flex", flexDirection: "column",
