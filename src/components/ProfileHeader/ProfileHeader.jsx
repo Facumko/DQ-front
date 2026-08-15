@@ -1156,7 +1156,7 @@ const ProfileHeader = ({
               id={`posts-${post.id}`}
               className={`${styles.postCard} ${highlightKey === `posts-${post.id}` ? styles.cardHighlighted : ""}`}
             >
-              {post.images?.length > 0 && <PostGallery images={post.images} showThumbnails={true}/>}
+              {post.images?.length > 0 && <PostGallery images={post.images} />}
               <div className={styles.postBody}>
                 <p className={styles.postText}>{post.text}</p>
                 <div className={styles.postFooter}>
@@ -1186,7 +1186,7 @@ const ProfileHeader = ({
               id={`events-${ev.idEvent}`}
               className={`${styles.eventCard} ${highlightKey === `events-${ev.idEvent}` ? styles.cardHighlighted : ""}`}
             >
-              {ev.images?.length > 0 && <PostGallery images={ev.images.map(i => i.url || i)} showThumbnails={true}/>}
+              {ev.images?.length > 0 && <PostGallery images={ev.images.map(i => i.url || i)} />}
               <div className={styles.eventHeader}>
                 <h3 className={styles.eventTitle}>{ev.title}</h3>
                 <div className={styles.eventMeta}>

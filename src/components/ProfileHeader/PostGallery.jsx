@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styles from "./PostGallery.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-const PostGallery = ({ images, showThumbnails = false }) => { // ✅ NUEVO parámetro
+const PostGallery = ({ images }) => {
   const [index, setIndex] = useState(0);
   
   useEffect(() => {
@@ -75,32 +75,10 @@ const PostGallery = ({ images, showThumbnails = false }) => { // ✅ NUEVO pará
             <ChevronRight size={24} />
           </button>
         )}
-
-        {images.length > 1 && (
-          <div className={styles.counter}>
-            {index + 1} / {images.length}
-          </div>
-        )}
       </div>
 
-      {/* ✅ CORREGIDO: Solo mostrar miniaturas si showThumbnails es true */}
-      {showThumbnails && images.length > 1 && images.length <= 10 && (
-        <div className={styles.thumbnails}>
-          {images.map((img, i) => (
-            <button
-              key={i}
-              className={`${styles.thumbnail} ${i === index ? styles.thumbnailActive : ''}`}
-              onClick={() => goToImage(i)}
-              aria-label={`Ver imagen ${i + 1}`}
-            >
-              <img src={img} alt="" className={styles.thumbnailImg} />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ✅ CORREGIDO: Solo mostrar dots si showThumbnails es true */}
-      {showThumbnails && images.length > 10 && (
+      {/* Indicadores de posición: único elemento de navegación bajo la foto */}
+      {images.length > 1 && (
         <div className={styles.dots}>
           {images.map((_, i) => (
             <button

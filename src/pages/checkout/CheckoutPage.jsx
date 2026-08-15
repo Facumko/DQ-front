@@ -2,6 +2,7 @@ import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserContext } from "../../pages/UserContext";
+import { resolveBackendPlanId, subscribeToPlan } from "../../Api/Api";
 import styles from "./CheckoutPage.module.css";
 import {
   FaShieldAlt, FaLock, FaCheckCircle, FaArrowLeft,
@@ -90,25 +91,14 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      // Llamada a TU backend — él crea la preferencia en MP y devuelve el init_point
-      const response = await fetch("/api/pagos/crear-preferencia", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Si usás JWT: "Authorization": `Bearer ${user.token}`
-        },
-        body: JSON.stringify({
-          planId: plan.id,
-          userEmail: user.email,
-        }),
-      });
+      // plan.id es el id "amigable" del front (basic/mid/premium); el backend
+      // necesita el idPlan numérico real, así que primero lo resolvemos
+      // contra /plan/traer (ver comentario en Api.jsx sobre este mapeo).
+      const idPlan = await resolveBackendPlanId(plan.id);
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.mensaje || "Error al iniciar el pago");
-      }
-
-      const { initPoint } = await response.json();
+      // El backend crea la preferencia en Mercado Pago y devuelve initPoint
+      const { initPoint } = await subscribeToPlan(idPlan);
+      if (!initPoint) throw new Error("El servidor no devolvió el link de pago.");
 
       // Redirigir al checkout de Mercado Pago
       window.location.href = initPoint;

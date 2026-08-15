@@ -372,32 +372,6 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
         </div>
       )}
 
-      {/* ✅ MINIATURAS — navegación pura, click para enfocar */}
-      {images.length > 1 && (
-        <div className={styles.thumbs}>
-          {images.map((img, i) => (
-            <div
-              key={img.key}
-              className={`${styles.thumb} ${i === activeIndex ? styles.active : ""} ${img.kind === 'new' ? styles.newImage : ""}`}
-              onClick={() => setActiveIndex(i)}
-              title={img.kind === 'new' ? "Imagen nueva" : "Imagen existente"}
-            >
-              <img src={img.url} alt={`Miniatura ${i + 1}`} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Resumen de cupo */}
-      <div className={styles.imageCounter}>
-        <span>Total: {totalImages} / {MAX_IMAGES} imágenes</span>
-        {newCount > 0 && (
-          <span className={styles.newCount}>
-            {newCount} nueva{newCount > 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
-
       {/* Botón agregar más */}
       <label className={`${styles.fileLabel} ${availableSlots === 0 || isSubmitting ? styles.disabled : ""}`}>
         <Image size={18} />

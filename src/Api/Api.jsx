@@ -1408,6 +1408,80 @@ export const registerPromotionClick = async (idPromocion) => {
     await apiRequest('POST', `/promocion/click/${idPromocion}`);
   } catch { /* silencioso */ }
 };
+
+// ============================================
+// PLANES Y SUSCRIPCIONES
+// ============================================
+//
+// ⚠️ OJO — dos cosas a tener presente si esto tira errores raros:
+//
+// 1) El front identifica los planes con ids "amigables" (basic/mid/premium,
+//    ver Plans.jsx y CheckoutPage.jsx), pero el backend los identifica de DOS
+//    formas distintas según el endpoint:
+//      - POST /suscripcion/suscribirse/{planId}    → espera el idPlan NUMÉRICO
+//      - PUT  /suscripcion/cambiar/plan?nuevoPlan=X → espera el PlanType STRING
+//        (BASIC | INTERMEDIATE | PREMIUM)
+//    No hay forma de ir de "basic" al idPlan sin primero pedir /plan/traer y
+//    buscar por planType. resolveBackendPlanId() hace exactamente eso. Si el
+//    backend algún día cambia los nombres del enum, hay que actualizar el
+//    mapa FRONT_PLAN_ID_TO_TYPE de abajo.
+//
+// 2) En el OpenAPI, /suscripcion/verificar devuelve `type: object` genérico
+//    (sin DTO tipado), a diferencia de /suscripcion/mi-suscripcion que sí
+//    devuelve SubscriptionResponseDto. No asumas la forma de la respuesta de
+//    verificar() sin probarla contra el backend real primero.
+
+export const FRONT_PLAN_ID_TO_TYPE = {
+  basic: 'BASIC',
+  mid: 'INTERMEDIATE',
+  premium: 'PREMIUM',
+};
+
+export const getPlans = async () => apiRequest('GET', '/plan/traer');
+
+export const getPlanById = async (idPlan) => {
+  validateParams({ idPlan }, ['idPlan']);
+  return apiRequest('GET', `/plan/traer/${idPlan}`);
+};
+
+/**
+ * Resuelve el idPlan numérico del backend a partir del id "amigable" del
+ * frontend (basic/mid/premium): trae la lista real de planes y busca por
+ * planType. Tira error explícito en vez de fallar en silencio más adelante
+ * durante el pago.
+ */
+export const resolveBackendPlanId = async (frontPlanId) => {
+  const planType = FRONT_PLAN_ID_TO_TYPE[frontPlanId];
+  if (!planType) throw new Error(`Plan desconocido: "${frontPlanId}"`);
+  const plans = await getPlans();
+  const match = Array.isArray(plans) ? plans.find(p => p.planType === planType) : null;
+  if (!match) throw new Error(`No se encontró el plan "${planType}" en el backend`);
+  return match.idPlan;
+};
+
+export const subscribeToPlan = async (idPlan) => {
+  validateParams({ idPlan }, ['idPlan']);
+  // Devuelve MpSubscriptionResponseDto: { initPoint, mpSubscriptionId, status }
+  return apiRequest('POST', `/suscripcion/suscribirse/${idPlan}`);
+};
+
+export const getMySubscription = async () =>
+  apiRequest('GET', '/suscripcion/mi-suscripcion');
+
+export const verifyMySubscription = async () =>
+  apiRequest('GET', '/suscripcion/verificar');
+
+export const changePlan = async (nuevoPlan) => {
+  validateParams({ nuevoPlan }, ['nuevoPlan']);
+  if (!['BASIC', 'INTERMEDIATE', 'PREMIUM'].includes(nuevoPlan)) {
+    throw new Error(`Plan inválido: "${nuevoPlan}"`);
+  }
+  return apiRequest('PUT', `/suscripcion/cambiar/plan?nuevoPlan=${nuevoPlan}`);
+};
+
+export const cancelSubscription = async () =>
+  apiRequest('DELETE', '/suscripcion/cancelar');
+
 // ============================================
 // EXPORTACIÓN
 // ============================================
@@ -1446,6 +1520,14 @@ export default {
   getPromotionMetrics,
   registerPromotionView,
   registerPromotionClick,
+  getPlans,
+  getPlanById,
+  resolveBackendPlanId,
+  subscribeToPlan,
+  getMySubscription,
+  verifyMySubscription,
+  changePlan,
+  cancelSubscription,
   addCommerceTags,
   removeCommerceTagIds,
   isCommerceOpenNow,
