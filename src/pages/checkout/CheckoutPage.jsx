@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserContext } from "../../pages/UserContext";
-import { resolveBackendPlanId, subscribeToPlan } from "../../Api/Api";
+import { resolveBackendPlanId, subscribeToPlan, changePlan, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
 import styles from "./CheckoutPage.module.css";
 import {
   FaShieldAlt, FaLock, FaCheckCircle, FaArrowLeft,
@@ -85,6 +85,8 @@ export default function CheckoutPage() {
 
   if (!plan || !user) return null;
 
+  const isDevMode = import.meta.env.MODE === "development";
+
   // ── Iniciar pago ──────────────────────────────────────────────────────────
   const handlePagar = async () => {
     setError("");
@@ -99,6 +101,24 @@ export default function CheckoutPage() {
       // El backend crea la preferencia en Mercado Pago y devuelve initPoint
       const { initPoint } = await subscribeToPlan(idPlan);
       if (!initPoint) throw new Error("El servidor no devolvió el link de pago.");
+
+      // 🧪 SOLO DESARROLLO: forzamos el cambio de plan DESPUÉS de crear la
+      // suscripción (subscribeToPlan de arriba ya generó el registro, aunque
+      // quede en estado "pending"), para poder probar el flujo completo sin
+      // depender de completar el pago y de que el webhook (POST /webhook/mp)
+      // le avise al backend. No reemplaza el flujo real — el redirect a MP
+      // de abajo sigue pasando igual.
+      if (isDevMode) {
+        const planType = FRONT_PLAN_ID_TO_TYPE[plan.id];
+        try {
+          await changePlan(planType);
+        } catch (testErr) {
+          // Si el backend exige status ACTIVE (no solo que exista el
+          // registro), esto va a seguir fallando incluso con la suscripción
+          // recién creada — es una limitación del backend, no del front.
+          console.warn("[modo prueba] No se pudo forzar el cambio de plan:", testErr.message);
+        }
+      }
 
       // Redirigir al checkout de Mercado Pago
       window.location.href = initPoint;
@@ -223,6 +243,12 @@ export default function CheckoutPage() {
                   <span>{formatARS(plan.precio)}/mes</span>
                 </div>
               </div>
+
+              {isDevMode && (
+                <div className={styles.devBanner}>
+                  🧪 Modo prueba: el plan se va a cambiar igual, sin depender de que completes el pago en MP.
+                </div>
+              )}
 
               {error && (
                 <div className={styles.errorBox}>
