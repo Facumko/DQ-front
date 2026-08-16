@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import { createBusiness, setCommerceCategory } from "../../Api/Api";
+import PlanRestrictedModal from "../ProfileHeader/PlanRestrictedModal";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
 import CreatorInfo from "./CreatorInfo";
@@ -18,6 +19,7 @@ function FormCommerce() {
   const [currentStep,      setCurrentStep]     = useState(1);
   const [isSubmitting,     setIsSubmitting]     = useState(false);
   const [checkingBusiness, setCheckingBusiness] = useState(true);
+  const [showPlanRestrictedModal, setShowPlanRestrictedModal] = useState(false);
 
   const [formData, setFormData] = useState({
     selectedPlan:        "",
@@ -95,7 +97,11 @@ function FormCommerce() {
 
       navigate(`/negocios/${created.id_business}`);
     } catch (err) {
-      alert(`Error al crear el negocio: ${err.message}`);
+      if (err.isPlanError) {
+        setShowPlanRestrictedModal(true);
+      } else {
+        alert(`Error al crear el negocio: ${err.message}`);
+      }
       setIsSubmitting(false);
     }
   };
@@ -157,6 +163,12 @@ function FormCommerce() {
 
         </div>
       </div>
+
+      <PlanRestrictedModal
+        isOpen={showPlanRestrictedModal}
+        onClose={() => setShowPlanRestrictedModal(false)}
+        onUpgrade={() => navigate("/checkout/basic")}
+      />
     </div>
   );
 }
