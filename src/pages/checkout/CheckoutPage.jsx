@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserContext } from "../../pages/UserContext";
-import { resolveBackendPlanId, subscribeToPlan, changePlan, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
+import { resolveBackendPlanId, subscribeToPlan, changePlan, getPlans, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
 import styles from "./CheckoutPage.module.css";
 import {
   FaShieldAlt, FaLock, FaCheckCircle, FaArrowLeft,
@@ -10,8 +10,11 @@ import {
 } from "react-icons/fa";
 
 // ── Definición de planes ─────────────────────────────────────────────────────
-// IMPORTANTE: los precios aquí son solo visuales.
-// El backend define el monto real al crear la preferencia de MP.
+// Los precios de acá son el FALLBACK visual — al montar la pantalla se pide
+// el precio real a /plan/traer (ver useEffect con getPlans más abajo) y se
+// muestra ese en su lugar. Si ese fetch falla, se usa este hardcodeado.
+// De cualquier forma, el backend define el monto real al crear la
+// preferencia de MP — el precio mostrado acá nunca afecta lo que se cobra.
 const PLANES = {
   basic: {
     id: "basic",
@@ -73,6 +76,25 @@ export default function CheckoutPage() {
 
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
+  // Precio real del backend — arranca en null y se reemplaza el precio
+  // hardcodeado de PLANES apenas llega. Si el fetch falla, nos quedamos
+  // con el hardcodeado (mejor mostrar un precio aproximado que nada,
+  // y el cobro real de todas formas lo define el backend en Mercado Pago).
+  const [realPrice, setRealPrice] = useState(null);
+
+  useEffect(() => {
+    if (!plan) return;
+    let cancelled = false;
+    const planType = FRONT_PLAN_ID_TO_TYPE[plan.id];
+    getPlans()
+      .then(plans => {
+        if (cancelled || !Array.isArray(plans)) return;
+        const match = plans.find(p => p.planType === planType);
+        if (match && typeof match.price === "number") setRealPrice(match.price);
+      })
+      .catch(() => { /* silencioso — nos quedamos con el precio hardcodeado */ });
+    return () => { cancelled = true; };
+  }, [plan]);
 
   // Redirigir si el plan no existe o no hay sesión
   useEffect(() => {
@@ -84,6 +106,8 @@ export default function CheckoutPage() {
   }, [plan, user, navigate]);
 
   if (!plan || !user) return null;
+
+  const displayPrice = realPrice ?? plan.precio;
 
   const isDevMode = import.meta.env.MODE === "development";
 
@@ -162,7 +186,7 @@ export default function CheckoutPage() {
 
               <div className={styles.priceRow}>
                 <span className={styles.priceLabel}>Total por mes</span>
-                <span className={styles.price}>{formatARS(plan.precio)}</span>
+                <span className={styles.price}>{formatARS(displayPrice)}</span>
               </div>
 
               <div className={styles.divider} />
@@ -232,7 +256,7 @@ export default function CheckoutPage() {
               <div className={styles.invoiceBox}>
                 <div className={styles.invoiceLine}>
                   <span>Plan {plan.badge}</span>
-                  <span>{formatARS(plan.precio)}</span>
+                  <span>{formatARS(displayPrice)}</span>
                 </div>
                 <div className={styles.invoiceLine}>
                   <span>Período</span>
@@ -240,7 +264,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className={`${styles.invoiceLine} ${styles.invoiceTotal}`}>
                   <span>Total</span>
-                  <span>{formatARS(plan.precio)}/mes</span>
+                  <span>{formatARS(displayPrice)}/mes</span>
                 </div>
               </div>
 

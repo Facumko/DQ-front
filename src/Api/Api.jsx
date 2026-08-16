@@ -825,6 +825,7 @@ export const createBusiness = async (businessData) => {
     };
   } catch (error) {
     console.error("❌ Error en createBusiness:", error);
+    if (error.status === 403) error.isPlanError = true;
     throw error;
   }
 };
@@ -949,7 +950,11 @@ export const createPost = async (description, idCommerce, imageFiles=[], eventDa
   try {
     const response = await axios.post(`${API_URL}${ENDPOINTS.POST_CREATE}`, formData, { headers:{'Content-Type':'multipart/form-data','ngrok-skip-browser-warning':'true'}, timeout:60000 });
     return response.data;
-  } catch (error) { throw handleApiError(error, 'createPost'); }
+  } catch (error) {
+    const err = handleApiError(error, 'createPost');
+    if (err.status === 403) err.isPlanError = true;
+    throw err;
+  }
 };
 
 export const getAllPosts = async () => apiRequest('GET', ENDPOINTS.POST_GET_ALL);
@@ -1236,7 +1241,11 @@ export const createEvent = async (eventData, imageFiles = []) => {
       }
     );
     return response.data;
-  } catch (error) { throw handleApiError(error, 'createEvent'); }
+  } catch (error) {
+    const err = handleApiError(error, 'createEvent');
+    if (err.status === 403) err.isPlanError = true;
+    throw err;
+  }
 };
 
 export const getAllEvents = async () => apiRequest('GET', ENDPOINTS.GET_ALL_EVENTS);

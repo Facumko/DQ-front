@@ -731,7 +731,14 @@ const ProfileHeader = ({
       }
       await loadPosts(id);
       setShowModal(false);
-    } catch (err) { flashError(err.message || "Error al guardar"); }
+    } catch (err) {
+      if (err.isPlanError) {
+        setPlanAccess({ allowed: false, targetPlanId: DEFAULT_UPGRADE_TARGET });
+        setShowPlanRestrictedModal(true);
+      } else {
+        flashError(err.message || "Error al guardar");
+      }
+    }
     finally { setLoad("creatingPost", false); setEditingPost(null); }
   };
 
