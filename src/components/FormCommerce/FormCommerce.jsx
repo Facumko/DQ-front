@@ -1,7 +1,8 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { createBusiness, setCommerceCategory } from "../../Api/Api";
+import { createBusiness, setCommerceCategory, addCommerceSubcategories } from "../../Api/Api";
+import PlanRestrictedModal from "../ProfileHeader/PlanRestrictedModal";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
 import CreatorInfo from "./CreatorInfo";
@@ -18,6 +19,7 @@ function FormCommerce() {
   const [currentStep,      setCurrentStep]     = useState(1);
   const [isSubmitting,     setIsSubmitting]     = useState(false);
   const [checkingBusiness, setCheckingBusiness] = useState(true);
+  const [showPlanRestrictedModal, setShowPlanRestrictedModal] = useState(false);
 
   const [formData, setFormData] = useState({
     selectedPlan:        "",
@@ -28,6 +30,7 @@ function FormCommerce() {
     businessName:        "",
     businessDescription: "",
     selectedCategories:  [],
+    selectedSubcategories: [],
     businessAddress:     "",
     businessPhone:       "",
     instagram:           "",
@@ -91,11 +94,24 @@ function FormCommerce() {
         }
       }
 
+      if (formData.selectedSubcategories.length > 0) {
+        try {
+          await addCommerceSubcategories(created.id_business, formData.selectedSubcategories.map(t => t.nameTag));
+        } catch (subcategoryError) {
+          // Tampoco bloqueamos por esto — son opcionales
+          console.warn("No se pudieron asignar las subcategorías:", subcategoryError.message);
+        }
+      }
+
       await loadBusinesses();
 
       navigate(`/negocios/${created.id_business}`);
     } catch (err) {
-      alert(`Error al crear el negocio: ${err.message}`);
+      if (err.isPlanError) {
+        setShowPlanRestrictedModal(true);
+      } else {
+        alert(`Error al crear el negocio: ${err.message}`);
+      }
       setIsSubmitting(false);
     }
   };
@@ -157,6 +173,12 @@ function FormCommerce() {
 
         </div>
       </div>
+
+      <PlanRestrictedModal
+        isOpen={showPlanRestrictedModal}
+        onClose={() => setShowPlanRestrictedModal(false)}
+        onUpgrade={() => navigate("/checkout/basic")}
+      />
     </div>
   );
 }
