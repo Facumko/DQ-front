@@ -108,6 +108,7 @@ const PreguntasFrecuentes = () => {
               placeholder="Buscar en las preguntas..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
+              maxLength={30}
               className={styles.searchInput}
             />
           </div>
