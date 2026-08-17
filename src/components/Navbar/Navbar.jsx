@@ -7,7 +7,7 @@ import {
   FaRegStar, FaRegBell, FaRegCalendarAlt,
   FaRegCreditCard, FaRegUser, FaSearch, FaBars,
   FaMapMarkerAlt, FaStore, FaCog, FaSignOutAlt,
-  FaChevronDown, FaChevronRight, FaPlus
+  FaChevronDown, FaChevronRight, FaPlus, FaTimes
 } from "react-icons/fa";
 import CityDrawer from "../CityDrawer/CityDrawer";
 
@@ -34,6 +34,7 @@ const Navbar = () => {
   const [showMenu, setShowMenu]             = useState(false);
   const [showDrawer, setShowDrawer]         = useState(false);
   const [showBusinesses, setShowBusinesses] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const menuRef   = useRef(null);
   const searchRef = useRef(null);
@@ -204,7 +205,7 @@ const Navbar = () => {
     <>
       <nav className={styles.navbar}>
 
-        <div className={styles.navLeft}>
+        <div className={`${styles.navLeft} ${mobileSearchOpen ? styles.hiddenOnMobileSearch : ""}`}>
           <div
             className={`${styles.hamburger} ${showDrawer ? styles.activeIcon : ""}`}
             title="Categorías y más"
@@ -218,8 +219,20 @@ const Navbar = () => {
           </div>
         </div>
 
+        {/* Botón lupa: solo visible en mobile, abre el buscador */}
+        <div
+          className={styles.mobileSearchToggle}
+          title="Buscar"
+          onClick={() => setMobileSearchOpen(true)}
+        >
+          <FaSearch className={styles.outlineIcon} />
+        </div>
+
         {/* Buscador */}
-        <div className={styles.searchContainer} ref={searchRef}>
+        <div
+          className={`${styles.searchContainer} ${mobileSearchOpen ? styles.searchContainerMobileActive : ""}`}
+          ref={searchRef}
+        >
           <FaSearch className={styles.searchIcon} onClick={handleSearch} />
           <input
             type="text"
@@ -230,7 +243,14 @@ const Navbar = () => {
             onFocus={() => { if (!searchText.trim() && recentSearches.length > 0) setShowRecent(true); }}
             onKeyPress={handleKeyPress}
             maxLength={80}
+            autoFocus={mobileSearchOpen}
           />
+          {mobileSearchOpen && (
+            <FaTimes
+              className={styles.mobileSearchClose}
+              onClick={() => setMobileSearchOpen(false)}
+            />
+          )}
 
           {/* Búsquedas recientes — solo cuando el input está vacío y en foco */}
           {location.pathname !== "/search" && showRecent && recentSearches.length > 0 && (
@@ -317,7 +337,7 @@ const Navbar = () => {
         </div>
 
         {/* Íconos derecha */}
-        <div className={styles.icons}>
+        <div className={`${styles.icons} ${mobileSearchOpen ? styles.hiddenOnMobileSearch : ""}`}>
           {user && authIcons.map((item, idx) => {
             const IconComp = item.icon;
             return (

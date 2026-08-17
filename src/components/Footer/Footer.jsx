@@ -117,7 +117,7 @@ const Footer = () => {
       {/* Franja inferior: copyright */}
       <div className={styles.footerBottom}>
         <p className={styles.copyright}>
-          © {currentYear} Dónde Queda? — Todos los derechos reservados.
+          © {currentYear} Dónde Queda? - Todos los derechos reservados.
         </p>
         <p className={styles.copyrightSub}>
           Hecho en Chaco, Argentina &nbsp;🇦🇷

@@ -2,12 +2,8 @@ import React, { useState } from "react";
 import styles from "./Contacto.module.css";
 import { FaEnvelope, FaWhatsapp, FaMapMarkerAlt, FaClock } from "react-icons/fa";
 
-const LIMITS = { nombre: 60, email: 100, asunto: 100, mensaje: 500 };
-
-// Nombre: sólo letras (con acentos/ñ), espacios, apóstrofes y guiones.
-// Acá SÍ bloqueamos el caracter en el momento: no hay ningún caso legítimo
-// de un número o símbolo raro en un nombre, así que directamente no se deja escribirlo.
-const NOMBRE_INVALIDO = /[^\p{L}\s'-]/gu;
+const LIMITS = { nombre: 60, email: 60, asunto: 100, mensaje: 500 };
+const NOMBRE_INVALIDO = /[^\p{L}\s]/gu;
 
 const validate = (form) => {
   const errors = {};
@@ -34,9 +30,8 @@ const Contacto = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // En nombre, y también al pegar texto, sacamos todo lo que no sea letra/espacio/apóstrofe/guión
     const clean = name === "nombre" ? value.replace(NOMBRE_INVALIDO, "") : value;
-    if (clean.length > LIMITS[name]) return; // cinturón extra además del maxLength del input
+    if (clean.length > LIMITS[name]) return;
     setForm({ ...form, [name]: clean });
     if (errors[name]) setErrors({ ...errors, [name]: undefined });
   };

@@ -8,6 +8,8 @@ import {
   addImagesToPost, deleteImagesFromPost,
   replaceCommerceSchedules, scheduleFromBackend,
   getCategories, setCommerceCategory,
+  getSubcategoryTags, getDescriptiveTags,
+  addCommerceSubcategories, addCommerceTags, removeCommerceTagIds,
   createEvent, updateEvent, deleteEvent,
   addImagesToEvent, deleteImagesFromEvent,
   toLocalDateTime, getEventsByCommerce,
@@ -303,6 +305,20 @@ const ProfileHeader = ({
   const [allCategories,    setAllCategories]    = useState([]);
   const [draftCategory,    setDraftCategory]    = useState(null);
 
+  // Tags de subcategoría: selección múltiple (a diferencia de la categoría,
+  // que es única). allSubcategoryTags = catálogo completo del backend;
+  // draftSubcategoryTags = lo que el dueño va eligiendo mientras edita.
+  const [allSubcategoryTags, setAllSubcategoryTags] = useState([]);
+  const [draftSubcategoryTags, setDraftSubcategoryTags] = useState([]);
+
+  // Tags descriptivos: también múltiples, pero además el dueño puede
+  // escribir uno nuevo que no esté en el catálogo (ej: "brunch") y se crea
+  // en el momento. allDescriptiveTags = catálogo para autocompletar.
+  const [allDescriptiveTags, setAllDescriptiveTags] = useState([]);
+  const [draftDescriptiveTags, setDraftDescriptiveTags] = useState([]);
+  const [newTagInput, setNewTagInput] = useState("");
+  const [tagSaveError, setTagSaveError] = useState("");
+
   const [pendingCover,  setPendingCover]  = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
   const [, setCoverPos]  = useState({ posY: 50, zoom: 1 });
@@ -310,6 +326,15 @@ const ProfileHeader = ({
 
   const { errors, validate, clearErrors } = useFormValidation();
   const statusInfo = useBusinessStatus(schedule);
+
+  // businessData.tags viene mezclado (subcategoría + descriptivo + lo que
+  // sea), lo separamos acá para mostrar/editar cada tipo por su lado.
+  const currentSubcategoryTags = useMemo(
+    () => (businessData.tags || []).filter(t => t.type === "SUBCATEGORY"),
+    [businessData.tags]);
+  const currentDescriptiveTags = useMemo(
+    () => (businessData.tags || []).filter(t => t.type === "DESCRIPTIVE"),
+    [businessData.tags]);
 
   const isFav = businessId ? (favoriteCommerceIds?.has(businessId) ?? false) : false;
 
@@ -334,6 +359,15 @@ const ProfileHeader = ({
     getCategories()
       .then(cats => setAllCategories(Array.isArray(cats) ? cats : []))
       .catch(() => setAllCategories([]));
+  }, []);
+
+  useEffect(() => {
+    getSubcategoryTags()
+      .then(tags => setAllSubcategoryTags(Array.isArray(tags) ? tags : []))
+      .catch(() => setAllSubcategoryTags([]));
+    getDescriptiveTags()
+      .then(tags => setAllDescriptiveTags(Array.isArray(tags) ? tags : []))
+      .catch(() => setAllDescriptiveTags([]));
   }, []);
 
   useEffect(() => {
@@ -468,6 +502,9 @@ const ProfileHeader = ({
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
     setDraftCategory(businessData.category);
+    setDraftSubcategoryTags(currentSubcategoryTags);
+    setDraftDescriptiveTags(currentDescriptiveTags);
+    setNewTagInput(""); setTagSaveError("");
     setIsEditing(true);
     setErrorMsg(""); setSuccessMsg("");
     setPendingCover(null); setPendingAvatar(null);
@@ -478,6 +515,9 @@ const ProfileHeader = ({
     setDraft(normalizeBusiness(businessData));
     setDraftSchedule(schedule);
     setDraftCategory(businessData.category);
+    setDraftSubcategoryTags(currentSubcategoryTags);
+    setDraftDescriptiveTags(currentDescriptiveTags);
+    setNewTagInput(""); setTagSaveError("");
     setIsEditing(false);
     setErrorMsg(""); setSuccessMsg("");
     if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
@@ -508,6 +548,37 @@ const ProfileHeader = ({
   // nunca aparecía marcada al editar.
   const isDraftCategorySelected = useCallback((cat) =>
     !!draftCategory && String(draftCategory.idCategory) === String(cat.idCategory), [draftCategory]);
+
+  // Subcategorías: selección múltiple (a diferencia de la categoría)
+  const toggleDraftSubcategory = useCallback((tag) => {
+    setDraftSubcategoryTags(prev => {
+      const already = prev.some(t => t.nameTag === tag.nameTag);
+      return already ? prev.filter(t => t.nameTag !== tag.nameTag) : [...prev, tag];
+    });
+  }, []);
+  const isDraftSubcategorySelected = useCallback((tag) =>
+    draftSubcategoryTags.some(t => t.nameTag === tag.nameTag), [draftSubcategoryTags]);
+
+  // Tags descriptivos: se pueden sacar con la X del chip, o agregar
+  // escribiendo texto libre (si ya existe en el catálogo lo reusa, si no,
+  // lo crea recién al guardar — ver handleSave).
+  const removeDraftDescriptiveTag = useCallback((tag) => {
+    setDraftDescriptiveTags(prev => prev.filter(t => t.nameTag !== tag.nameTag));
+  }, []);
+
+  const addDraftDescriptiveTagFromInput = useCallback(() => {
+    const name = newTagInput.trim();
+    if (!name) return;
+    if (name.length > 40) { setTagSaveError("Máximo 40 caracteres por etiqueta."); return; }
+    const alreadyAdded = draftDescriptiveTags.some(t => t.nameTag.toLowerCase() === name.toLowerCase());
+    if (alreadyAdded) { setNewTagInput(""); return; }
+    // Si ya existe en el catálogo con ese nombre exacto, lo reusamos tal cual
+    // (mismo type/objeto) en vez de tratarlo como uno nuevo a crear.
+    const existing = allDescriptiveTags.find(t => t.nameTag.toLowerCase() === name.toLowerCase());
+    setDraftDescriptiveTags(prev => [...prev, existing || { nameTag: name, type: "DESCRIPTIVE" }]);
+    setNewTagInput("");
+    setTagSaveError("");
+  }, [newTagInput, draftDescriptiveTags, allDescriptiveTags]);
 
   // Fallback para contextos NO seguros (HTTP en red local, sin HTTPS/localhost),
   // donde navigator.clipboard directamente no existe. Usa el método viejo
@@ -628,12 +699,51 @@ const ProfileHeader = ({
         }
       }
 
+      if (idToUse) {
+        // ⚠️ Asunción: los tags que vienen en businessData.tags traen idTag
+        // (schema "Tag" del swagger), aunque CommerceResponseDto.tags está
+        // tipado como TagDto (que solo tiene nameTag+type, sin id). Si en la
+        // práctica no viene idTag, remove no va a poder identificar cuál
+        // borrar — confirmar con el back si hace falta.
+        const tagId = (t) => t.idTag ?? t.id ?? null;
+
+        // Subcategorías (selección múltiple)
+        const currentSubNames = new Set(currentSubcategoryTags.map(t => t.nameTag));
+        const draftSubNames   = new Set(draftSubcategoryTags.map(t => t.nameTag));
+        const subsToAdd    = draftSubcategoryTags.filter(t => !currentSubNames.has(t.nameTag));
+        const subsToRemove = currentSubcategoryTags.filter(t => !draftSubNames.has(t.nameTag) && tagId(t) != null);
+        try {
+          if (subsToAdd.length > 0) await addCommerceSubcategories(idToUse, subsToAdd.map(t => t.nameTag));
+          if (subsToRemove.length > 0) await removeCommerceTagIds(idToUse, subsToRemove.map(tagId));
+        } catch (tagError) {
+          console.warn("⚠️ Error guardando subcategorías:", tagError.message);
+          flashInfo("Datos guardados. Hubo un problema con las subcategorías, intentá de nuevo.");
+        }
+
+        // Tags descriptivos (selección múltiple + creación libre)
+        const currentDescNames = new Set(currentDescriptiveTags.map(t => t.nameTag));
+        const draftDescNames   = new Set(draftDescriptiveTags.map(t => t.nameTag));
+        const descToAdd    = draftDescriptiveTags.filter(t => !currentDescNames.has(t.nameTag));
+        const descToRemove = currentDescriptiveTags.filter(t => !draftDescNames.has(t.nameTag) && tagId(t) != null);
+        try {
+          // addCommerceTags hace upsert por nombre (crea la etiqueta si no
+          // existe todavía), así que no hace falta llamar a createTag aparte.
+          if (descToAdd.length > 0) await addCommerceTags(idToUse, descToAdd.map(t => t.nameTag));
+          if (descToRemove.length > 0) await removeCommerceTagIds(idToUse, descToRemove.map(tagId));
+        } catch (tagError) {
+          console.warn("⚠️ Error guardando etiquetas:", tagError.message);
+          flashInfo("Datos guardados. Hubo un problema con las etiquetas, intentá de nuevo.");
+        }
+      }
+
       if (externalData) {
         const biz = await getBusinessById(currentBusinessId);
         if (biz) {
           const d = normalizeBusiness(biz);
           setBusinessData(d); setDraft(d);
           setDraftCategory(d.category);
+          setDraftSubcategoryTags((d.tags || []).filter(t => t.type === "SUBCATEGORY"));
+          setDraftDescriptiveTags((d.tags || []).filter(t => t.type === "DESCRIPTIVE"));
           if (d.schedules && d.schedules.length > 0) {
             const loaded = scheduleFromBackend(d.schedules);
             setSchedule(loaded); setDraftSchedule(loaded);
@@ -899,6 +1009,17 @@ const ProfileHeader = ({
                 </div>
               )}
 
+              {(currentSubcategoryTags.length > 0 || currentDescriptiveTags.length > 0) && (
+                <div className={styles.tagsChipsView}>
+                  {currentSubcategoryTags.map(t => (
+                    <span key={`sub-${t.nameTag}`} className={styles.subcategoryChipView}>{t.nameTag}</span>
+                  ))}
+                  {currentDescriptiveTags.map(t => (
+                    <span key={`desc-${t.nameTag}`} className={styles.descriptiveChipView}>#{t.nameTag}</span>
+                  ))}
+                </div>
+              )}
+
               <div className={styles.statusRow}>
                 <span className={`${styles.statusDot} ${statusDotClass[statusInfo.type]}`}/>
                 <span className={`${styles.statusText} ${statusTextClass[statusInfo.type]}`}>{statusInfo.label}</span>
@@ -942,6 +1063,73 @@ const ProfileHeader = ({
                   <p className={styles.categoryCount}>
                     {draftCategory ? `Categoría: ${draftCategory.name}` : "Elegí una categoría"}
                   </p>
+                </div>
+
+                {allSubcategoryTags.length > 0 && (
+                  <div className={styles.categoryEditorSection}>
+                    <p className={styles.infoSectionTitle}>Subcategorías <span className={styles.optionalHint}>(podés elegir varias)</span></p>
+                    <div className={styles.categoryChipsEdit}>
+                      {allSubcategoryTags.map(tag => (
+                        <button
+                          key={tag.nameTag}
+                          type="button"
+                          className={`${styles.categoryChipEdit} ${isDraftSubcategorySelected(tag) ? styles.categoryChipEditSelected : ""}`}
+                          onClick={() => toggleDraftSubcategory(tag)}
+                        >
+                          {isDraftSubcategorySelected(tag) && <span>✓ </span>}
+                          {tag.nameTag}
+                        </button>
+                      ))}
+                    </div>
+                    {draftSubcategoryTags.length > 0 && (
+                      <p className={styles.categoryCount}>
+                        {draftSubcategoryTags.length} subcategoría{draftSubcategoryTags.length !== 1 ? "s" : ""} seleccionada{draftSubcategoryTags.length !== 1 ? "s" : ""}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className={styles.categoryEditorSection}>
+                  <p className={styles.infoSectionTitle}>Etiquetas descriptivas <span className={styles.optionalHint}>(ej: café, pizza, delivery)</span></p>
+                  {draftDescriptiveTags.length > 0 && (
+                    <div className={styles.tagsChipsEdit}>
+                      {draftDescriptiveTags.map(tag => (
+                        <span key={tag.nameTag} className={styles.tagChipRemovable}>
+                          #{tag.nameTag}
+                          <button
+                            type="button"
+                            className={styles.tagChipRemoveBtn}
+                            onClick={() => removeDraftDescriptiveTag(tag)}
+                            aria-label={`Quitar ${tag.nameTag}`}
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className={styles.tagInputRow}>
+                    <input
+                      type="text"
+                      className={styles.tagInput}
+                      value={newTagInput}
+                      onChange={(e) => { setNewTagInput(e.target.value); if (tagSaveError) setTagSaveError(""); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          addDraftDescriptiveTagFromInput();
+                        }
+                      }}
+                      placeholder="Escribí una etiqueta y presioná Enter"
+                      maxLength={40}
+                      list="descriptive-tags-suggestions"
+                    />
+                    <datalist id="descriptive-tags-suggestions">
+                      {allDescriptiveTags.map(t => <option key={t.nameTag} value={t.nameTag} />)}
+                    </datalist>
+                    <button type="button" className={styles.tagAddBtn} onClick={addDraftDescriptiveTagFromInput}>
+                      Agregar
+                    </button>
+                  </div>
+                  {tagSaveError && <span className={styles.fieldError}>{tagSaveError}</span>}
                 </div>
               </>
             ) : (
