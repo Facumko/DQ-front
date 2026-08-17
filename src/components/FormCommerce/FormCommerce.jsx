@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { createBusiness, setCommerceCategory } from "../../Api/Api";
+import { createBusiness, setCommerceCategory, addCommerceSubcategories } from "../../Api/Api";
 import PlanRestrictedModal from "../ProfileHeader/PlanRestrictedModal";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
@@ -30,6 +30,7 @@ function FormCommerce() {
     businessName:        "",
     businessDescription: "",
     selectedCategories:  [],
+    selectedSubcategories: [],
     businessAddress:     "",
     businessPhone:       "",
     instagram:           "",
@@ -90,6 +91,15 @@ function FormCommerce() {
         } catch (categoryError) {
           // No bloqueamos la navegación si falla la asignación de categoría
           console.warn("No se pudo asignar la categoría:", categoryError.message);
+        }
+      }
+
+      if (formData.selectedSubcategories.length > 0) {
+        try {
+          await addCommerceSubcategories(created.id_business, formData.selectedSubcategories.map(t => t.nameTag));
+        } catch (subcategoryError) {
+          // Tampoco bloqueamos por esto — son opcionales
+          console.warn("No se pudieron asignar las subcategorías:", subcategoryError.message);
         }
       }
 

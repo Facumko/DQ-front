@@ -1312,6 +1312,43 @@ export const getEventsByCommerce = async (commerceId) => {
 export const getPromotionTags = async () =>
   apiRequest('GET', '/etiqueta/promocion');
 
+// Trae TODAS las etiquetas (cualquier type: SUBCATEGORY/DESCRIPTIVE/PROMOTIONAL).
+// No hay un endpoint dedicado para DESCRIPTIVE como sí lo hay para las otras
+// dos (/etiqueta/subcategoria y /etiqueta/promocion), así que para armar la
+// lista de sugerencias de tags descriptivos hay que traer todo y filtrar acá.
+export const getTags = async () =>
+  apiRequest('GET', '/etiqueta/traer');
+
+export const getSubcategoryTags = async () =>
+  apiRequest('GET', '/etiqueta/subcategoria');
+
+export const getDescriptiveTags = async () => {
+  const all = await getTags();
+  return Array.isArray(all) ? all.filter(t => t.type === 'DESCRIPTIVE') : [];
+};
+
+// Crea una etiqueta nueva en el catálogo del backend (para cuando el dueño
+// escribe un tag descriptivo que todavía no existe, ej: "brunch"). El
+// endpoint es /etiqueta/guardar y espera { nameTag, type }.
+export const createTag = async (nameTag, type) => {
+  validateParams({ nameTag, type }, ['nameTag', 'type']);
+  return apiRequest('POST', '/etiqueta/guardar', { nameTag: nameTag.trim(), type });
+};
+
+// Asigna subcategorías a un comercio. A diferencia de las etiquetas
+// genéricas (que van por /comercio/agregar/etiquetas), las subcategorías
+// tienen su propio endpoint dedicado según el swagger.
+// ⚠️ Asunción a confirmar con el back (mismo caso que addCommerceTags): que
+// hace upsert por nombre y no falla si ya existe. Tampoco hay un endpoint
+// separado para ELIMINAR subcategorías puntuales — asumimos que
+// removeCommerceTagIds (genérico, por id) sirve para cualquier tipo de tag,
+// subcategoría incluida.
+export const addCommerceSubcategories = async (idCommerce, tagNames) => {
+  validateParams({ idCommerce, tagNames }, ['idCommerce', 'tagNames']);
+  if (!Array.isArray(tagNames) || tagNames.length === 0) return null;
+  return apiRequest('POST', `/comercio/agregar/subcategorias/${idCommerce}`, tagNames);
+};
+
 /**
  * Trae las promociones del usuario logueado.
  *

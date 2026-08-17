@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { getCategories } from "../../Api/Api"
+import { getCategories, getSubcategoryTags } from "../../Api/Api"
 import LocationPicker from "../../components/LocationPicker/LocationPicker"
 import "./FormStep.css"
 import "./CategoryChips.css"
@@ -10,6 +10,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     businessName:        data?.businessName        || "",
     businessDescription: data?.businessDescription || "",
     selectedCategories:  data?.selectedCategories  || [],
+    selectedSubcategories: data?.selectedSubcategories || [],
     businessAddress:     data?.businessAddress     || "",
     businessPhone:       data?.businessPhone       || "",
     instagram:           data?.instagram           || "",
@@ -20,6 +21,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   })
 
   const [categories, setCategories] = useState([])
+  const [subcategoryTags, setSubcategoryTags] = useState([])
   const [errors,     setErrors]     = useState({})
   const [isValid,    setIsValid]    = useState(false)
   const [isLoading,  setIsLoading]  = useState(true)
@@ -45,6 +47,12 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
       }
     }
     loadCategories()
+  }, [])
+
+  useEffect(() => {
+    getSubcategoryTags()
+      .then(tags => setSubcategoryTags(Array.isArray(tags) ? tags : []))
+      .catch(() => setSubcategoryTags([])) // opcional: si falla, simplemente no se muestran
   }, [])
 
   const formatPhone = (raw) => {
@@ -116,6 +124,21 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
 
   const isCategorySelected = (cat) =>
     formData.selectedCategories.some(c => c.idCategory === cat.idCategory)
+
+  const toggleSubcategory = (tag) => {
+    setFormData(prev => {
+      const already = prev.selectedSubcategories.some(t => t.nameTag === tag.nameTag)
+      return {
+        ...prev,
+        selectedSubcategories: already
+          ? prev.selectedSubcategories.filter(t => t.nameTag !== tag.nameTag)
+          : [...prev.selectedSubcategories, tag],
+      }
+    })
+  }
+
+  const isSubcategorySelected = (tag) =>
+    formData.selectedSubcategories.some(t => t.nameTag === tag.nameTag)
 
   const handleNext = () => {
     if (!isValid) {
@@ -194,6 +217,26 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             <p className="field-note">Elegí una categoría para continuar</p>
           )}
         </div>
+
+        {/* Subcategorías — selección múltiple, opcional */}
+        {subcategoryTags.length > 0 && (
+          <div className="form-group full-width">
+            <label>Subcategorías <span className="field-note" style={{ display: "inline", fontWeight: 400 }}>(opcional, podés elegir varias)</span></label>
+            <div className="category-chips-wrap">
+              {subcategoryTags.map(tag => (
+                <button
+                  key={tag.nameTag}
+                  type="button"
+                  className={`category-chip ${isSubcategorySelected(tag) ? "category-chip--selected" : ""}`}
+                  onClick={() => toggleSubcategory(tag)}
+                >
+                  {isSubcategorySelected(tag) && <span className="category-chip-check">✓</span>}
+                  {tag.nameTag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="optional-section full-width">
           <p className="optional-note">
