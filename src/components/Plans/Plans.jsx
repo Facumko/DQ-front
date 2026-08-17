@@ -2,7 +2,11 @@ import { useEffect, useState, useContext } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
+import { getPlans, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
 import styles from "./Plans.module.css";
+
+const formatARS = (n) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
 const PLANS = [
   {
@@ -95,6 +99,29 @@ export default function Planes() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq]     = useState(null);
   const [hoveredPlan, setHoveredPlan] = useState(null);
+  // Precios reales del backend, mapeados por id "amigable" del front
+  // (basic/mid/premium). null mientras carga o si el fetch falla — en
+  // ambos casos se muestra el fallback visual, nunca un precio inventado.
+  const [realPrices, setRealPrices] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    getPlans()
+      .then(plans => {
+        if (cancelled || !Array.isArray(plans)) return;
+        const typeToFrontId = Object.fromEntries(
+          Object.entries(FRONT_PLAN_ID_TO_TYPE).map(([frontId, type]) => [type, frontId])
+        );
+        const prices = {};
+        plans.forEach(p => {
+          const frontId = typeToFrontId[p.planType];
+          if (frontId && typeof p.price === "number") prices[frontId] = p.price;
+        });
+        setRealPrices(prices);
+      })
+      .catch(() => { /* silencioso — se muestra el fallback visual */ });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -188,10 +215,22 @@ export default function Planes() {
 
               {/* Precio */}
               <div className={styles.priceBox}>
-                <span className={styles.priceLabel}>desde</span>
-                <span className={styles.priceAmount}>$<span className={styles.priceBig}>—</span></span>
-                <span className={styles.pricePeriod}>/mes</span>
-                <p className={styles.priceNote}>El precio se muestra al seleccionar el plan</p>
+                {realPrices[plan.id] != null ? (
+                  <>
+                    <span className={styles.priceLabel}>desde</span>
+                    <span className={styles.priceAmount}>
+                      <span className={styles.priceBig}>{formatARS(realPrices[plan.id])}</span>
+                    </span>
+                    <span className={styles.pricePeriod}>/mes</span>
+                  </>
+                ) : (
+                  <>
+                    <span className={styles.priceLabel}>desde</span>
+                    <span className={styles.priceAmount}>$<span className={styles.priceBig}>—</span></span>
+                    <span className={styles.pricePeriod}>/mes</span>
+                    <p className={styles.priceNote}>El precio se muestra al seleccionar el plan</p>
+                  </>
+                )}
               </div>
 
               {/* Separador */}

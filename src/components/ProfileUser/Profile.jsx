@@ -1,11 +1,25 @@
 import React, { useContext, useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { getMyUser, updateUser } from "../../Api/Api";
+import { getMyUser, updateUser, getMySubscription, cancelSubscription } from "../../Api/Api";
 import styles from "./Profile.module.css";
 import {
   User, Mail, Phone, Edit2, Save, X, Lock, Check, AlertCircle,
-  Loader, Eye, EyeOff, Shield, RotateCcw
+  Loader, Eye, EyeOff, Shield, RotateCcw, CreditCard, Calendar, Ban
 } from "lucide-react";
+
+const PLAN_LABELS = { BASIC: "Básico", INTERMEDIATE: "Intermedio", PREMIUM: "Premium" };
+const STATUS_META = {
+  ACTIVE:    { label: "Activo",   className: "statusActive"   },
+  EXPIRED:   { label: "Vencido",  className: "statusExpired"  },
+  CANCELLED: { label: "Cancelado", className: "statusCancelled" },
+};
+const formatDate = (iso) => {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
+  } catch { return null; }
+};
 
 /* ─────────────────────────────────────────
    Reglas de validación por campo
@@ -92,11 +106,18 @@ const RULES = {
 ───────────────────────────────────────── */
 export default function Profile() {
   const { user, updateUserContext } = useContext(UserContext);
+  const navigate = useNavigate();
 
   const [isEditing,   setIsEditing]   = useState(false);
   const [loading,     setLoading]     = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [toast,       setToast]       = useState(null);
+
+  // ── Mi plan ──
+  const [subscription, setSubscription] = useState(null); // null = sin plan activo (o no se pudo determinar)
+  const [loadingSub,   setLoadingSub]   = useState(true);
+  const [cancelling,   setCancelling]   = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const [originalData, setOriginalData] = useState(null);
   const [formData,     setFormData]     = useState({
@@ -139,6 +160,38 @@ export default function Profile() {
   }, [user?.id_user, showToast]);
 
   useEffect(() => { loadUserData(); }, [loadUserData]);
+
+  /* ── Mi plan: cargar suscripción actual ── */
+  const loadSubscription = useCallback(async () => {
+    if (!user?.id_user) { setLoadingSub(false); return; }
+    setLoadingSub(true);
+    try {
+      const sub = await getMySubscription();
+      setSubscription(sub || null);
+    } catch {
+      // Sin suscripción activa o el back no tiene nada que devolver: tratamos
+      // igual, mostramos el estado "sin plan" en vez de romper la pantalla.
+      setSubscription(null);
+    } finally {
+      setLoadingSub(false);
+    }
+  }, [user?.id_user]);
+
+  useEffect(() => { loadSubscription(); }, [loadSubscription]);
+
+  const handleCancelSubscription = useCallback(async () => {
+    setCancelling(true);
+    try {
+      await cancelSubscription();
+      showToast("Tu suscripción fue cancelada.");
+      setConfirmCancel(false);
+      await loadSubscription();
+    } catch (err) {
+      showToast(err?.message || "No se pudo cancelar la suscripción. Intentá de nuevo.", "error");
+    } finally {
+      setCancelling(false);
+    }
+  }, [showToast, loadSubscription]);
 
   /* ── Errores en tiempo real ── */
   const errors = useMemo(() => {
@@ -445,6 +498,61 @@ export default function Profile() {
             </div>
           </section>
 
+          {/* Sección Mi plan */}
+          {!isEditing && (
+            <section className={styles.card}>
+              <div className={styles.cardHeader}>
+                <CreditCard size={16} />
+                <h3>Mi plan</h3>
+              </div>
+
+              {loadingSub ? (
+                <p className={styles.planLoadingText}>Cargando tu plan…</p>
+              ) : !subscription ? (
+                <div className={styles.planEmpty}>
+                  <p>No tenés un plan activo todavía.</p>
+                  <button className={styles.btnOutline} onClick={() => navigate("/planes")}>
+                    <CreditCard size={13} /> Ver planes
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.planBox}>
+                  <div className={styles.planTopRow}>
+                    <span className={styles.planName}>
+                      Plan {PLAN_LABELS[subscription.plan?.planType] || subscription.plan?.planType || "—"}
+                    </span>
+                    <span className={`${styles.planStatusBadge} ${styles[STATUS_META[subscription.status]?.className || ""]}`}>
+                      {STATUS_META[subscription.status]?.label || subscription.status}
+                    </span>
+                  </div>
+
+                  {formatDate(subscription.endDate) && (
+                    <p className={styles.planDetail}>
+                      <Calendar size={13} />
+                      {subscription.status === "ACTIVE"
+                        ? `Se renueva el ${formatDate(subscription.endDate)}`
+                        : `Venció el ${formatDate(subscription.endDate)}`}
+                      {typeof subscription.daysRemaining === "number" && subscription.daysRemaining >= 0 && subscription.status === "ACTIVE" && (
+                        <span className={styles.planDaysLeft}> · {subscription.daysRemaining} días restantes</span>
+                      )}
+                    </p>
+                  )}
+
+                  <div className={styles.planActions}>
+                    <button className={styles.btnOutline} onClick={() => navigate("/planes")}>
+                      <CreditCard size={13} /> Cambiar plan
+                    </button>
+                    {subscription.status === "ACTIVE" && (
+                      <button className={styles.btnDanger} onClick={() => setConfirmCancel(true)}>
+                        <Ban size={13} /> Cancelar suscripción
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Sección seguridad — solo vista */}
           {!isEditing && (
             <section className={styles.card}>
@@ -525,6 +633,36 @@ export default function Profile() {
           )}
         </main>
       </div>
+
+      {/* Confirmación para cancelar suscripción */}
+      {confirmCancel && (
+        <div className={styles.confirmOverlay} onClick={() => !cancelling && setConfirmCancel(false)}>
+          <div className={styles.confirmBox} onClick={(e) => e.stopPropagation()}>
+            <p>¿Cancelar tu suscripción? Vas a perder los beneficios del plan cuando termine el período ya pagado.</p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.btnCancel}
+                onClick={() => setConfirmCancel(false)}
+                disabled={cancelling}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                className={styles.btnDanger}
+                onClick={handleCancelSubscription}
+                disabled={cancelling}
+              >
+                {cancelling
+                  ? <><Loader size={13} className={styles.spin} /> Cancelando…</>
+                  : <><Ban size={13} /> Sí, cancelar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
