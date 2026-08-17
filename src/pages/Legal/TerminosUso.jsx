@@ -163,7 +163,7 @@ export default function TerminosUso() {
       </div>
 
       <footer className="legal-footer">
-        <p>© 2026 Dónde Queda? — Todos los derechos reservados.</p>
+        <p>© 2026 Dónde Queda? - Todos los derechos reservados.</p>
         <div className="legal-footer-links">
           <Link to="/politica-de-privacidad">Política de Privacidad</Link>
           <span>·</span>

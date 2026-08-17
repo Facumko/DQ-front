@@ -117,7 +117,7 @@ export default function PoliticaPrivacidad() {
       </div>
 
       <footer className="legal-footer">
-        <p>© 2026 Dónde Queda? — Todos los derechos reservados.</p>
+        <p>© 2026 Dónde Queda? - Todos los derechos reservados.</p>
         <div className="legal-footer-links">
           <Link to="/terminos-de-uso">Términos de Uso</Link>
           <span>·</span>
