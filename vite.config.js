@@ -22,7 +22,10 @@ export default defineConfig({
     },
     // Esto es vital si ngrok intenta comunicarse por WebSockets (HMR)
     allowedHosts: [
-      'superadditional-septariate-olevia.ngrok-free.dev'
+      'superadditional-septariate-olevia.ngrok-free.dev',
+      'https://clever-firefox-8.loca.lt',
+      '.loca.lt' // el punto inicial permite cualquier subdominio de loca.lt,
+                 // por si el túnel te asigna uno random en vez del fijo
     ]
   },
 })

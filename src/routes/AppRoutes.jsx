@@ -26,6 +26,7 @@ import CheckoutPage from "../pages/checkout/CheckoutPage";
 import PagoExitoso from "../pages/checkout/PagoExitoso";
 import PagoFallido from "../pages/checkout/PagoFallido";
 import PagoPendiente from "../pages/checkout/PagoPendiente";
+import SuscripcionResultado from "../pages/checkout/SuscripcionResultado";
 // ── OAuth2 ────────────────────────────────────────────────────────────────────
 import OAuth2RedirectHandler from "../pages/auth/OAuth2RedirectHandler";
 
@@ -73,6 +74,12 @@ const AppRoutes = () => {
             <Route path="/pago/exitoso"     element={<PagoExitoso />} />
             <Route path="/pago/fallido"     element={<PagoFallido />} />
             <Route path="/pago/pendiente"   element={<PagoPendiente />} />
+            {/* Retorno real del flujo de Suscripciones (preapproval) de Mercado
+                Pago — distinto del Checkout Pro de pago único de arriba. El
+                back redirige acá con ?preapproval_id=..., sin status en la URL
+                (el estado real llega después por webhook), por eso esta página
+                consulta /suscripcion/mi-suscripcion en vez de confiar en la URL. */}
+            <Route path="/suscripcion/resultado" element={<SuscripcionResultado />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/planes" element={<Planes />} />
 
