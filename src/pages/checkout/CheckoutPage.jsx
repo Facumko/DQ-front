@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserContext } from "../../pages/UserContext";
-import { resolveBackendPlanId, subscribeToPlan, changePlan, getPlans, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
+import { resolveBackendPlanId, subscribeToPlan, changePlan, getPlans, getMySubscription, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
 import styles from "./CheckoutPage.module.css";
 import {
   FaShieldAlt, FaLock, FaCheckCircle, FaArrowLeft,
@@ -85,6 +85,25 @@ export default function CheckoutPage() {
   // de test de Mercado Pago sin cambiar el email real de la cuenta logueada.
   const [testEmail, setTestEmail] = useState("");
 
+  // Guarda contra suscripción duplicada: si el usuario llega acá directo
+  // (link viejo, botón "atrás", URL escrita a mano) y YA tiene una
+  // suscripción activa, no debe poder pagar de nuevo acá — eso crearía una
+  // segunda suscripción en Mercado Pago en paralelo a la existente. El
+  // cambio de plan para alguien ya suscripto se hace desde /planes
+  // (changePlan), no desde este checkout.
+  const [subscription, setSubscription] = useState(null);
+  const [checkingSub,  setCheckingSub]  = useState(true);
+
+  useEffect(() => {
+    if (!user) { setCheckingSub(false); return; }
+    let cancelled = false;
+    getMySubscription()
+      .then(sub => { if (!cancelled) setSubscription(sub || null); })
+      .catch(() => { if (!cancelled) setSubscription(null); })
+      .finally(() => { if (!cancelled) setCheckingSub(false); });
+    return () => { cancelled = true; };
+  }, [user]);
+
   useEffect(() => {
     if (!plan) return;
     let cancelled = false;
@@ -99,16 +118,24 @@ export default function CheckoutPage() {
     return () => { cancelled = true; };
   }, [plan]);
 
-  // Redirigir si el plan no existe o no hay sesión
+  // Redirigir si el plan no existe, no hay sesión, o ya tiene un plan activo
   useEffect(() => {
     if (!plan)  { navigate("/planes"); return; }
     if (!user)  { navigate("/planes"); return; }
+    if (checkingSub) return; // esperar a saber si tiene suscripción activa
+    if (subscription?.status === "ACTIVE") {
+      // Ya está suscripto — el cambio de plan se hace desde /planes
+      // (changePlan), no acá.
+      navigate("/planes");
+      return;
+    }
     window.scrollTo(0, 0);
     document.title = `Checkout — Plan ${plan.badge} | Dónde Queda?`;
     return () => { document.title = "Dónde Queda?"; };
-  }, [plan, user, navigate]);
+  }, [plan, user, navigate, checkingSub, subscription]);
 
   if (!plan || !user) return null;
+  if (checkingSub || subscription?.status === "ACTIVE") return null;
 
   const displayPrice = realPrice ?? plan.precio;
 

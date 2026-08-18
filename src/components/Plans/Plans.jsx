@@ -1,8 +1,8 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { getPlans, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
+import { getPlans, getMySubscription, changePlan, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
 import styles from "./Plans.module.css";
 
 const formatARS = (n) =>
@@ -104,6 +104,39 @@ export default function Planes() {
   // ambos casos se muestra el fallback visual, nunca un precio inventado.
   const [realPrices, setRealPrices] = useState({});
 
+  // Si el usuario ya tiene una suscripción ACTIVA, cambiar de plan no debe
+  // pasar por Mercado Pago de nuevo (eso generaba una suscripción nueva en
+  // paralelo a la existente) — se llama a changePlan() directamente.
+  const [subscription, setSubscription] = useState(null);
+  const [loadingSub,   setLoadingSub]   = useState(true);
+  const [confirmPlan,  setConfirmPlan]  = useState(null); // planId pendiente de confirmar
+  const [changingPlan, setChangingPlan] = useState(false);
+  const [toast,        setToast]        = useState(null);
+
+  const showToast = useCallback((msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4500);
+  }, []);
+
+  const typeToFrontId = useMemo(() => Object.fromEntries(
+    Object.entries(FRONT_PLAN_ID_TO_TYPE).map(([frontId, type]) => [type, frontId])
+  ), []);
+
+  const loadSubscription = useCallback(async () => {
+    if (!user) { setSubscription(null); setLoadingSub(false); return; }
+    setLoadingSub(true);
+    try {
+      const sub = await getMySubscription();
+      setSubscription(sub || null);
+    } catch {
+      setSubscription(null);
+    } finally {
+      setLoadingSub(false);
+    }
+  }, [user]);
+
+  useEffect(() => { loadSubscription(); }, [loadSubscription]);
+
   useEffect(() => {
     let cancelled = false;
     getPlans()
@@ -129,12 +162,45 @@ export default function Planes() {
     return () => { document.title = "Dónde Queda?"; };
   }, []);
 
+  const currentFrontPlanId = subscription?.status === "ACTIVE"
+    ? typeToFrontId[subscription.plan?.planType]
+    : null;
+
   const handleSelectPlan = (planId) => {
     if (!user) {
       openLoginModal();
       return;
     }
+    // Ya tiene ESTE plan activo: no hay nada que hacer.
+    if (planId === currentFrontPlanId) {
+      showToast("Ya tenés este plan activo.");
+      return;
+    }
+    // Tiene una suscripción activa (de OTRO plan): cambiar de plan en la
+    // suscripción existente, no crear una nueva vía Mercado Pago.
+    if (subscription?.status === "ACTIVE") {
+      setConfirmPlan(planId);
+      return;
+    }
+    // Sin suscripción activa (nunca se suscribió, o venció/canceló): flujo
+    // normal de alta, pasa por checkout y Mercado Pago.
     navigate(`/checkout/${planId}`);
+  };
+
+  const handleConfirmChangePlan = async () => {
+    if (!confirmPlan) return;
+    const planType = FRONT_PLAN_ID_TO_TYPE[confirmPlan];
+    setChangingPlan(true);
+    try {
+      await changePlan(planType);
+      showToast("Tu plan se actualizó correctamente.");
+      setConfirmPlan(null);
+      await loadSubscription();
+    } catch (err) {
+      showToast(err?.message || "No se pudo cambiar el plan. Intentá de nuevo.", "error");
+    } finally {
+      setChangingPlan(false);
+    }
   };
 
   const containerVariants = {
@@ -259,23 +325,30 @@ export default function Planes() {
               </ul>
 
               {/* CTA */}
-              <motion.button
-                className={`${styles.ctaBtn} ${plan.highlight ? styles.ctaBtnHighlight : ""}`}
-                style={
-                  plan.highlight
-                    ? {}
-                    : {
-                        borderColor: hoveredPlan === plan.id ? plan.color : undefined,
-                        color: hoveredPlan === plan.id ? "#fff" : plan.color,
-                        background: hoveredPlan === plan.id ? plan.color : "transparent",
-                      }
-                }
-                onClick={() => handleSelectPlan(plan.id)}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                Elegir {plan.badge}
-              </motion.button>
+              {plan.id === currentFrontPlanId ? (
+                <div className={styles.currentPlanBadge}>
+                  <Check /> Tu plan actual
+                </div>
+              ) : (
+                <motion.button
+                  className={`${styles.ctaBtn} ${plan.highlight ? styles.ctaBtnHighlight : ""}`}
+                  style={
+                    plan.highlight
+                      ? {}
+                      : {
+                          borderColor: hoveredPlan === plan.id ? plan.color : undefined,
+                          color: hoveredPlan === plan.id ? "#fff" : plan.color,
+                          background: hoveredPlan === plan.id ? plan.color : "transparent",
+                        }
+                  }
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={loadingSub}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  {subscription?.status === "ACTIVE" ? `Cambiar a ${plan.badge}` : `Elegir ${plan.badge}`}
+                </motion.button>
+              )}
             </motion.div>
           ))}
         </motion.div>
@@ -433,6 +506,44 @@ export default function Planes() {
           </motion.button>
         </motion.div>
       </section>
+
+      {/* ── Confirmación al cambiar de plan (suscripción ya activa) ── */}
+      {confirmPlan && (
+        <div className={styles.confirmOverlay} onClick={() => !changingPlan && setConfirmPlan(null)}>
+          <div className={styles.confirmBox} onClick={(e) => e.stopPropagation()}>
+            <p>
+              ¿Cambiar tu plan a <strong>{PLANS.find(p => p.id === confirmPlan)?.badge}</strong>?
+              El cambio se aplica al inicio del próximo período de facturación, no se te cobra nada ahora.
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmBtnCancel}
+                onClick={() => setConfirmPlan(null)}
+                disabled={changingPlan}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                className={styles.confirmBtnOk}
+                onClick={handleConfirmChangePlan}
+                disabled={changingPlan}
+              >
+                {changingPlan ? "Cambiando…" : "Sí, cambiar plan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className={`${styles.toast} ${styles["toast_" + toast.type]}`}>
+          {toast.msg}
+          <button className={styles.toastClose} onClick={() => setToast(null)}>✕</button>
+        </div>
+      )}
     </div>
   );
 }

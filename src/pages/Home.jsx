@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import FloatingChat from "../components/FloatingChat/FloatingChat";
 import styles from "./Home.module.css";
 import { getMainFeed, getFeaturedSection, getBusinessById } from "../Api/Api";
 import { UserContext } from "./UserContext";
@@ -780,7 +779,6 @@ const Home = () => {
         </div>
       </section>
 
-      <FloatingChat />
     </div>
   );
 };

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { searchCommerces } from "../../Api/Api";
 import styles from "./Navbar.module.css";
 import {
-  FaRegStar, FaRegBell, FaRegCalendarAlt,
+  FaRegStar, FaRegCalendarAlt,
   FaRegCreditCard, FaRegUser, FaSearch, FaBars,
   FaMapMarkerAlt, FaStore, FaCog, FaSignOutAlt,
   FaChevronDown, FaChevronRight, FaPlus, FaTimes
@@ -186,7 +186,6 @@ const Navbar = () => {
 
   const authIcons = [
     { icon: FaRegStar,        label: "Favoritos",      link: "/favorites"      },
-    { icon: FaRegBell,        label: "Notificaciones", link: "/notificaciones" },
   ];
 
   const publicIcons = [
