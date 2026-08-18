@@ -1,11 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-<<<<<<< HEAD
-import { createBusiness, setCommerceCategory } from "../../Api/Api";
-=======
 import { createBusiness, setCommerceCategory, addCommerceSubcategories } from "../../Api/Api";
->>>>>>> 597f1d52ea47863e1807c6f0c7ed0736df75aaf2
 import PlanRestrictedModal from "../ProfileHeader/PlanRestrictedModal";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";

@@ -259,6 +259,8 @@ const ProfileHeader = ({
   const [infoMsg,    setInfoMsg]    = useState("");
 
   const [isEditing,   setIsEditing]  = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const DESCRIPTIVE_TAGS_COLLAPSE_AT = 5;
   const [showModal,   setShowModal]  = useState(false);
   const [modalType,   setModalType]  = useState("post");
   const [editingPost, setEditingPost]= useState(null);
@@ -1001,22 +1003,24 @@ const ProfileHeader = ({
             <>
               <h1 className={styles.businessName}>{businessData.name || "Sin nombre"}</h1>
 
-              {businessData.category && (
-                <div className={styles.categoryChipsView}>
-                  <span className={styles.categoryChipView}>
-                    {businessData.category.name}
-                  </span>
-                </div>
+              {(businessData.category || currentSubcategoryTags.length > 0) && (
+                <p className={styles.categoryLine}>
+                  {[businessData.category?.name, ...currentSubcategoryTags.map(t => t.nameTag)]
+                    .filter(Boolean).join(" · ")}
+                </p>
               )}
 
-              {(currentSubcategoryTags.length > 0 || currentDescriptiveTags.length > 0) && (
-                <div className={styles.tagsChipsView}>
-                  {currentSubcategoryTags.map(t => (
-                    <span key={`sub-${t.nameTag}`} className={styles.subcategoryChipView}>{t.nameTag}</span>
-                  ))}
-                  {currentDescriptiveTags.map(t => (
-                    <span key={`desc-${t.nameTag}`} className={styles.descriptiveChipView}>#{t.nameTag}</span>
-                  ))}
+              {currentDescriptiveTags.length > 0 && (
+                <div className={styles.descriptiveTagsView}>
+                  {(tagsExpanded ? currentDescriptiveTags : currentDescriptiveTags.slice(0, DESCRIPTIVE_TAGS_COLLAPSE_AT))
+                    .map(t => (
+                      <span key={t.nameTag} className={styles.descriptiveChipView}>{t.nameTag}</span>
+                    ))}
+                  {!tagsExpanded && currentDescriptiveTags.length > DESCRIPTIVE_TAGS_COLLAPSE_AT && (
+                    <button type="button" className={styles.tagsMoreBtn} onClick={() => setTagsExpanded(true)}>
+                      +{currentDescriptiveTags.length - DESCRIPTIVE_TAGS_COLLAPSE_AT} más
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1487,4 +1491,4 @@ const ProfileHeader = ({
   );
 };
 
-export default ProfileHeader;
+export default ProfileHeader; 

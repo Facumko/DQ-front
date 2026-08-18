@@ -1464,7 +1464,8 @@ export const registerPromotionClick = async (idPromocion) => {
 // 1) El front identifica los planes con ids "amigables" (basic/mid/premium,
 //    ver Plans.jsx y CheckoutPage.jsx), pero el backend los identifica de DOS
 //    formas distintas según el endpoint:
-//      - POST /suscripcion/suscribirse/{planId}    → espera el idPlan NUMÉRICO
+//      - POST /suscripcion/suscribirse  → body {planId, referencedEmail?}
+//        espera el idPlan NUMÉRICO (dentro del body, no en la URL)
 //      - PUT  /suscripcion/cambiar/plan?nuevoPlan=X → espera el PlanType STRING
 //        (BASIC | INTERMEDIATE | PREMIUM)
 //    No hay forma de ir de "basic" al idPlan sin primero pedir /plan/traer y
@@ -1505,10 +1506,15 @@ export const resolveBackendPlanId = async (frontPlanId) => {
   return match.idPlan;
 };
 
-export const subscribeToPlan = async (idPlan) => {
+export const subscribeToPlan = async (idPlan, referencedEmail = null) => {
   validateParams({ idPlan }, ['idPlan']);
   // Devuelve MpSubscriptionResponseDto: { initPoint, mpSubscriptionId, status }
-  return apiRequest('POST', `/suscripcion/suscribirse/${idPlan}`);
+  // referencedEmail es opcional — si no se manda, el backend usa el email de
+  // la cuenta logueada. Sirve para probar con una cuenta de comprador de
+  // test de Mercado Pago sin cambiar el email real de la cuenta.
+  const body = { planId: idPlan };
+  if (referencedEmail) body.referencedEmail = referencedEmail;
+  return apiRequest('POST', '/suscripcion/suscribirse', body);
 };
 
 export const getMySubscription = async () =>

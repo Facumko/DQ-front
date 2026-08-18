@@ -81,6 +81,9 @@ export default function CheckoutPage() {
   // con el hardcodeado (mejor mostrar un precio aproximado que nada,
   // y el cobro real de todas formas lo define el backend en Mercado Pago).
   const [realPrice, setRealPrice] = useState(null);
+  // Solo se usa en modo desarrollo, para probar con una cuenta de comprador
+  // de test de Mercado Pago sin cambiar el email real de la cuenta logueada.
+  const [testEmail, setTestEmail] = useState("");
 
   useEffect(() => {
     if (!plan) return;
@@ -122,8 +125,10 @@ export default function CheckoutPage() {
       // contra /plan/traer (ver comentario en Api.jsx sobre este mapeo).
       const idPlan = await resolveBackendPlanId(plan.id);
 
-      // El backend crea la preferencia en Mercado Pago y devuelve initPoint
-      const { initPoint } = await subscribeToPlan(idPlan);
+      // El backend crea la preferencia en Mercado Pago y devuelve initPoint.
+      // testEmail solo tiene valor si estamos en modo dev y se completó el
+      // campo — si no, va undefined y el backend usa el email de la cuenta.
+      const { initPoint } = await subscribeToPlan(idPlan, isDevMode ? testEmail.trim() || null : null);
       if (!initPoint) throw new Error("El servidor no devolvió el link de pago.");
 
       // 🧪 SOLO DESARROLLO: forzamos el cambio de plan DESPUÉS de crear la
@@ -271,6 +276,21 @@ export default function CheckoutPage() {
               {isDevMode && (
                 <div className={styles.devBanner}>
                   🧪 Modo prueba: el plan se va a cambiar igual, sin depender de que completes el pago en MP.
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ display: "block", fontSize: "0.78rem", marginBottom: 4, opacity: 0.85 }}>
+                      Email de comprador de test de MP (opcional — si lo dejás vacío, se usa el email de tu cuenta)
+                    </label>
+                    <input
+                      type="email"
+                      value={testEmail}
+                      onChange={(e) => setTestEmail(e.target.value)}
+                      placeholder="TESTUSER.....@testuser.com"
+                      style={{
+                        width: "100%", padding: "8px 10px", borderRadius: 8,
+                        border: "1px solid rgba(0,0,0,0.15)", fontSize: "0.85rem",
+                      }}
+                    />
+                  </div>
                 </div>
               )}
 
