@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useEffect } from "react";
-import EventCalendar, { getUpcomingCount } from "../components/EventCalendar/EventCalendar";
+import React, { useState, useEffect } from "react";
+import EventCalendar from "../components/EventCalendar/EventCalendar";
 import { getAllEvents } from "../Api/Api";
 import styles from "./Eventos.module.css";
-import { Calendar, Sparkles, Loader, AlertCircle } from "lucide-react";
+import { Calendar, Loader, AlertCircle } from "lucide-react";
 
 // Paleta para diferenciar eventos por categoría del comercio
 const EVENT_COLORS = ["#B00020", "#1976D2", "#43A047", "#FB8C00", "#8E24AA", "#D81B60", "#00897B", "#5E35B1"];
@@ -61,32 +61,17 @@ const Eventos = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const upcoming = useMemo(() => getUpcomingCount(events), [events]);
-
   return (
     <div className={styles.page}>
       <div className={styles.hero}>
         <div className={styles.header}>
-          <div className={styles.headerContent}>
-            <div className={styles.headerIcon}>
-              <Calendar size={28} />
-            </div>
-            <div>
-              <h1 className={styles.title}>Eventos</h1>
-              <p className={styles.subtitle}>
-                Descubrí lo que está pasando en tu ciudad
-              </p>
-            </div>
+          <div className={styles.headerIcon}>
+            <Calendar size={26} />
           </div>
-
-          {upcoming > 0 && (
-            <div className={styles.upcomingBadge}>
-              <Sparkles size={15} className={styles.sparkle} />
-              <span>
-                <strong>{upcoming}</strong> evento{upcoming !== 1 ? "s" : ""} próximos
-              </span>
-            </div>
-          )}
+          <div>
+            <h1 className={styles.title}>Eventos</h1>
+            <p className={styles.subtitle}>Descubrí lo que está pasando en tu ciudad</p>
+          </div>
         </div>
       </div>
 
