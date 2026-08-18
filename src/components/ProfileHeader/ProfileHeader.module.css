@@ -1197,24 +1197,16 @@
 }
 
 /* ── Categorías — vista ── */
-.categoryChipsView {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0 10px;
+/* ── Categoría + subcategorías: una sola línea de texto secundario,
+   no chips de colores — es clasificación, no necesita gritar. El color
+   de marca queda libre para lo que sí importa (favorito, estado, etc). ── */
+.categoryLine {
+  margin: 4px 0 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
-.categoryChipView {
-  padding: 4px 12px;
-  background: #fef2f4;
-  color: #B00020;
-  border: 1px solid #fecaca;
-  border-radius: 20px;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-/* ── Categorías — edición ── */
+/* ── Categorías / subcategorías — edición (mismo chip para las dos) ── */
 .categoryEditorSection {
   margin-top: 8px;
 }
@@ -1240,57 +1232,64 @@
 }
 
 .categoryChipEdit:hover {
-  border-color: var(--brand);
-  color: var(--brand);
-  background: var(--brand-light);
+  border-color: var(--muted);
+  color: var(--text);
+  background: var(--bg);
 }
 
+/* Seleccionado: relleno oscuro neutro, no color de marca — la marca se
+   reserva para acciones (botones), no para indicar selección de datos. */
 .categoryChipEditSelected {
-  background: var(--brand);
-  border-color: var(--brand);
+  background: var(--text);
+  border-color: var(--text);
   color: #fff;
 }
 
 .categoryChipEditSelected:hover {
-  background: var(--brand-dark);
-  border-color: var(--brand-dark);
+  background: #000;
+  border-color: #000;
   color: #fff;
 }
 
 .categoryCount {
   margin: 8px 0 0;
   font-size: 0.78rem;
-  color: var(--brand);
+  color: var(--muted);
   font-weight: 600;
 }
 
-/* ── Subcategorías / etiquetas descriptivas — vista pública ── */
-.tagsChipsView {
+/* ── Etiquetas descriptivas — vista pública ── */
+.descriptiveTagsView {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin: 0 0 10px;
 }
 
-.subcategoryChipView {
-  padding: 4px 12px;
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
 .descriptiveChipView {
-  padding: 4px 12px;
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
-  border-radius: 20px;
-  font-size: 0.78rem;
+  padding: 4px 10px;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
   font-weight: 500;
 }
+
+.tagsMoreBtn {
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color var(--transition), color var(--transition);
+}
+.tagsMoreBtn:hover { border-color: var(--muted); color: var(--text); }
 
 .optionalHint {
   font-size: 0.72rem;
@@ -1313,9 +1312,9 @@
   align-items: center;
   gap: 6px;
   padding: 5px 8px 5px 12px;
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 500;
@@ -1329,15 +1328,15 @@
   height: 16px;
   border: none;
   border-radius: 50%;
-  background: rgba(37, 99, 235, 0.15);
-  color: #2563eb;
+  background: rgba(17, 24, 39, 0.08);
+  color: var(--muted);
   font-size: 0.85rem;
   line-height: 1;
   cursor: pointer;
   padding: 0;
   transition: background 0.15s;
 }
-.tagChipRemoveBtn:hover { background: rgba(37, 99, 235, 0.3); }
+.tagChipRemoveBtn:hover { background: rgba(17, 24, 39, 0.16); color: var(--text); }
 
 .tagInputRow {
   display: flex;
