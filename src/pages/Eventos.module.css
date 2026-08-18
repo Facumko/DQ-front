@@ -1,254 +1,100 @@
-/* ===== CONTENEDOR PRINCIPAL ===== */
-.container {
+/* ============================================================
+   EVENTOS — Dónde Queda?
+   Header liviano + calendario como único protagonista
+   ============================================================ */
+
+.page {
   min-height: 100vh;
-  background-color: var(--gray-50);
-  padding: 2rem 1rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  background: var(--gray-50);
 }
 
-/* ===== CHIPS DE CATEGORÍA ===== */
-.categoryChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.chip {
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1.5px solid #e5e7eb;
+/* ===== HERO / HEADER ===== */
+.hero {
   background: #fff;
-  color: #374151;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
+  padding: var(--spacing-lg) var(--spacing-lg);
+  border-bottom: 1px solid var(--gray-200);
 }
 
-.chip:hover {
-  border-color: #B00020;
-  color: #B00020;
-}
-
-.chipActive {
-  background: #B00020;
-  border-color: #B00020;
-  color: #fff;
-}
-
-.chipActive:hover {
-  background: #8a0018;
-  border-color: #8a0018;
-  color: #fff;
-}
-
-.chipClear {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-  color: #6b7280;
-}
-
-.chipClear:hover {
-  background: #fef2f2;
-  border-color: #B00020;
-  color: #B00020;
-}
-
-/* ===== HEADER ===== */
 .header {
-  text-align: center;
-  margin-bottom: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
 }
 
-.header h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--gray-900);
-  margin-bottom: 0.5rem;
+.headerIcon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--brand-600);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
-  font-size: 2rem;
-  font-weight: 600;
+  font-size: 1.6rem;
+  font-weight: 700;
   color: var(--gray-900);
-  margin-bottom: 0.5rem;
+  margin: 0 0 2px;
+  font-family: 'Lexend', sans-serif;
 }
 
-.queryText {
+.subtitle {
+  font-size: 0.9rem;
   color: var(--gray-600);
-  font-size: 1rem;
-}
-
-/* ===== ESTADO DE CARGA ===== */
-.loadingContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 40vh;
-  gap: 1rem;
-}
-
-.loadingContainer p {
-  color: var(--gray-600);
-  font-size: 1.1rem;
-}
-
-.spinner {
-  animation: spin 1s linear infinite;
-  color: var(--brand-600);
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  margin: 0;
 }
 
 /* ===== MENSAJE DE ERROR ===== */
 .errorBanner {
+  max-width: 1100px;
+  margin: var(--spacing-md) auto 0;
   background: #fee;
   border: 1px solid #fcc;
   border-radius: var(--radius-md);
-  padding: 1rem;
-  margin-bottom: 2rem;
+  padding: var(--spacing-sm) var(--spacing-md);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   color: #c53030;
+  font-size: 0.88rem;
 }
 
-/* ===== SIN RESULTADOS ===== */
-.noResults {
-  text-align: center;
-  padding: 4rem 2rem;
+/* ===== CALENDARIO ===== */
+.calendarWrapper {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+}
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  min-height: 40vh;
   color: var(--gray-500);
 }
 
-.noResults svg {
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
+.loadingState p { margin: 0; font-size: 0.95rem; }
 
-.noResults h3 {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-  color: var(--gray-700);
-}
+.spin { animation: eventos-spin 1s linear infinite; color: var(--brand-600); }
 
-.noResults p {
-  margin-bottom: 2rem;
-}
-
-.backButton {
-  background: var(--brand-600);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
-}
-
-.backButton:hover {
-  background: var(--brand-700);
-  transform: translateY(-1px);
-}
-
-/* ===== GRILLA DE RESULTADOS ===== */
-.resultsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-}
-
-/* ===== SUBSECCIONES (ej. "Eventos de hoy" / "Buenos planes para hoy") ===== */
-.subsectionTitle {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #1a1a1a;
-  margin: 0 0 1rem 0;
-}
-
-.eventsSection {
-  margin-bottom: 2.5rem;
-}
-
-.eventsList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.75rem;
-}
-
-/* ===== CARGAR MÁS ===== */
-.loadMoreContainer {
-  text-align: center;
-  margin-top: 2rem;
-}
-
-.loadMoreButton {
-  background: white;
-  border: 2px solid var(--brand-600);
-  color: var(--brand-600);
-  padding: 0.75rem 2rem;
-  border-radius: var(--radius-md);
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: inherit;
-}
-
-.loadMoreButton:hover:not(:disabled) {
-  background: var(--brand-600);
-  color: white;
-  transform: translateY(-1px);
-}
-
-.loadMoreButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+@keyframes eventos-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
-  .container {
-    padding: 1rem 0.5rem;
-  }
-
-  .header h1,
-  .title {
-    font-size: 1.5rem;
-  }
-
-  .resultsGrid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .noResults {
-    padding: 2rem 1rem;
-  }
-
-  .categoryChips {
-    gap: 6px;
-  }
-
-  .chip {
-    font-size: 0.76rem;
-    padding: 5px 11px;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .resultsGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+@media (max-width: 640px) {
+  .hero { padding: var(--spacing-md); }
+  .headerIcon { width: 42px; height: 42px; }
+  .title { font-size: 1.35rem; }
+  .subtitle { font-size: 0.82rem; }
+  .calendarWrapper { padding: var(--spacing-md) var(--spacing-sm); }
 }

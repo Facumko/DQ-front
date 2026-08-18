@@ -1056,7 +1056,19 @@ export const removeFavoriteCommerce = async (idCommerce) => {
 export const getSavedPosts = async () => {
   try {
     const response = await apiRequest('GET', ENDPOINTS.SAVED_POSTS_GET);
-    return Array.isArray(response) ? response : [];
+    const posts = Array.isArray(response) ? response : [];
+    // El backend devuelve cada imagen como ImageDto ({ url, imageOrder, ... }),
+    // no como string. Sin este mapeo, cualquier <img src={post.images[0]}>
+    // (ej. Favorites.jsx) recibe un objeto en vez de una URL y no muestra nada.
+    // Mismo criterio de normalización que Home.jsx usa para el feed principal.
+    return posts.map((p) => ({
+      ...p,
+      images: Array.isArray(p.images)
+        ? [...p.images]
+            .sort((a, b) => (a.imageOrder || 0) - (b.imageOrder || 0))
+            .map((i) => i.url || i)
+        : [],
+    }));
   } catch (error) {
     if (error.message?.includes('404')) return [];
     throw error;

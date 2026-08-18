@@ -32,7 +32,7 @@ const toGCalDate = (dateStr, timeStr) => {
 // ─────────────────────────────────────────────
 // EXPORT HELPERS
 // ─────────────────────────────────────────────
-const openGoogleCalendar = (ev) => {
+export const openGoogleCalendar = (ev) => {
   const start = toGCalDate(ev.date, ev.time);
   const end   = toGCalDate(ev.date, ev.endTime || ev.time);
   const p = new URLSearchParams({
@@ -43,7 +43,7 @@ const openGoogleCalendar = (ev) => {
   window.open(`https://calendar.google.com/calendar/render?${p}`, "_blank");
 };
 
-const downloadICal = (ev) => {
+export const downloadICal = (ev) => {
   const start = toGCalDate(ev.date, ev.time);
   const end   = toGCalDate(ev.date, ev.endTime || ev.time);
   const now   = new Date().toISOString().replace(/[-:.]/g,"").slice(0,15)+"Z";
@@ -248,7 +248,7 @@ const WeekView = ({ anchorDate, eventsByDate, onDayClick }) => {
 // ─────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
-const EventCalendar = ({ events = [], compact = false }) => {
+const EventCalendar = ({ events = [], compact = false, jumpTo = null }) => {
   const today = useMemo(() => new Date(), []);
 
   const [view,       setView      ] = useState("month");
@@ -341,6 +341,21 @@ const EventCalendar = ({ events = [], compact = false }) => {
     if (!evs.length) return;
     setSelDate(key); setSelEvs(evs);
   }, [byDate]);
+
+  // ── saltar a una fecha puntual desde afuera (ej. click en "Ver en el
+  //    calendario" desde el bloque destacado de Eventos.jsx) ──
+  useEffect(() => {
+    if (!jumpTo?.date) return;
+    const [y, m] = jumpTo.date.split("-").map(Number);
+    setYear(y);
+    setMonth(m - 1);
+    setView("month");
+    const evs = byDate[jumpTo.date] || [];
+    if (evs.length) { setSelDate(jumpTo.date); setSelEvs(evs); }
+    // Solo debe re-ejecutar cuando cambia el "nonce" (cada click), no en cada
+    // render donde byDate se recalcula.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpTo?.nonce]);
 
   // ── panel lateral ──
   const panelEvs = useMemo(() => {
