@@ -20,6 +20,14 @@ const formatDate = (iso) => {
     return new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
   } catch { return null; }
 };
+// Distingue "cancelado pero todavía dentro del período pagado" de
+// "cancelado y ya venció" — antes ambos casos decían "Venció el [fecha]"
+// aunque la fecha estuviera en el futuro, lo cual era contradictorio.
+const isFutureDate = (iso) => {
+  if (!iso) return false;
+  const d = new Date(iso);
+  return !isNaN(d) && d.getTime() > Date.now();
+};
 
 /* ─────────────────────────────────────────
    Reglas de validación por campo
@@ -526,17 +534,36 @@ export default function Profile() {
                     </span>
                   </div>
 
-                  {formatDate(subscription.endDate) && (
-                    <p className={styles.planDetail}>
-                      <Calendar size={13} />
-                      {subscription.status === "ACTIVE"
-                        ? `Se renueva el ${formatDate(subscription.endDate)}`
-                        : `Venció el ${formatDate(subscription.endDate)}`}
-                      {typeof subscription.daysRemaining === "number" && subscription.daysRemaining >= 0 && subscription.status === "ACTIVE" && (
-                        <span className={styles.planDaysLeft}> · {subscription.daysRemaining} días restantes</span>
-                      )}
-                    </p>
-                  )}
+                  {formatDate(subscription.endDate) && (() => {
+                    const stillActive = isFutureDate(subscription.endDate);
+                    let text;
+                    if (subscription.status === "ACTIVE") {
+                      text = `Se renueva el ${formatDate(subscription.endDate)}`;
+                    } else if (subscription.status === "CANCELLED" && stillActive) {
+                      // Se canceló la renovación, pero el período ya pagado
+                      // sigue vigente hasta esta fecha — no es lo mismo que
+                      // "vencido" (eso implica que ya no tiene acceso).
+                      text = `Cancelado — conservás los beneficios hasta el ${formatDate(subscription.endDate)}`;
+                    } else if (subscription.status === "CANCELLED") {
+                      text = `Cancelado — venció el ${formatDate(subscription.endDate)}`;
+                    } else {
+                      text = `Venció el ${formatDate(subscription.endDate)}`;
+                    }
+                    // Días restantes: tiene sentido tanto si está ACTIVE como
+                    // si está CANCELLED pero todavía dentro del período pagado.
+                    const showDaysLeft = typeof subscription.daysRemaining === "number"
+                      && subscription.daysRemaining >= 0
+                      && (subscription.status === "ACTIVE" || (subscription.status === "CANCELLED" && stillActive));
+                    return (
+                      <p className={styles.planDetail}>
+                        <Calendar size={13} />
+                        {text}
+                        {showDaysLeft && (
+                          <span className={styles.planDaysLeft}> · {subscription.daysRemaining} días restantes</span>
+                        )}
+                      </p>
+                    );
+                  })()}
 
                   <div className={styles.planActions}>
                     <button className={styles.btnOutline} onClick={() => navigate("/planes")}>

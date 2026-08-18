@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
-import FloatingChat from "../components/FloatingChat/FloatingChat";
 import { getMyBusiness, getBusinessById } from "../Api/Api";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -106,7 +105,6 @@ const Negocios = () => {
   return (
     <div style={{ background: "#f4f5f8", minHeight: "100vh", padding: "24px" }}>
       <ProfileHeader isOwner={isOwner} businessData={businessData} />
-      <FloatingChat />
     </div>
   );
 };
