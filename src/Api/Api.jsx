@@ -1331,8 +1331,15 @@ export const getPromotionTags = async () =>
 export const getTags = async () =>
   apiRequest('GET', '/etiqueta/traer');
 
-export const getSubcategoryTags = async () =>
-  apiRequest('GET', '/etiqueta/subcategoria');
+// OJO: /etiqueta/subcategoria devuelve TagDto (solo nameTag+type, SIN idTag
+// ni category) — con eso no se puede ni resolver el id real para borrar, ni
+// filtrar subcategorías por categoría (los dos bugs reportados). /etiqueta/traer
+// sí devuelve el schema completo (Tag: idTag+nameTag+type+category), así que
+// se deriva de ahí filtrando en el cliente — mismo patrón que getDescriptiveTags.
+export const getSubcategoryTags = async () => {
+  const all = await getTags();
+  return Array.isArray(all) ? all.filter(t => t.type === 'SUBCATEGORY') : [];
+};
 
 export const getDescriptiveTags = async () => {
   const all = await getTags();
