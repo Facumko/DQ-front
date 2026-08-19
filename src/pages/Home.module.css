@@ -227,7 +227,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sidebarTrack { animation: none; }
+  .sidebarTrack { animation: none !important; }
 }
 
 .businessCard {
@@ -650,15 +650,26 @@
   }
   .sidebar::-webkit-scrollbar { height: 6px; }
   .sidebar::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
-  .businessCard { min-width: 280px; }
+  .businessCard { min-width: 260px; width: 260px; flex-shrink: 0; }
 
-  /* En tablet/mobile el marquee vertical se desactiva: scroll horizontal simple, como el resto del sidebar */
-  .sidebarMarquee {
+    .sidebarMarquee {
     height: auto;
     overflow-x: auto;
-    overflow-y: visible;
+    overflow-y: hidden;
+    position: relative;
+    scroll-behavior: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .sidebarMarquee::before, .sidebarMarquee::after { display: none; }
+  .sidebarMarquee::before,
+  .sidebarMarquee::after {
+    top: 0;
+    bottom: 0;
+    height: auto;
+    width: 28px;
+  }
+  .sidebarMarquee::before { left: 0;  right: auto; background: linear-gradient(to right, #fff, transparent); }
+  .sidebarMarquee::after  { right: 0; left: auto;  background: linear-gradient(to left, #fff, transparent); }
+
   .sidebarTrack {
     flex-direction: row;
     animation: none;
@@ -730,6 +741,34 @@
   .postActionBtn      { padding: 6px 10px; font-size: 0.8rem; }
   .postLikesCount     { font-size: 0.8rem; }
   .loadMoreBtn        { width: 100%; padding: 12px; }
+}
+
+@media (max-width: 640px) {
+  /* Cajas de "Explorá más": en vez de 6 tarjetas apiladas en una sola
+     columna (mucho scroll), un mosaico de 2 columnas más prolijo. */
+  .categoriesGrid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .categoryCard   { border-radius: 12px; }
+  .categoryImageContainer { height: 100px; }
+  .categoryIcon   { width: 32px; height: 32px; }
+  .categoryContent { padding: 12px; }
+  .categoryTitle {
+    font-size: 0.85rem;
+    margin-bottom: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  /* La descripción no entra prolija en una tarjeta de ~160px de ancho */
+  .categoryDescription { display: none; }
+}
+
+@media (max-width: 360px) {
+  .categoriesGrid { gap: 8px; }
+  .categoryImageContainer { height: 84px; }
+  .categoryIcon   { width: 26px; height: 26px; }
+  .categoryContent { padding: 10px; }
+  .categoryTitle  { font-size: 0.78rem; }
 }
 
 @media (max-width: 480px) {

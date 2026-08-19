@@ -13,14 +13,6 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   position: sticky;
   top: 0;
-  /* Los 3 componentes que embeben un mapa Leaflet (LocationPicker,
-     LocationDisplay, MapaPage) tienen isolation:isolate en su contenedor
-     del mapa, que crea un contexto de apilamiento propio — así los
-     controles +/- de Leaflet (z-index:1000 por defecto) quedan contenidos
-     ahí adentro y nunca pueden competir con el navbar ni con ningún otro
-     elemento de la página, sea cual sea su z-index interno. Por eso la
-     navbar no necesita un z-index artificialmente alto. Ver escala
-     completa en src/index.css (variables --z-*). */
   z-index: var(--z-navbar);
   color: white;
   box-sizing: border-box;
@@ -542,19 +534,10 @@
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  .searchContainer {
-    max-width: 220px;
-    margin: 0 12px;
-  }
-  .logoText { display: none; }
-  .userName  { display: none; }
-  .chevron   { display: none; }
-}
-
-@media (max-width: 640px) {
   .navbar { padding: 0 10px; gap: 4px; }
 
-  /* En mobile el buscador se colapsa a un ícono; se expande a pantalla completa al tocarlo */
+  .logoText { display: none; }
+  .chevron   { display: none; }
   .mobileSearchToggle { display: flex; }
   .searchContainer { display: none; }
   .searchContainerMobileActive {
@@ -573,15 +556,14 @@
 
   .hiddenOnMobileSearch { display: none; }
 
-  .icons { gap: 2px; }
+  .icons { gap: 0; }
   .loginButton span { display: none; }
   .loginButton { padding: 8px 10px; }
   .userName { display: none; }
 
-  /* Con hasta 5 íconos + avatar, en pantallas muy angostas se compacta más */
+  /* Con hasta 5 íconos + avatar, en pantallas angostas se compacta más */
   .iconWrapper { width: 34px; height: 34px; }
   .outlineIcon { font-size: 1.05rem; }
-  .icons { gap: 0; }
 }
 
 @media (max-width: 380px) {
