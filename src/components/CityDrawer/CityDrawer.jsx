@@ -228,7 +228,7 @@ const CityDrawer = ({ isOpen, onClose }) => {
         </div>
 
         <div className={styles.drawerFooter}>
-          <span>© {new Date().getFullYear()} Dónde Queda? — Sáenz Peña, Chaco</span>
+          <span>© {new Date().getFullYear()} Dónde Queda? - Sáenz Peña, Chaco</span>
         </div>
       </aside>
     </>
