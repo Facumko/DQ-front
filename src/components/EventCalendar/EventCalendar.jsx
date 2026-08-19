@@ -530,7 +530,7 @@ const EventCalendar = ({ events = [], compact = false, jumpTo = null }) => {
         {/* Leyenda */}
         <div className={styles.hint}>
           {query
-            ? <><Search size={12}/> {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para "{query}"</>
+            ? <><Search size={12}/> {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para &quot;{query}&quot;</>
             : <><span className={styles.hintDot} style={{ background:"#B00020" }}/> Pasá el mouse por un día o hacé click para ver detalles</>
           }
         </div>

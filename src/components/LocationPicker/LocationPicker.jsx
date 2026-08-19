@@ -270,7 +270,7 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
       {locationError && <p className={styles.searchError}>{locationError}</p>}
 
       <p className={styles.hint}>
-        💡 Escribí la dirección y presioná Enter o "Ubicar en el mapa", usá tu ubicación actual, o hacé clic y arrastrá el marcador rojo para ajustar la posición con precisión.
+        💡 Escribí la dirección y presioná Enter o &quot;Ubicar en el mapa&quot;, usá tu ubicación actual, o hacé clic y arrastrá el marcador rojo para ajustar la posición con precisión.
       </p>
 
       {/* ── Mapa ── */}

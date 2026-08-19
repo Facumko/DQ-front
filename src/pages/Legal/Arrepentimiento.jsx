@@ -220,7 +220,7 @@ const Arrepentimiento = () => {
           <p>
             También podés enviarnos un email directamente a{" "}
             <a href="mailto:desarrollomf.arg@gmail.com">desarrollomf.arg@gmail.com</a>{" "}
-            indicando en el asunto <em>"Solicitud de arrepentimiento"</em>.
+            indicando en el asunto <em>&quot;Solicitud de arrepentimiento&quot;</em>.
           </p>
         </div>
       </div>
