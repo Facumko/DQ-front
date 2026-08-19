@@ -27,38 +27,7 @@ const handleImageError = (e) => {
 };
 
 const MOCK_DATA = {
-  heroSlides: [
-    {
-      id: 1,
-      image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80",
-      title: "Festival Gastronómico 2025",
-      subtitle: "Los mejores sabores de la ciudad se reúnen este fin de semana",
-      badge: { type: "event", text: "Evento Especial" },
-      cta: "Ver Detalles",
-      metadata: { date: "15-17 Nov" },
-      link: "/eventos",
-    },
-    {
-      id: 2,
-      image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80",
-      title: "Restaurante Villa Gourmet",
-      subtitle: "Nueva experiencia culinaria en el corazón de la ciudad",
-      badge: { type: "featured", text: "Destacado" },
-      cta: "Reservar Mesa",
-      metadata: { rating: "4.9" },
-      link: "/search?q=",
-    },
-    {
-      id: 3,
-      image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80",
-      title: "Ofertas Black Friday",
-      subtitle: "Hasta 50% de descuento en tus negocios favoritos",
-      badge: { type: "promotion", text: "Oferta Limitada" },
-      cta: "Ver Ofertas",
-      metadata: { discount: "Hasta 50% OFF" },
-      link: "/search?q=",
-    },
-  ],
+  heroSlides: [],
 
   featuredBusinesses: [],
 
@@ -266,7 +235,7 @@ const Home = () => {
   const [currentImageIndex,   setCurrentImageIndex]   = useState({});
   const [sideFeatured,        setSideFeatured]        = useState([]); // cajas laterales: misma fuente que el carrusel (/destacado → featured)
   const sectionsRef = useRef([]);
-
+  const sidebarMarqueeRef = useRef(null);
   const FEED_SIZE = 10;
 
   // ── Normalizar item del carrusel del backend ──────────────────────────
@@ -472,6 +441,52 @@ const Home = () => {
     return () => { cancelled = true; };
   }, [sideFeatured]);
 
+  // ── Auto-scroll horizontal del "marquee" mobile (pausable / arrastrable ──
+useEffect(() => {
+  if (sideFeatured.length === 0) return;
+  const el = sidebarMarqueeRef.current;
+  if (!el) return;
+  if (!window.matchMedia("(max-width: 1024px)").matches) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  let rafId;
+  let paused = false;
+  let resumeTimeout;
+  const SPEED = 0.55;
+
+  const step = () => {
+    if (!paused) {
+      const half = el.scrollWidth / 2;
+      el.scrollLeft += SPEED;
+      if (el.scrollLeft >= half) el.scrollLeft -= half;
+    }
+    rafId = requestAnimationFrame(step);
+  };
+  rafId = requestAnimationFrame(step);
+
+  const pause = () => { paused = true; clearTimeout(resumeTimeout); };
+  const scheduleResume = () => {
+    clearTimeout(resumeTimeout);
+    resumeTimeout = setTimeout(() => { paused = false; }, 3000);
+  };
+
+  el.addEventListener("pointerdown", pause);
+  el.addEventListener("pointerup", scheduleResume);
+  el.addEventListener("pointercancel", scheduleResume);
+  el.addEventListener("touchstart", pause, { passive: true });
+  el.addEventListener("touchend", scheduleResume);
+
+  return () => {
+    cancelAnimationFrame(rafId);
+    clearTimeout(resumeTimeout);
+    el.removeEventListener("pointerdown", pause);
+    el.removeEventListener("pointerup", scheduleResume);
+    el.removeEventListener("pointercancel", scheduleResume);
+    el.removeEventListener("touchstart", pause);
+    el.removeEventListener("touchend", scheduleResume);
+  };
+}, [sideFeatured.length]);
+
   // ── Effect intersection observer para animaciones ─────────────────────
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -567,7 +582,9 @@ const Home = () => {
             </div>
           </div>
 
-          <div className={`${styles.sidebar} ${sideFeatured.length > 0 ? styles.sidebarMarquee : ""}`}>
+          <div 
+          ref={sidebarMarqueeRef}
+          className={`${styles.sidebar} ${sideFeatured.length > 0 ? styles.sidebarMarquee : ""}`}>
             {sideFeatured.length > 0 ? (
               <div
                 className={styles.sidebarTrack}
