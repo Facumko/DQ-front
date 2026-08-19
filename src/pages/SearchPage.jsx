@@ -7,7 +7,9 @@ import {
   getCategories,
   getCommercesByCategories,
   isCommerceOpenNow,
+  isCommerceOpenToday,
   isEventToday,
+  commerceHasSubcategoryMatching,
   getActivePromotions,
   getAllEvents,
 } from "../Api/Api";
@@ -31,10 +33,27 @@ const EXPLORA_TITLES = {
 
 // Tag que carga el formulario de onboarding cuando el dueño responde "Sí" a
 // la pregunta de emergencias (ver ONBOARDING_QUESTIONS en
-// OnboardingQuestionnaire.jsx).
+// OnboardingQuestionnaire.jsx). Emergencias es la única caja que sigue
+// usando una pregunta directa — cena y hoy ahora se resuelven con
+// subcategorías (ver más abajo).
 const EMERGENCIA_TAG = "Urgencia24hs";
-const CENA_TAG = "CenaEstaNoche";
-const PLAN_DEL_DIA_TAG = "PlanDelDia";
+
+// Confirmado contra el catálogo real de /etiqueta/subcategoria (13
+// categorías, ~78 subcategorías). Los nombres de abajo están copiados tal
+// cual figuran ahí — si el back agrega/renombra subcategorías en el
+// futuro, hay que revisar estas listas.
+// Nombres EXACTOS del catálogo real de /etiqueta/subcategoria (confirmado
+// por el equipo de back). commerceHasSubcategoryMatching normaliza tildes y
+// mayúsculas en la comparación, así que estos strings no necesitan estar
+// "recortados" a una palabra clave — van completos, tal cual figuran en el
+// backend, porque ya sabemos que existen así.
+const CENA_SUBCATEGORY_KEYWORDS = [
+  "restaurantes", "comida rápida", "bares y cervecerías",
+];
+const HOY_SUBCATEGORY_KEYWORDS = [
+  "cafeterías", "heladerías", "panaderías y pastelerías",
+  "cines y teatros", "recreación infantil",
+];
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
@@ -98,10 +117,14 @@ const SearchPage = () => {
           setResults(Array.isArray(emergencyCommerces) ? emergencyCommerces : []);
           setHasMore(false);
         } else if (isCena) {
-          const cenaCommerces = await searchCommerces(CENA_TAG, 50, 0);
-          const list = Array.isArray(cenaCommerces) ? cenaCommerces : [];
-          // Los que están abiertos ahora van primero: es una decisión para
-          // esta noche, así que lo más útil es lo más accionable ya mismo.
+          const all = await getAllCommerces();
+          const list = (Array.isArray(all) ? all : []).filter(
+            (c) => commerceHasSubcategoryMatching(c, CENA_SUBCATEGORY_KEYWORDS) && isCommerceOpenToday(c)
+          );
+          // Los que están abiertos ahora (ya, en este momento) van primero:
+          // es una decisión para esta noche, así que lo más útil es lo más
+          // accionable ya mismo. Los que abren más tarde quedan después,
+          // pero siguen apareciendo porque abren hoy.
           const sorted = [...list].sort((a, b) => {
             const aOpen = isCommerceOpenNow(a) ? 0 : 1;
             const bOpen = isCommerceOpenNow(b) ? 0 : 1;
@@ -114,11 +137,14 @@ const SearchPage = () => {
           setResults(promos);
           setHasMore(false);
         } else if (isHoy) {
-          const [planCommerces, allEvents] = await Promise.all([
-            searchCommerces(PLAN_DEL_DIA_TAG, 50, 0),
+          const [all, allEvents] = await Promise.all([
+            getAllCommerces(),
             getAllEvents().catch(() => []),
           ]);
-          setResults(Array.isArray(planCommerces) ? planCommerces : []);
+          const planCommerces = (Array.isArray(all) ? all : []).filter((c) =>
+            commerceHasSubcategoryMatching(c, HOY_SUBCATEGORY_KEYWORDS)
+          );
+          setResults(planCommerces);
           const eventsToday = (Array.isArray(allEvents) ? allEvents : [])
             .filter((ev) => ev.active !== false && isEventToday(ev))
             .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
@@ -297,7 +323,7 @@ const SearchPage = () => {
           <h3>
             {isAbiertoAhora ? "No hay negocios abiertos en este momento"
               : isEmergencias ? "Todavía no hay comercios cargados con este servicio"
-              : isCena ? "Todavía no hay opciones cargadas para cenar"
+              : isCena ? "Todavía no hay comercios con subcategoría gastronómica que abran hoy"
               : isPromociones ? "No hay promociones activas en este momento"
               : isHoy ? "Todavía no hay planes ni eventos cargados para hoy"
               : isAgregados ? "No hay negocios nuevos este mes"
@@ -308,7 +334,7 @@ const SearchPage = () => {
           <p>
             {isAbiertoAhora ? "Probá de nuevo más tarde, los horarios cambian durante el día"
               : isEmergencias ? "Mientras tanto, usá los números útiles de arriba"
-              : isCena ? "Probá explorando por categoría (Gastronomía) mientras se van sumando comercios"
+              : isCena ? "Puede que hoy sea el día de cierre de varios locales — probá explorando por categoría"
               : isPromociones ? "Volvé a revisar más tarde, los comercios suelen activarlas por tiempo limitado"
               : isHoy ? "Volvé a revisar más tarde, se va sumando contenido todos los días"
               : isAgregados ? "Volvé pronto, ¡cada día se suman más!"
