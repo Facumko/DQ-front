@@ -1,11 +1,10 @@
 /* ============================================
-   🎨 HOME - ESTILOS COMPLETOS
+   HOME - ESTILOS
    ============================================ */
 
 /* ── Container principal ── */
 .homeContainer {
   width: 100%;
-  max-width: 100vw;
   background: #fafafa;
 }
 

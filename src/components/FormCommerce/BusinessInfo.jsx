@@ -276,7 +276,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="businessPhone">Teléfono del Negocio</label>
+          <label htmlFor="businessPhone">Teléfono del Negocio *</label>
           <input
             type="tel"
             id="businessPhone"
@@ -291,7 +291,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="email">Correo Electrónico del Negocio</label>
+          <label htmlFor="email">Correo Electrónico del Negocio *</label>
           <input
             type="email"
             id="email"

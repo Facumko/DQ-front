@@ -32,29 +32,7 @@ import PromotionModal from "./PromotionModal";
 import PromotionCard from "./PromotionCard";
 import PlanRestrictedModal from "./PlanRestrictedModal";
 import OnboardingQuestionnaire from "../OnboardingQuestionnaire/OnboardingQuestionnaire";
-
-const MOCK_BUSINESS = {
-  idCommerce: 0,
-  name: "La Cantina del Sur",
-  description: "Cocina casera y regional en el corazón de la ciudad.",
-  email: "lacantina@example.com",
-  phone: "(362) 456-7890",
-  link: "https://instagram.com/lacantina",
-  location: { lat: -26.7909, lng: -60.4437, address: "Av. San Martín 123" },
-  profileImage: { url: "https://i.pravatar.cc/150?img=12" },
-  coverImage: { url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&q=80" },
-  categories: [],
-};
-
-const MOCK_POSTS = [
-  {
-    idPost: 1,
-    description: "¡Mirá qué rico quedó el locro de hoy! 🫕",
-    images: [{ url: "https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=600&q=80", imageOrder: 1, idImage: 1 }],
-    type: "post",
-    postedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-];
+import { ONBOARDING_QUESTIONS } from "../OnboardingQuestionnaire/onboarding.constants";
 
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const isValidPhone = (v) => v.replace(/\D/g, "").length >= 8;
@@ -68,6 +46,12 @@ const toWhatsappNumber = (phone) => {
   if (digits.startsWith("0")) digits = digits.slice(1);
   return `549${digits}`;
 };
+
+// Nombres de tag que maneja el interruptor dedicado de "Visibilidad en
+// Explorá más" (ver más abajo). Se excluyen de la lista genérica de
+// "etiquetas descriptivas" para no mostrarlos duplicados ni como texto
+// crudo (ej. "#Urgencia24hs") sin contexto.
+const ONBOARDING_TAG_NAMES = new Set(ONBOARDING_QUESTIONS.map((q) => q.tagName));
 
 const normalizeBusiness = (d) => {
   // location puede venir del shape crudo del backend (d.address, con lat/lng
@@ -245,7 +229,6 @@ const DEFAULT_UPGRADE_TARGET = "basic";
 const ProfileHeader = ({
   isOwner        = false,
   businessData: externalData = null,
-  useMock        = false,
 }) => {
   const { user, favoriteCommerceIds, toggleFavoriteCommerce, openLoginModal } = useContext(UserContext);
 
@@ -365,6 +348,14 @@ const ProfileHeader = ({
   const currentDescriptiveTags = useMemo(
     () => (businessData.tags || []).filter(t => t.type === "DESCRIPTIVE"),
     [businessData.tags]);
+  // Igual que currentDescriptiveTags pero sin los 3 tags que maneja el
+  // interruptor dedicado de "Visibilidad en Explorá más" — es solo para
+  // no mostrarlos duplicados en la lista genérica de texto libre. La lista
+  // completa (currentDescriptiveTags) sigue siendo la que se usa para
+  // calcular qué agregar/sacar al guardar.
+  const visibleDescriptiveTags = useMemo(
+    () => currentDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)),
+    [currentDescriptiveTags]);
 
   // Opciones del SELECTOR de edición: solo subcategorías de la categoría que
   // se está editando en ese momento (draftCategory), no de businessData.category
@@ -426,14 +417,6 @@ const ProfileHeader = ({
   }, []);
 
   useEffect(() => {
-    if (useMock) {
-      const d = normalizeBusiness(MOCK_BUSINESS);
-      setBusinessData(d); setDraft(d);
-      setBusinessId(MOCK_BUSINESS.idCommerce);
-      setPosts(MOCK_POSTS.map(normalizePost));
-      setLoading((p) => ({ ...p, business: false }));
-      return;
-    }
     if (externalData) {
       const d = normalizeBusiness(externalData);
       setBusinessData(d); setDraft(d);
@@ -450,7 +433,7 @@ const ProfileHeader = ({
     }
     if (user?.id_user) loadBusinessData();
     else setLoading((p) => ({ ...p, business: false }));
-  }, [user?.id_user, externalData, useMock]);
+  }, [user?.id_user, externalData]);
 
   // ── Deep-link desde las cajas del Home (?tab=posts|events&item=ID) ─────
   // Espera a que posts/eventos terminen de cargar para que el elemento ya esté en el DOM.
@@ -645,6 +628,20 @@ const ProfileHeader = ({
   }, []);
   const isDraftSubcategorySelected = useCallback((tag) =>
     draftSubcategoryTags.some(t => t.nameTag === tag.nameTag), [draftSubcategoryTags]);
+
+  // Interruptores de "Visibilidad en Explorá más": prenden/apagan uno de
+  // los 3 tags de clasificación (mismo mecanismo que las etiquetas
+  // descriptivas — se guardan/borran junto con el resto al tocar Guardar).
+  const toggleDraftOnboardingTag = useCallback((tagName) => {
+    setDraftDescriptiveTags(prev => {
+      const already = prev.some(t => t.nameTag === tagName);
+      return already
+        ? prev.filter(t => t.nameTag !== tagName)
+        : [...prev, { nameTag: tagName, type: "DESCRIPTIVE" }];
+    });
+  }, []);
+  const isDraftOnboardingTagSelected = useCallback((tagName) =>
+    draftDescriptiveTags.some(t => t.nameTag === tagName), [draftDescriptiveTags]);
 
   // Tags descriptivos: se pueden sacar con la X del chip, o agregar
   // escribiendo texto libre (si ya existe en el catálogo lo reusa, si no,
@@ -1145,15 +1142,15 @@ const ProfileHeader = ({
                 </button>
               ) : null}
 
-              {currentDescriptiveTags.length > 0 && (
+              {visibleDescriptiveTags.length > 0 && (
                 <div className={styles.descriptiveTagsView}>
-                  {(tagsExpanded ? currentDescriptiveTags : currentDescriptiveTags.slice(0, DESCRIPTIVE_TAGS_COLLAPSE_AT))
+                  {(tagsExpanded ? visibleDescriptiveTags : visibleDescriptiveTags.slice(0, DESCRIPTIVE_TAGS_COLLAPSE_AT))
                     .map(t => (
                       <span key={t.nameTag} className={styles.descriptiveChipView}>{t.nameTag}</span>
                     ))}
-                  {!tagsExpanded && currentDescriptiveTags.length > DESCRIPTIVE_TAGS_COLLAPSE_AT && (
+                  {!tagsExpanded && visibleDescriptiveTags.length > DESCRIPTIVE_TAGS_COLLAPSE_AT && (
                     <button type="button" className={styles.tagsMoreBtn} onClick={() => setTagsExpanded(true)}>
-                      +{currentDescriptiveTags.length - DESCRIPTIVE_TAGS_COLLAPSE_AT} más
+                      +{visibleDescriptiveTags.length - DESCRIPTIVE_TAGS_COLLAPSE_AT} más
                     </button>
                   )}
                 </div>
@@ -1253,11 +1250,30 @@ const ProfileHeader = ({
                 </div>
 
                 <div className={styles.categoryEditorSection}>
+                  <p className={styles.infoSectionTitle}>Visibilidad en "Explorá más" <span className={styles.optionalHint}>(activá lo que te aplique)</span></p>
+                  <div className={styles.categoryChipsEdit}>
+                    {ONBOARDING_QUESTIONS.map((q) => (
+                      <button
+                        key={q.tagName}
+                        type="button"
+                        className={`${styles.categoryChipEdit} ${isDraftOnboardingTagSelected(q.tagName) ? styles.categoryChipEditSelected : ""}`}
+                        onClick={() => toggleDraftOnboardingTag(q.tagName)}
+                        title={q.question}
+                      >
+                        {isDraftOnboardingTagSelected(q.tagName) && <span>✓ </span>}
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className={styles.categoryCount}>Define en qué cajas de "Explorá más" del Home aparecés. Podés cambiarlo cuando quieras.</p>
+                </div>
+
+                <div className={styles.categoryEditorSection}>
                   <p className={styles.infoSectionTitle}>Etiquetas descriptivas <span className={styles.optionalHint}>(ej: café, pizza, delivery)</span></p>
                   <p className={styles.sectionHint}>Palabras sueltas que la gente busca — cuantas más pongas, más formas de encontrarte.</p>
-                  {draftDescriptiveTags.length > 0 && (
+                  {draftDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).length > 0 && (
                     <div className={styles.tagsChipsEdit}>
-                      {draftDescriptiveTags.map(tag => (
+                      {draftDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).map(tag => (
                         <span key={tag.nameTag} className={styles.tagChipRemovable}>
                           #{tag.nameTag}
                           <button
@@ -1287,7 +1303,7 @@ const ProfileHeader = ({
                       list="descriptive-tags-suggestions"
                     />
                     <datalist id="descriptive-tags-suggestions">
-                      {allDescriptiveTags.map(t => <option key={t.nameTag} value={t.nameTag} />)}
+                      {allDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).map(t => <option key={t.nameTag} value={t.nameTag} />)}
                     </datalist>
                     <button type="button" className={styles.tagAddBtn} onClick={addDraftDescriptiveTagFromInput}>
                       Agregar

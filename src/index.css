@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@100;200;300;400;500;600;700&display=swap');
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   /* Colores principales */
   --brand-600: #B00020;
@@ -73,14 +77,8 @@ p, span, li, a {
   font-family: var(--font-family);
 }
 
-/* ============================================
-   🎨 VARIABLES GLOBALES NUEVAS
-   Agregar al final de index.css
-   ============================================ */
-
 /* Paleta de colores extendida */
 :root {
-  /* Ya existen estas, solo agregar las que faltan */
   --secondary-orange: #FB8C00;
   --success-green: #43A047;
   --info-blue: #1976D2;
