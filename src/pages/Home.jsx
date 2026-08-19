@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styles from "./Home.module.css";
-import { getMainFeed, getFeaturedSection, getBusinessById } from "../Api/Api";
+import { getMainFeed, getFeaturedSection, getBusinessById, getAllCommerces } from "../Api/Api";
 import { UserContext } from "./UserContext";
 import {
   Siren,
@@ -30,48 +30,6 @@ const MOCK_DATA = {
   heroSlides: [],
 
   featuredBusinesses: [],
-
-  directorySlides: [
-    {
-      subcategory: "Abogados",
-      businesses: [
-        { id: 101, name: "Estudio Ramírez & Asociados", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&q=80" },
-        { id: 102, name: "Dra. Silvia Méndez", image: null },
-        { id: 103, name: "Bufete Legal Norte", image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=120&q=80" },
-        { id: 104, name: "Asesoría Jurídica Pérez", image: null },
-        { id: 105, name: "Dr. Carlos Vega – Civil", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=120&q=80" },
-      ],
-    },
-    {
-      subcategory: "Contadores",
-      businesses: [
-        { id: 201, name: "Estudio Contable Gómez", image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=120&q=80" },
-        { id: 202, name: "Lic. Fernández & Cia", image: null },
-        { id: 203, name: "Asesoría Impositiva Ruiz", image: "https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?w=120&q=80" },
-        { id: 204, name: "Contadora López", image: null },
-        { id: 205, name: "Tax Consulting Salta", image: null },
-      ],
-    },
-    {
-      subcategory: "Electricistas",
-      businesses: [
-        { id: 301, name: "Electro Servicios Torres", image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=120&q=80" },
-        { id: 302, name: "Instalaciones Herrera", image: null },
-        { id: 303, name: "Técnico Rápido – 24 hs", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=120&q=80" },
-        { id: 304, name: "ElectroCiudad", image: null },
-      ],
-    },
-    {
-      subcategory: "Médicos",
-      businesses: [
-        { id: 401, name: "Dr. Martín Ríos – Clínica", image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=120&q=80" },
-        { id: 402, name: "Consultorio Dra. Suárez", image: null },
-        { id: 403, name: "Centro Médico del Norte", image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=120&q=80" },
-        { id: 404, name: "Dr. Bravo – Pediatría", image: null },
-        { id: 405, name: "Salud Integral SRL", image: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=120&q=80" },
-      ],
-    },
-  ],
 };
 
 // ============================================
@@ -143,6 +101,63 @@ const EXPLORE_BOXES = [
 // ============================================
 // Directorio Destacado
 // ============================================
+// Agrupa los comercios reales por subcategoría (TagDto de type SUBCATEGORY)
+// para armar los slides del widget. No hace falta un endpoint dedicado:
+// con una sola llamada a getAllCommerces() alcanza, porque cada comercio ya
+// trae sus propios tags incluidos. Solo entran subcategorías que tengan al
+// menos un comercio cargado — nada de mostrar rubros vacíos.
+// Rubros de servicio profesional que se muestran acá a propósito: por su
+// naturaleza generan pocas publicaciones (no suben fotos de productos, menú,
+// promos, como sí hace un local de ropa o una heladería), así que sin este
+// espacio dedicado casi no aparecerían en el Home. La lista es fija — no se
+// arma según quién tenga más negocios cargados, para no terminar mostrando
+// acá un rubro que igual ya tiene sobra de visibilidad en el feed normal.
+//
+// tagName es el nombre EXACTO del catálogo real de /etiqueta/subcategoria.
+// "Médicos", "Electricistas" y "Plomeros" no existen tal cual ahí, así que
+// se mapean al tag más cercano — si preferís otro mapeo, se cambia acá.
+const DIRECTORY_TARGET_SUBCATEGORIES = [
+  { displayName: "Médicos",      tagName: "clínicas y consultorios" },
+  { displayName: "Abogados",     tagName: "abogados" },
+  { displayName: "Contadores",   tagName: "contadores" },
+  { displayName: "Electricistas",tagName: "electricidad" },
+  { displayName: "Plomeros",     tagName: "plomería" },
+];
+
+const normalizeTagText = (s) =>
+  (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+const buildDirectorySlides = (commerces) => {
+  const byTarget = new Map(DIRECTORY_TARGET_SUBCATEGORIES.map((t) => [t.tagName, []]));
+
+  (commerces || []).forEach((c) => {
+    const subcategoryNames = (c.tags || [])
+      .filter((t) => t.type === "SUBCATEGORY")
+      .map((t) => normalizeTagText(t.nameTag));
+
+    DIRECTORY_TARGET_SUBCATEGORIES.forEach(({ tagName }) => {
+      if (subcategoryNames.includes(normalizeTagText(tagName))) {
+        byTarget.get(tagName).push({
+          id: c.idCommerce,
+          name: c.name || "Sin nombre",
+          image: c.profileImage?.url || null,
+        });
+      }
+    });
+  });
+
+  return DIRECTORY_TARGET_SUBCATEGORIES
+    .map(({ displayName, tagName }) => ({
+      subcategory: displayName,
+      businesses: byTarget.get(tagName).slice(0, 6),
+    }))
+    // Solo entran los rubros que ya tienen al menos un comercio cargado —
+    // nada de mostrar un slide vacío. Entre los que sí tienen, los más
+    // completos van primero.
+    .filter((slide) => slide.businesses.length > 0)
+    .sort((a, b) => b.businesses.length - a.businesses.length);
+};
+
 const DirectorySpotlight = ({ slides }) => {
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
@@ -160,8 +175,9 @@ const DirectorySpotlight = ({ slides }) => {
     return () => clearInterval(timerRef.current);
   }, [slides.length]); // eslint-disable-line
 
+  if (!slides || slides.length === 0) return null;
+  const { subcategory, businesses } = slides[current] || slides[0];
   const goTo = (idx) => { setCurrent(idx); startTimer(); };
-  const { subcategory, businesses } = slides[current];
 
   return (
     <aside className={styles.directoryWidget}>
@@ -233,7 +249,17 @@ const Home = () => {
   const [feedError,           setFeedError]           = useState("");
   const [feedHasMore,         setFeedHasMore]         = useState(true);
   const [currentImageIndex,   setCurrentImageIndex]   = useState({});
+  const [expandedPostIds,     setExpandedPostIds]     = useState(() => new Set());
+  const POST_CONTENT_LIMIT = 220;
+  const togglePostExpanded = (idPost) => {
+    setExpandedPostIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(idPost)) next.delete(idPost); else next.add(idPost);
+      return next;
+    });
+  };
   const [sideFeatured,        setSideFeatured]        = useState([]); // cajas laterales: misma fuente que el carrusel (/destacado → featured)
+  const [directorySlides,     setDirectorySlides]     = useState([]);
   const sectionsRef = useRef([]);
   const sidebarMarqueeRef = useRef(null);
   const FEED_SIZE = 10;
@@ -408,6 +434,14 @@ const Home = () => {
       .catch(() => {}); // fallback silencioso → se queda con el mock
 
     loadFeed(0);
+
+    // Directorio de servicios: una sola llamada trae todos los comercios
+    // (ya vienen con sus tags incluidos) y se agrupan por subcategoría acá
+    // mismo, sin pegarle al back una vez por rubro.
+    getAllCommerces()
+      .then((commerces) => setDirectorySlides(buildDirectorySlides(commerces)))
+      .catch(() => setDirectorySlides([]));
+
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -669,7 +703,7 @@ useEffect(() => {
             })}
           </div>
 
-          <DirectorySpotlight slides={MOCK_DATA.directorySlides} />
+          <DirectorySpotlight slides={directorySlides} />
         </div>
       </section>
 
@@ -772,7 +806,20 @@ useEffect(() => {
                 {post.content && (
                   <div className={styles.postContent}>
                     <span className={styles.postContentBusiness}>{post.businessName} </span>
-                    <span>{post.content}</span>
+                    <span>
+                      {post.content.length > POST_CONTENT_LIMIT && !expandedPostIds.has(post.id)
+                        ? `${post.content.slice(0, POST_CONTENT_LIMIT).trim()}…`
+                        : post.content}
+                    </span>
+                    {post.content.length > POST_CONTENT_LIMIT && (
+                      <button
+                        type="button"
+                        className={styles.postVerMasBtn}
+                        onClick={() => togglePostExpanded(post.id)}
+                      >
+                        {expandedPostIds.has(post.id) ? " Ver menos" : " Ver más"}
+                      </button>
+                    )}
                   </div>
                 )}
 

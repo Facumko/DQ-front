@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCategories } from "../../Api/Api";
+import { getCategories, getSubcategoryTags } from "../../Api/Api";
 import styles from "./CityDrawer.module.css";
 import {
   FaUtensils, FaHeartbeat, FaGavel, FaGraduationCap,
@@ -50,6 +50,12 @@ const CityDrawer = ({ isOpen, onClose }) => {
   const [loadingCategories, setLoadingCategories]  = useState(true);
   const hasFetchedRef = useRef(false);
 
+  // Subcategorías agrupadas por idCategory, para mostrar al pasar el cursor
+  // (o al tocar la flechita en mobile) sobre una categoría.
+  const [subcategoriesByCategory, setSubcategoriesByCategory] = useState({});
+  const [loadingSubcategories,    setLoadingSubcategories]    = useState(true);
+  const [openCategoryId,          setOpenCategoryId]          = useState(null);
+
   // Traer categorías reales del backend la primera vez que se abre el drawer
   useEffect(() => {
     if (!isOpen || hasFetchedRef.current) return;
@@ -58,6 +64,22 @@ const CityDrawer = ({ isOpen, onClose }) => {
       .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]))
       .finally(() => setLoadingCategories(false));
+
+    getSubcategoryTags()
+      .then((tags) => {
+        const grouped = {};
+        (Array.isArray(tags) ? tags : []).forEach((t) => {
+          // El back a veces manda el id de categoría plano (idCategory) y a
+          // veces anidado (category.idCategory), según el endpoint — cubrimos las dos formas.
+          const catId = t.idCategory ?? t.category?.idCategory;
+          if (catId == null || !t.nameTag) return;
+          if (!grouped[catId]) grouped[catId] = [];
+          grouped[catId].push(t.nameTag);
+        });
+        setSubcategoriesByCategory(grouped);
+      })
+      .catch(() => setSubcategoriesByCategory({}))
+      .finally(() => setLoadingSubcategories(false));
   }, [isOpen]);
 
   useEffect(() => {
@@ -82,6 +104,16 @@ const CityDrawer = ({ isOpen, onClose }) => {
   const handleCategoryClick = (cat) => {
     handleNavigate(`/search?categoryIds=${cat.idCategory}`);
   };
+
+  // Búsqueda por texto (mismo patrón que "Ver todos los negocios") filtrando
+  // por el nombre de la subcategoría, que matchea contra los tags del negocio.
+  const handleSubcategoryClick = (nameTag) => {
+    handleNavigate(`/search?q=${encodeURIComponent(nameTag)}`);
+  };
+
+  useEffect(() => {
+    if (!isOpen) setOpenCategoryId(null);
+  }, [isOpen]);
 
   return (
     <>
@@ -138,12 +170,55 @@ const CityDrawer = ({ isOpen, onClose }) => {
               <div className={styles.catList}>
                 {categories.map((cat) => {
                   const { icon: Icon, color } = getCategoryStyle(cat.name);
+                  const subcats = subcategoriesByCategory[cat.idCategory] || [];
+                  const isOpen = openCategoryId === cat.idCategory;
                   return (
-                    <button key={cat.idCategory} className={styles.catRow} onClick={() => handleCategoryClick(cat)}>
-                      <div className={styles.catIconWrap} style={{ background: `${color}18`, color }}><Icon /></div>
-                      <span className={styles.catLabel}>{cat.name}</span>
-                      <FaChevronRight className={styles.catArrow} />
-                    </button>
+                    <div
+                      key={cat.idCategory}
+                      className={styles.catRowWrapper}
+                      onMouseEnter={() => setOpenCategoryId(cat.idCategory)}
+                      onMouseLeave={() => setOpenCategoryId((prev) => (prev === cat.idCategory ? null : prev))}
+                    >
+                      <div className={styles.catRow}>
+                        <button type="button" className={styles.catMain} onClick={() => handleCategoryClick(cat)}>
+                          <div className={styles.catIconWrap} style={{ background: `${color}18`, color }}><Icon /></div>
+                          <span className={styles.catLabel}>{cat.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.catToggle} ${isOpen ? styles.catToggleOpen : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenCategoryId((prev) => (prev === cat.idCategory ? null : cat.idCategory));
+                          }}
+                          aria-expanded={isOpen}
+                          aria-label={isOpen ? "Ocultar subcategorías" : "Ver subcategorías"}
+                        >
+                          <FaChevronRight className={styles.catArrow} />
+                        </button>
+                      </div>
+
+                      <div className={`${styles.subcategoryPanel} ${isOpen ? styles.subcategoryPanelOpen : ""}`}>
+                        {loadingSubcategories ? (
+                          <span className={styles.catLoading}>Cargando...</span>
+                        ) : subcats.length === 0 ? (
+                          <span className={styles.catLoading}>Sin subcategorías</span>
+                        ) : (
+                          <div className={styles.subcategoryChips}>
+                            {subcats.map((name) => (
+                              <button
+                                key={name}
+                                type="button"
+                                className={styles.subcategoryChip}
+                                onClick={() => handleSubcategoryClick(name)}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -153,7 +228,7 @@ const CityDrawer = ({ isOpen, onClose }) => {
         </div>
 
         <div className={styles.drawerFooter}>
-          <span>© {new Date().getFullYear()} Dónde Queda? — Sáenz Peña, Chaco</span>
+          <span>© {new Date().getFullYear()} Dónde Queda? - Sáenz Peña, Chaco</span>
         </div>
       </aside>
     </>

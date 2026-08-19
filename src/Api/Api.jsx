@@ -361,6 +361,55 @@ export const isEventToday = (event, now = new Date()) => {
   return todayKey >= startKey && todayKey <= endKey;
 };
 
+/**
+ * Determina si un comercio tiene horario cargado para el día de HOY —
+ * a diferencia de isCommerceOpenNow, no importa la hora exacta en la que
+ * estemos, solo que hoy sea uno de sus días de atención. Para "¿Dónde
+ * cenar esta noche?": si un lugar no abre los lunes, no debe aparecer un
+ * lunes, tenga o no tenga horario cargado para otros días.
+ */
+export const isCommerceOpenToday = (commerce, now = new Date()) => {
+  const schedules = commerce?.schedules;
+  if (!Array.isArray(schedules) || schedules.length === 0) return false;
+  const todayJava = JAVA_DAY_BY_INDEX[now.getDay()];
+  const today = schedules.find((s) => s.day === todayJava);
+  if (!today) return false;
+  const isContinuous = today.continuous ?? today.isContinuous ?? false;
+  if (isContinuous) return Boolean(today.morningOpening && today.morningClosing);
+  const hasMorning = Boolean(today.morningOpening && today.morningClosing);
+  const hasAfternoon = Boolean(today.afternoonOpening && today.afternoonClosing);
+  return hasMorning || hasAfternoon;
+};
+
+// Saca tildes y pasa a minúsculas para poder comparar "Cafetería" con
+// "cafeteria" sin que el acento arruine el match.
+const normalizeText = (s) =>
+  (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/**
+ * ¿El comercio tiene alguna subcategoría (TagDto de type SUBCATEGORY) cuyo
+ * nombre contenga alguna de las palabras clave dadas? Sirve para armar
+ * cajas de "Explorá más" (cena, hoy) sin depender de saber de antemano los
+ * nombres EXACTOS que tiene sembrados el catálogo del backend — matchea por
+ * coincidencia parcial, insensible a mayúsculas/tildes.
+ *
+ * Las listas de keywords (ver CENA_SUBCATEGORY_KEYWORDS y
+ * HOY_SUBCATEGORY_KEYWORDS en SearchPage.jsx) usan los nombres exactos
+ * confirmados del catálogo real de /etiqueta/subcategoria.
+ */
+export const commerceHasSubcategoryMatching = (commerce, keywords) => {
+  const tags = commerce?.tags;
+  if (!Array.isArray(tags) || tags.length === 0) return false;
+  const subcategoryNames = tags
+    .filter((t) => t.type === "SUBCATEGORY")
+    .map((t) => normalizeText(t.nameTag));
+  if (subcategoryNames.length === 0) return false;
+  return keywords.some((kw) => {
+    const nkw = normalizeText(kw);
+    return subcategoryNames.some((name) => name.includes(nkw));
+  });
+};
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const shouldRetry = (error, method) => {
   // Reintentar automáticamente solo tiene sentido para lecturas (GET), que no
@@ -1605,4 +1654,6 @@ export default {
   removeCommerceTagIds,
   isCommerceOpenNow,
   isEventToday,
+  isCommerceOpenToday,
+  commerceHasSubcategoryMatching,
 };
