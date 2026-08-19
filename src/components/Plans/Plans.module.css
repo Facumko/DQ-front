@@ -436,9 +436,19 @@
 
 .compareTable {
   width: 100%;
+  min-width: 620px;
   border-collapse: collapse;
   font-family: 'Arial', sans-serif;
   font-size: 0.9rem;
+}
+
+.tableSwipeHint {
+  display: none;
+  text-align: center;
+  font-family: 'Arial', sans-serif;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
 }
 
 .compareTable thead tr {
@@ -668,4 +678,43 @@
   .compareSection,
   .paySection,
   .faqSection { padding: 3rem 1rem; }
+
+  /* La tabla comparativa no entra en una pantalla chica (4 columnas: feature
+     + 3 planes) — en vez de aplastar el texto hasta ilegible, dejamos que
+     scrollee horizontal con un aviso arriba y un fade en el borde derecho. */
+  .tableSwipeHint { display: block; }
+  .tableWrapper {
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tableWrapper::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 28px;
+    background: linear-gradient(to left, rgba(255,255,255,0.9), transparent);
+    pointer-events: none;
+  }
+  .compareTable { font-size: 0.82rem; }
+  .compareTable th,
+  .compareTable td { padding: 0.7rem 0.75rem; }
+
+  .payGrid { gap: 1rem; }
+  .payCard { padding: 1.5rem 1.25rem; }
+}
+
+@media (max-width: 380px) {
+  .heroTitle { font-size: 1.5rem; }
+  .heroSub { font-size: 0.92rem; }
+  .plansSection { padding: 2rem 0.75rem 1.25rem; }
+  .card { padding: 1.25rem 1rem; }
+  .planName { font-size: 1.2rem; }
+  .priceBig { font-size: 1.7rem; }
+  .compareSection,
+  .paySection,
+  .faqSection { padding: 2.25rem 0.75rem; }
+  .faqQuestion { padding: 0.95rem 1rem; font-size: 0.88rem; }
+  .faqAnswer { padding: 0 1rem 0.95rem; font-size: 0.85rem; }
+  .ctaSection { padding: 3rem 1rem 3.5rem; }
+  .ctaFinalBtn { padding: 0.8rem 2rem; font-size: 0.92rem; }
 }

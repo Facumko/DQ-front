@@ -19,7 +19,7 @@ export default function PagoExitoso() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title = "Pago exitoso — Dónde Queda?";
+    document.title = "Pago exitoso - Dónde Queda?";
     return () => { document.title = "Dónde Queda?"; };
   }, []);
 

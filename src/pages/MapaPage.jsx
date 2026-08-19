@@ -162,6 +162,9 @@ const normalizeBusiness = (b) => ({
   profileImage: b.profileImage?.url || null,
   coverImage:   b.coverImage?.url   || null,
   categories:   Array.isArray(b.categories) ? b.categories.map(c => c.name || c) : [],
+  // Subcategorías/etiquetas del comercio (TagDto[]), para que el buscador
+  // del mapa matchee igual que el de Home (que sí busca por nombre O tag).
+  tags:         Array.isArray(b.tags) ? b.tags.map(t => t.nameTag || t).filter(Boolean) : [],
   lat:          b.address?.lat  ? parseFloat(b.address.lat)  : null,
   lng:          b.address?.lng  ? parseFloat(b.address.lng)  : null,
   address:      b.address?.address || b.address?.street || "",
@@ -182,7 +185,18 @@ export default function MapaPage() {
   const [error,       setError]       = useState("");
   const [flyTarget,   setFlyTarget]   = useState(null);
   const [activeId,    setActiveId]    = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
+
+  // ── Responsive: en mobile la lista pasa de "empujar" el mapa (310px fijos,
+  // que en un celular no dejan lugar para nada) a ser un panel superpuesto
+  // que se desliza encima del mapa. ──
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   // Geo
   const [userLocation,   setUserLocation]   = useState(null);
@@ -263,7 +277,8 @@ export default function MapaPage() {
       result = result.filter(b =>
         b.name.toLowerCase().includes(q) ||
         b.description.toLowerCase().includes(q) ||
-        b.address.toLowerCase().includes(q)
+        b.address.toLowerCase().includes(q) ||
+        b.tags.some(t => t.toLowerCase().includes(q))
       );
     }
 
@@ -295,7 +310,8 @@ export default function MapaPage() {
           result = result.filter(b =>
             b.name.toLowerCase().includes(q) ||
             b.description.toLowerCase().includes(q) ||
-            b.address.toLowerCase().includes(q)
+            b.address.toLowerCase().includes(q) ||
+            b.tags.some(t => t.toLowerCase().includes(q))
           );
         }
         if (distanceFilter > 0 && userLocation) {
@@ -371,7 +387,7 @@ export default function MapaPage() {
       {toast && <div style={s.toast}>{toast.msg}</div>}
 
       {/* Header */}
-      <div style={s.header}>
+      <div style={{ ...s.header, ...(isMobile ? { flexDirection: "column", alignItems: "stretch", padding: "10px 14px" } : {}) }}>
         <div style={s.headerLeft}>
           <h1 style={s.title}><span style={s.accent}>Mapa</span> de Comercios</h1>
           <p style={s.subtitle}>
@@ -379,9 +395,9 @@ export default function MapaPage() {
           </p>
         </div>
 
-        <div style={s.headerRight}>
+        <div style={{ ...s.headerRight, ...(isMobile ? { width: "100%" } : {}) }}>
           {/* Buscador */}
-          <div style={s.searchWrap}>
+          <div style={{ ...s.searchWrap, ...(isMobile ? { flex: 1, minWidth: 0 } : {}) }}>
             <span>🔍</span>
             <input
               style={s.searchInput}
@@ -468,10 +484,36 @@ export default function MapaPage() {
         {/* Sidebar */}
         <div style={{
           ...s.sidebar,
-          width:    sidebarOpen ? 310 : 0,
-          minWidth: sidebarOpen ? 310 : 0,
-          overflow: sidebarOpen ? "auto" : "hidden",
+          ...(isMobile
+            ? {
+                position: "absolute", inset: 0, zIndex: 600,
+                width: "100%", minWidth: 0,
+                background: "#fff",
+                transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+                transition: "transform 0.28s ease",
+                overflowY: "auto", overflowX: "hidden",
+              }
+            : {
+                width:    sidebarOpen ? 310 : 0,
+                minWidth: sidebarOpen ? 310 : 0,
+                overflow: sidebarOpen ? "auto" : "hidden",
+              }),
         }}>
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                width: "100%", padding: "12px 14px",
+                border: "none", borderBottom: "1.5px solid #e5e7eb",
+                background: "#fff", position: "sticky", top: 0, zIndex: 1,
+                fontSize: "0.85rem", fontWeight: 700, color: "#111827",
+                cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              🗺️ Ver mapa
+            </button>
+          )}
           <div style={{ padding: "8px 0" }}>
             {loading ? (
               <div style={s.center}><div style={s.spinner} /><span style={s.muted}>Cargando...</span></div>
@@ -504,7 +546,7 @@ export default function MapaPage() {
                       ...s.card,
                       ...(activeId === biz.id ? { background: "#fff5f5", borderLeftColor: color } : {}),
                     }}
-                    onClick={() => handleSelectBusiness(biz)}
+                    onClick={() => { handleSelectBusiness(biz); if (isMobile) setSidebarOpen(false); }}
                   >
                     <div style={{ ...s.thumb, background: color + "15" }}>
                       {biz.profileImage
@@ -536,12 +578,31 @@ export default function MapaPage() {
         </div>
 
         {/* Toggle sidebar */}
-        <button
-          style={{ ...s.sidebarToggle, left: sidebarOpen ? 310 : 0 }}
-          onClick={() => setSidebarOpen(p => !p)}
-        >
-          {sidebarOpen ? "◀" : "▶"}
-        </button>
+        {isMobile ? (
+          !sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)",
+                zIndex: 500, display: "flex", alignItems: "center", gap: 7,
+                background: "#111827", color: "#fff",
+                border: "none", borderRadius: 30,
+                padding: "10px 18px", fontSize: "0.82rem", fontWeight: 700,
+                boxShadow: "0 6px 18px rgba(0,0,0,0.25)",
+                cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              ☰ Ver lista ({filtered.length})
+            </button>
+          )
+        ) : (
+          <button
+            style={{ ...s.sidebarToggle, left: sidebarOpen ? 310 : 0 }}
+            onClick={() => setSidebarOpen(p => !p)}
+          >
+            {sidebarOpen ? "◀" : "▶"}
+          </button>
+        )}
 
         {/* Mapa */}
         <div style={s.mapWrap} className="mapaPageWrap">

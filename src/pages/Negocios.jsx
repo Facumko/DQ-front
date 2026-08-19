@@ -3,6 +3,7 @@ import { UserContext } from "./UserContext";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
 import { getMyBusiness, getBusinessById } from "../Api/Api";
 import { useParams, useNavigate } from "react-router-dom";
+import { Loader } from "lucide-react";
 
 const Negocios = () => {
   const { user, openLoginModal } = useContext(UserContext);
@@ -73,9 +74,13 @@ const Negocios = () => {
     return (
       <div style={{ background: "#f4f5f8", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>🔄</div>
+          <Loader
+            size={40}
+            style={{ animation: "dq-spin 1s linear infinite", color: "#B00020", marginBottom: "1rem" }}
+          />
           <p>Cargando {isPublic ? "perfil del negocio" : "tu negocio"}...</p>
         </div>
+        <style>{"@keyframes dq-spin { to { transform: rotate(360deg); } }"}</style>
       </div>
     );
   }

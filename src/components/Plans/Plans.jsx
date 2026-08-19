@@ -372,6 +372,8 @@ export default function Planes() {
           Compará los planes
         </motion.h2>
 
+        <p className={styles.tableSwipeHint}>Deslizá para ver los 3 planes →</p>
+
         <motion.div
           className={styles.tableWrapper}
           initial={{ opacity: 0, y: 20 }}
