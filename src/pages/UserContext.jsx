@@ -166,14 +166,6 @@ export function UserProvider({ children }) {
     }
   }, [user?.id_user, loadBusinesses, loadFavorites]);
 
-  // Cargar favoritos al restaurar sesión (si hay token)
-  useEffect(() => {
-    const { accessToken } = getStoredTokens();
-    if (accessToken && user?.id_user) {
-      loadFavorites();
-    }
-  }, [loadFavorites, user?.id_user]);
-
   // ── Toggle favorito comercio ──────────────────────────────────────────
   const toggleFavoriteCommerce = useCallback(async (commerce) => {
     if (!user?.id_user) return { error: "Debés iniciar sesión" };

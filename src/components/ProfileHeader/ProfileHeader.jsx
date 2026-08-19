@@ -8,7 +8,7 @@ import {
   addImagesToPost, deleteImagesFromPost,
   replaceCommerceSchedules, scheduleFromBackend,
   getCategories, setCommerceCategory,
-  getSubcategoryTags, getDescriptiveTags,
+  getTags,
   addCommerceSubcategories, addCommerceTags, removeCommerceTagIds,
   createEvent, updateEvent, deleteEvent,
   addImagesToEvent, deleteImagesFromEvent,
@@ -311,6 +311,11 @@ const ProfileHeader = ({
   // que es única). allSubcategoryTags = catálogo completo del backend;
   // draftSubcategoryTags = lo que el dueño va eligiendo mientras edita.
   const [allSubcategoryTags, setAllSubcategoryTags] = useState([]);
+  // Distingue "catálogo todavía no llegó" de "catálogo llegó y está vacío" —
+  // allSubcategoryTags.length === 0 no alcanza para eso. Lo necesitamos para
+  // no mostrar tags sin filtrar mientras el catálogo sigue en vuelo (ver
+  // currentSubcategoryTags más abajo).
+  const [subcategoryCatalogLoaded, setSubcategoryCatalogLoaded] = useState(false);
   const [draftSubcategoryTags, setDraftSubcategoryTags] = useState([]);
 
   // Tags descriptivos: también múltiples, pero además el dueño puede
@@ -343,13 +348,20 @@ const ProfileHeader = ({
   const currentSubcategoryTags = useMemo(() => {
     const raw = (businessData.tags || []).filter(t => t.type === "SUBCATEGORY");
     if (!businessData.category) return raw;
+    // Mientras el catálogo todavía no llegó, no podemos distinguir una
+    // subcategoría válida de "basura" (subcategorías de una categoría previa
+    // que quedaron pegadas — ver bug histórico de remove). Antes, en este
+    // estado se dejaba pasar todo sin filtrar, lo que hacía parpadear la UI
+    // mostrando subcategorías de más durante los 2-3s que tarda el catálogo.
+    // Ahora esperamos a que cargue antes de mostrar nada.
+    if (!subcategoryCatalogLoaded) return [];
     return raw.filter(t => {
       const catalogTag = allSubcategoryTags.find(c => c.nameTag === t.nameTag);
-      // Si todavía no cargó el catálogo o no lo encontramos, lo dejamos pasar
-      // (mejor mostrar de más por un instante que ocultar algo válido).
-      return !catalogTag || String(catalogTag.category?.idCategory) === String(businessData.category.idCategory);
+      // Ya cargó el catálogo: si el tag no aparece ahí, es basura real y no
+      // válida para ninguna categoría — no lo mostramos.
+      return !!catalogTag && String(catalogTag.category?.idCategory) === String(businessData.category.idCategory);
     });
-  }, [businessData.tags, businessData.category, allSubcategoryTags]);
+  }, [businessData.tags, businessData.category, allSubcategoryTags, subcategoryCatalogLoaded]);
   const currentDescriptiveTags = useMemo(
     () => (businessData.tags || []).filter(t => t.type === "DESCRIPTIVE"),
     [businessData.tags]);
@@ -398,12 +410,19 @@ const ProfileHeader = ({
   }, []);
 
   useEffect(() => {
-    getSubcategoryTags()
-      .then(tags => setAllSubcategoryTags(Array.isArray(tags) ? tags : []))
-      .catch(() => setAllSubcategoryTags([]));
-    getDescriptiveTags()
-      .then(tags => setAllDescriptiveTags(Array.isArray(tags) ? tags : []))
-      .catch(() => setAllDescriptiveTags([]));
+    // Antes: getSubcategoryTags() y getDescriptiveTags() se llamaban por
+    // separado, pero las dos internamente pegan a getTags() (/etiqueta/traer)
+    // — el mismo catálogo completo de ~100 tags, bajado y parseado dos veces
+    // para sacar dos slices distintos del mismo array. Ahora lo pedimos una
+    // sola vez y derivamos ambas listas del mismo resultado.
+    getTags()
+      .then(all => {
+        const list = Array.isArray(all) ? all : [];
+        setAllSubcategoryTags(list.filter(t => t.type === "SUBCATEGORY"));
+        setAllDescriptiveTags(list.filter(t => t.type === "DESCRIPTIVE"));
+      })
+      .catch(() => { setAllSubcategoryTags([]); setAllDescriptiveTags([]); })
+      .finally(() => setSubcategoryCatalogLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -520,6 +539,12 @@ const ProfileHeader = ({
   const loadPosts = async (id) => {
     if (!id) return;
     setLoad("posts", true);
+    // loadPromotions no depende de posts/eventos — antes se esperaba a que
+    // posts/eventos terminaran para recién ahí pedir promociones, agregando
+    // un viaje de ida y vuelta completo de más. Ahora arranca en paralelo
+    // (no lo esperamos acá: loadPromotions maneja su propio estado y no
+    // bloquea el spinner de "posts").
+    if (isOwner) loadPromotions(id);
     try {
       const [rawPosts, rawEvents] = await Promise.all([
         getPostsByCommerce(id),
@@ -527,7 +552,6 @@ const ProfileHeader = ({
       ]);
       setPosts(Array.isArray(rawPosts) ? rawPosts.map(normalizePost) : []);
       setEvents(Array.isArray(rawEvents) ? rawEvents : []);
-      if (isOwner) await loadPromotions(id);
     } catch { setPosts([]); setEvents([]); }
     finally { setLoad("posts", false); }
   };
@@ -779,10 +803,23 @@ const ProfileHeader = ({
         const descriptiveIdByName = new Map(allDescriptiveTags.map(t => [t.nameTag, t.idTag]));
 
         // Subcategorías (selección múltiple)
-        const currentSubNames = new Set(currentSubcategoryTags.map(t => t.nameTag));
+        //
+        // OJO: acá usamos la lista CRUDA de subcategorías del comercio
+        // (todas, sin importar a qué categoría pertenezcan), no
+        // currentSubcategoryTags (que ya viene filtrada solo a las de la
+        // categoría actual). Si usáramos la filtrada, cualquier subcategoría
+        // huérfana de una categoría anterior queda invisible para este diff
+        // — nunca aparece en "lo que hay que sacar" porque el filtro ya la
+        // había descartado antes de llegar acá — y se queda pegada en el
+        // backend para siempre, comercio tras comercio, cada vez que alguien
+        // cambia de categoría. Con la lista cruda, cualquier subcategoría
+        // vieja que ya no esté en el draft (sea de la categoría actual o de
+        // una anterior) se manda a borrar.
+        const rawSubcategoryTags = (businessData.tags || []).filter(t => t.type === "SUBCATEGORY");
+        const currentSubNames = new Set(rawSubcategoryTags.map(t => t.nameTag));
         const draftSubNames   = new Set(draftSubcategoryTags.map(t => t.nameTag));
         const subsToAdd    = draftSubcategoryTags.filter(t => !currentSubNames.has(t.nameTag));
-        const subsToRemove = currentSubcategoryTags
+        const subsToRemove = rawSubcategoryTags
           .filter(t => !draftSubNames.has(t.nameTag))
           .map(t => subcategoryIdByName.get(t.nameTag))
           .filter(id => id != null);
