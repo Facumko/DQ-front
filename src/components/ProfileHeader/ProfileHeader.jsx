@@ -1375,75 +1375,83 @@ const ProfileHeader = ({
               )}
             </div>
 
-            <div className={styles.contactRow}>
-              <Mail size={16} className={styles.contactIcon}/>
-              {isEditing ? (
-                <div style={{ flex: 1 }}>
-                  <input className={`${styles.editInput} ${errors.email ? styles.inputError : ""}`}
-                    type="email" value={draft.email}
-                    onChange={(e) => { handleInputChange("email")(e); validate("email", e.target.value, { email: true }); }}
-                    placeholder="Email" maxLength={60}/>
-                  {errors.email && <span className={styles.fieldError}>{errors.email}</span>}
-                </div>
-              ) : (
-                <span className={businessData.email ? styles.contactText : styles.contactEmpty}>
-                  {businessData.email || "Sin email"}
-                </span>
-              )}
-            </div>
+            {(isEditing || businessData.email || isOwner) && (
+              <div className={styles.contactRow}>
+                <Mail size={16} className={styles.contactIcon}/>
+                {isEditing ? (
+                  <div style={{ flex: 1 }}>
+                    <input className={`${styles.editInput} ${errors.email ? styles.inputError : ""}`}
+                      type="email" value={draft.email}
+                      onChange={(e) => { handleInputChange("email")(e); validate("email", e.target.value, { email: true }); }}
+                      placeholder="Email" maxLength={60}/>
+                    {errors.email && <span className={styles.fieldError}>{errors.email}</span>}
+                  </div>
+                ) : (
+                  <span className={businessData.email ? styles.contactText : styles.contactEmpty}>
+                    {businessData.email || "Sin email"}
+                  </span>
+                )}
+              </div>
+            )}
 
-            <div className={styles.contactRow}>
-              <Link2 size={16} className={styles.contactIcon}/>
-              {isEditing ? (
-                <input className={`${styles.editInput} ${errors.link ? styles.inputError : ""}`}
-                  type="url" value={String(draft.link || "")}
-                  onChange={(e) => { handleInputChange("link")(e); validate("link", e.target.value, { url: true }); }}
-                  placeholder="https://tusitio.com" maxLength={200}/>
-              ) : businessData.link ? (
-                <a className={styles.contactText}
-                   href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
-                   target="_blank" rel="noopener noreferrer">
-                  {businessData.link}
-                </a>
-              ) : (
-                <span className={styles.contactEmpty}>Sin link</span>
-              )}
-              {errors.link && <span className={styles.fieldError}>{errors.link}</span>}
-            </div>
+            {(isEditing || businessData.link || isOwner) && (
+              <div className={styles.contactRow}>
+                <Link2 size={16} className={styles.contactIcon}/>
+                {isEditing ? (
+                  <input className={`${styles.editInput} ${errors.link ? styles.inputError : ""}`}
+                    type="url" value={String(draft.link || "")}
+                    onChange={(e) => { handleInputChange("link")(e); validate("link", e.target.value, { url: true }); }}
+                    placeholder="https://tusitio.com" maxLength={200}/>
+                ) : businessData.link ? (
+                  <a className={styles.contactText}
+                     href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
+                     target="_blank" rel="noopener noreferrer">
+                    {businessData.link}
+                  </a>
+                ) : (
+                  <span className={styles.contactEmpty}>Sin link</span>
+                )}
+                {errors.link && <span className={styles.fieldError}>{errors.link}</span>}
+              </div>
+            )}
 
-            <div className={styles.contactRow}>
-              <FaInstagram size={16} className={styles.contactIcon}/>
-              {isEditing ? (
-                <input className={`${styles.editInput} ${errors.instagram ? styles.inputError : ""}`}
-                  type="url" value={String(draft.instagram || "")}
-                  onChange={(e) => { handleInputChange("instagram")(e); validate("instagram", e.target.value, { url: true }); }}
-                  placeholder="https://instagram.com/tunegocio" maxLength={200}/>
-              ) : businessData.instagram ? (
-                <a className={styles.contactText} href={businessData.instagram} target="_blank" rel="noopener noreferrer">
-                  {businessData.instagram}
-                </a>
-              ) : (
-                <span className={styles.contactEmpty}>Sin Instagram</span>
-              )}
-              {errors.instagram && <span className={styles.fieldError}>{errors.instagram}</span>}
-            </div>
+            {(isEditing || businessData.instagram || isOwner) && (
+              <div className={styles.contactRow}>
+                <FaInstagram size={16} className={styles.contactIcon}/>
+                {isEditing ? (
+                  <input className={`${styles.editInput} ${errors.instagram ? styles.inputError : ""}`}
+                    type="url" value={String(draft.instagram || "")}
+                    onChange={(e) => { handleInputChange("instagram")(e); validate("instagram", e.target.value, { url: true }); }}
+                    placeholder="https://instagram.com/tunegocio" maxLength={200}/>
+                ) : businessData.instagram ? (
+                  <a className={styles.contactText} href={businessData.instagram} target="_blank" rel="noopener noreferrer">
+                    {businessData.instagram}
+                  </a>
+                ) : (
+                  <span className={styles.contactEmpty}>Sin Instagram</span>
+                )}
+                {errors.instagram && <span className={styles.fieldError}>{errors.instagram}</span>}
+              </div>
+            )}
 
-            <div className={styles.contactRow}>
-              <FaFacebook size={16} className={styles.contactIcon}/>
-              {isEditing ? (
-                <input className={`${styles.editInput} ${errors.facebook ? styles.inputError : ""}`}
-                  type="url" value={String(draft.facebook || "")}
-                  onChange={(e) => { handleInputChange("facebook")(e); validate("facebook", e.target.value, { url: true }); }}
-                  placeholder="https://facebook.com/tunegocio" maxLength={200}/>
-              ) : businessData.facebook ? (
-                <a className={styles.contactText} href={businessData.facebook} target="_blank" rel="noopener noreferrer">
-                  {businessData.facebook}
-                </a>
-              ) : (
-                <span className={styles.contactEmpty}>Sin Facebook</span>
-              )}
-              {errors.facebook && <span className={styles.fieldError}>{errors.facebook}</span>}
-            </div>
+            {(isEditing || businessData.facebook || isOwner) && (
+              <div className={styles.contactRow}>
+                <FaFacebook size={16} className={styles.contactIcon}/>
+                {isEditing ? (
+                  <input className={`${styles.editInput} ${errors.facebook ? styles.inputError : ""}`}
+                    type="url" value={String(draft.facebook || "")}
+                    onChange={(e) => { handleInputChange("facebook")(e); validate("facebook", e.target.value, { url: true }); }}
+                    placeholder="https://facebook.com/tunegocio" maxLength={200}/>
+                ) : businessData.facebook ? (
+                  <a className={styles.contactText} href={businessData.facebook} target="_blank" rel="noopener noreferrer">
+                    {businessData.facebook}
+                  </a>
+                ) : (
+                  <span className={styles.contactEmpty}>Sin Facebook</span>
+                )}
+                {errors.facebook && <span className={styles.fieldError}>{errors.facebook}</span>}
+              </div>
+            )}
 
             {isEditing ? (
               <div style={{ marginTop: 14 }}>
