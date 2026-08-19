@@ -1,6 +1,6 @@
 "use client"
-import { useState, useEffect } from "react"
-import { getCategories, getSubcategoryTags } from "../../Api/Api"
+import { useState, useEffect, useMemo } from "react"
+import { getCategories, getTags } from "../../Api/Api"
 import LocationPicker from "../../components/LocationPicker/LocationPicker"
 import "./FormStep.css"
 import "./CategoryChips.css"
@@ -21,7 +21,12 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   })
 
   const [categories, setCategories] = useState([])
-  const [subcategoryTags, setSubcategoryTags] = useState([])
+  // Catálogo COMPLETO de subcategorías (todas las categorías mezcladas, cada
+  // una con su .category vinculada — viene de /etiqueta/traer, que sí incluye
+  // ese vínculo a diferencia de /etiqueta/subcategoria). El filtrado por la
+  // categoría elegida se hace client-side en subcategoryTags (más abajo),
+  // así no hace falta pegarle de nuevo al back cada vez que cambia la categoría.
+  const [allSubcategoryTags, setAllSubcategoryTags] = useState([])
   const [errors,     setErrors]     = useState({})
   const [isValid,    setIsValid]    = useState(false)
   const [isLoading,  setIsLoading]  = useState(true)
@@ -50,10 +55,22 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   }, [])
 
   useEffect(() => {
-    getSubcategoryTags()
-      .then(tags => setSubcategoryTags(Array.isArray(tags) ? tags : []))
-      .catch(() => setSubcategoryTags([])) // opcional: si falla, simplemente no se muestran
+    getTags()
+      .then(tags => {
+        const subcats = Array.isArray(tags) ? tags.filter(t => t.type === "SUBCATEGORY") : []
+        setAllSubcategoryTags(subcats)
+      })
+      .catch(() => setAllSubcategoryTags([])) // opcional: si falla, simplemente no se muestran
   }, [])
+
+  // Solo las subcategorías de la categoría elegida (si no hay categoría
+  // elegida todavía, no mostramos ninguna — evita la "sopa" de subcategorías
+  // de rubros que no tienen nada que ver).
+  const selectedCategoryId = formData.selectedCategories[0]?.idCategory
+  const subcategoryTags = useMemo(() => {
+    if (!selectedCategoryId) return []
+    return allSubcategoryTags.filter(tag => tag.category?.idCategory === selectedCategoryId)
+  }, [allSubcategoryTags, selectedCategoryId])
 
   const formatPhone = (raw) => {
     const digits = raw.replace(/\D/g, "").slice(0, 10)
@@ -118,7 +135,13 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     setFormData(prev => {
       const already = prev.selectedCategories.some(c => c.idCategory === cat.idCategory)
       // Click de nuevo sobre la ya seleccionada = deselecciona. Click sobre otra = la reemplaza.
-      return { ...prev, selectedCategories: already ? [] : [cat] }
+      // Al cambiar de categoría, las subcategorías ya elegidas quedan obsoletas
+      // (pertenecen a la categoría anterior), así que se limpian.
+      return {
+        ...prev,
+        selectedCategories: already ? [] : [cat],
+        selectedSubcategories: [],
+      }
     })
   }
 
@@ -218,8 +241,8 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
           )}
         </div>
 
-        {/* Subcategorías — selección múltiple, opcional */}
-        {subcategoryTags.length > 0 && (
+        {/* Subcategorías — selección múltiple, opcional. Depende de la categoría elegida */}
+        {selectedCategoryId && subcategoryTags.length > 0 && (
           <div className="form-group full-width">
             <label>Subcategorías <span className="field-note" style={{ display: "inline", fontWeight: 400 }}>(opcional, podés elegir varias)</span></label>
             <div className="category-chips-wrap">
