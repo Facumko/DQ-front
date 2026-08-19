@@ -87,6 +87,14 @@ const SearchPage = () => {
     categoryIdsParam ? [Number(categoryIdsParam)] : []
   );
 
+  // Sin esto, si el usuario navega de una categoría a otra sin recargar la
+  // página (misma ruta /search, solo cambia el query param), el filtro queda
+  // "pegado" al primero que visitó: useState(() => ...) solo corre una vez,
+  // al montar el componente, no cada vez que cambia categoryIdsParam.
+  useEffect(() => {
+    setSelectedCategoryIds(categoryIdsParam ? [Number(categoryIdsParam)] : []);
+  }, [categoryIdsParam]);
+
   useEffect(() => {
     getCategories()
       .then(setCategories)
@@ -225,6 +233,7 @@ const SearchPage = () => {
     if (selectedCategoryIds.length > 0 && !query?.trim()) return "Negocios por categoría";
     if (selectedCategoryIds.length > 0 && query?.trim()) return `"${query}" en categorías seleccionadas`;
     if (isAllMode) return "Todos los negocios";
+    if (!query || !query.trim()) return "Todos los negocios";
     return `Resultados para "${query}"`;
   };
 

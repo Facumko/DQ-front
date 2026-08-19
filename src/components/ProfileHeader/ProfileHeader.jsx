@@ -259,6 +259,15 @@ const ProfileHeader = ({
       return next;
     });
   };
+  const [expandedPostIds, setExpandedPostIds] = useState(() => new Set());
+  const POST_TEXT_LIMIT = 220;
+  const togglePostExpanded = (idPost) => {
+    setExpandedPostIds(prev => {
+      const next = new Set(prev);
+      if (next.has(idPost)) next.delete(idPost); else next.add(idPost);
+      return next;
+    });
+  };
   const [businessId, setBusinessId]= useState(null);
   const [events, setEvents] = useState([]);
 
@@ -1533,7 +1542,20 @@ const ProfileHeader = ({
             >
               {post.images?.length > 0 && <PostGallery images={post.images} />}
               <div className={styles.postBody}>
-                <p className={styles.postText}>{post.text}</p>
+                <p className={styles.postText}>
+                  {post.text && post.text.length > POST_TEXT_LIMIT && !expandedPostIds.has(post.id)
+                    ? `${post.text.slice(0, POST_TEXT_LIMIT).trim()}…`
+                    : post.text}
+                  {post.text && post.text.length > POST_TEXT_LIMIT && (
+                    <button
+                      type="button"
+                      className={styles.verMasBtn}
+                      onClick={() => togglePostExpanded(post.id)}
+                    >
+                      {expandedPostIds.has(post.id) ? " Ver menos" : " Ver más"}
+                    </button>
+                  )}
+                </p>
                 <div className={styles.postFooter}>
                   <span className={styles.postDate}>{timeAgo(post.createdAt)}</span>
                   {isOwner && (
