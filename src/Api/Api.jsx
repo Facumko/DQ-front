@@ -479,6 +479,22 @@ const handleApiError = (error, endpoint) => {
       errorMsg = serverMessage || 'Error al crear la cuenta.';
       authErrorType = 'GENERIC';
     }
+  } else if (endpoint.includes('/suscripcion/cambiar/plan')) {
+    // Caso puntual: la suscripción quedó ACTIVE en nuestra base pero el
+    // preapproval real ya está cancelado del lado de Mercado Pago (se
+    // canceló manualmente en MP, o el webhook de cancelación no llegó a
+    // sincronizar el estado acá). MP rechaza cualquier intento de tocar
+    // el monto de un preapproval cancelado — no hay reintento posible,
+    // hay que cancelar acá y suscribirse de nuevo para generar uno nuevo.
+    if (serverMessage.includes('cancelled preapproval') || serverMessage.includes('cancelled subscription')) {
+      errorMsg = 'Tu suscripción quedó desincronizada con Mercado Pago: ya está cancelada de ese lado, por eso no se puede cambiar el plan. Cancelá la suscripción acá y volvé a suscribirte para generar una nueva.';
+    } else {
+      errorMsg = serverMessage || 'No se pudo cambiar el plan. Intentá de nuevo en unos minutos.';
+    }
+  } else if (endpoint.includes('/suscripcion/cancelar')) {
+    errorMsg = serverMessage || 'No se pudo cancelar la suscripción. Intentá de nuevo.';
+  } else if (endpoint.includes('/suscripcion/suscribirse')) {
+    errorMsg = serverMessage || 'No se pudo iniciar el proceso de pago. Intentá de nuevo.';
   } else {
     const msgs = {
       400: 'Datos inválidos.',
