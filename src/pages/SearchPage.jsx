@@ -71,7 +71,10 @@ const SearchPage = () => {
   const isPromociones = explora === "promociones";
   const isHoy = explora === "hoy";
   const isExploraComingSoon = Boolean(explora) && !EXPLORA_TITLES[explora];
-  const isAllMode = !isAgregados && !explora && query !== null && query.trim() === "";
+  // query === null pasa cuando no hay parámetro "q" en la URL (ej. entrar
+  // directo a /search sin nada más). Se trata igual que "" — mostrar todos
+  // los negocios — en vez de caer en un estado roto sin título ni fetch.
+  const isAllMode = !isAgregados && !explora && (query === null || query.trim() === "");
   const isSearchMode = !isAgregados && !explora && query !== null && query.trim() !== "";
 
   const [results, setResults] = useState([]);
@@ -86,14 +89,6 @@ const SearchPage = () => {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(() =>
     categoryIdsParam ? [Number(categoryIdsParam)] : []
   );
-
-  // Sin esto, si el usuario navega de una categoría a otra sin recargar la
-  // página (misma ruta /search, solo cambia el query param), el filtro queda
-  // "pegado" al primero que visitó: useState(() => ...) solo corre una vez,
-  // al montar el componente, no cada vez que cambia categoryIdsParam.
-  useEffect(() => {
-    setSelectedCategoryIds(categoryIdsParam ? [Number(categoryIdsParam)] : []);
-  }, [categoryIdsParam]);
 
   useEffect(() => {
     getCategories()
@@ -222,6 +217,10 @@ const SearchPage = () => {
     );
   };
 
+  const selectedCategoryNames = categories
+    .filter((cat) => selectedCategoryIds.includes(cat.idCategory))
+    .map((cat) => cat.name);
+
   const getTitle = () => {
     if (isAbiertoAhora) return EXPLORA_TITLES["abierto-ahora"];
     if (isEmergencias) return EXPLORA_TITLES["emergencias"];
@@ -230,10 +229,13 @@ const SearchPage = () => {
     if (isHoy) return EXPLORA_TITLES["hoy"];
     if (isExploraComingSoon) return "Muy pronto";
     if (isAgregados) return "Agregados recientemente";
-    if (selectedCategoryIds.length > 0 && !query?.trim()) return "Negocios por categoría";
-    if (selectedCategoryIds.length > 0 && query?.trim()) return `"${query}" en categorías seleccionadas`;
+    if (selectedCategoryIds.length > 0 && !query?.trim()) {
+      return selectedCategoryNames.length > 0 ? selectedCategoryNames.join(" y ") : "Negocios por categoría";
+    }
+    if (selectedCategoryIds.length > 0 && query?.trim()) {
+      return selectedCategoryNames.length > 0 ? `"${query}" en ${selectedCategoryNames.join(" y ")}` : `"${query}" en categorías seleccionadas`;
+    }
     if (isAllMode) return "Todos los negocios";
-    if (!query || !query.trim()) return "Todos los negocios";
     return `Resultados para "${query}"`;
   };
 

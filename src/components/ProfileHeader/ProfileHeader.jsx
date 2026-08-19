@@ -1232,7 +1232,7 @@ const ProfileHeader = ({
                       )}
                       <div className={styles.subcategoryChipsEdit}>
                         {filteredSubcategoryOptions.length === 0 ? (
-                          <p className={styles.sectionPlaceholder}>Sin resultados para "{subcategoryFilter}".</p>
+                          <p className={styles.sectionPlaceholder}>Sin resultados para &quot;{subcategoryFilter}&quot;.</p>
                         ) : filteredSubcategoryOptions.map(tag => (
                           <button
                             key={tag.nameTag}
@@ -1259,7 +1259,7 @@ const ProfileHeader = ({
                 </div>
 
                 <div className={styles.categoryEditorSection}>
-                  <p className={styles.infoSectionTitle}>Visibilidad en "Explorá más" <span className={styles.optionalHint}>(activá lo que te aplique)</span></p>
+                  <p className={styles.infoSectionTitle}>Visibilidad en &quot;Explorá más&quot; <span className={styles.optionalHint}>(activá lo que te aplique)</span></p>
                   <div className={styles.categoryChipsEdit}>
                     {ONBOARDING_QUESTIONS.map((q) => (
                       <button
@@ -1274,7 +1274,7 @@ const ProfileHeader = ({
                       </button>
                     ))}
                   </div>
-                  <p className={styles.categoryCount}>Define en qué cajas de "Explorá más" del Home aparecés. Podés cambiarlo cuando quieras.</p>
+                  <p className={styles.categoryCount}>Define en qué cajas de &quot;Explorá más&quot; del Home aparecés. Podés cambiarlo cuando quieras.</p>
                 </div>
 
                 <div className={styles.categoryEditorSection}>

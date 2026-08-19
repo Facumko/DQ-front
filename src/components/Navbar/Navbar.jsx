@@ -297,7 +297,7 @@ const Navbar = () => {
               )}
               {!loadingSuggestions && showSuggestions && suggestions.length === 0 && (
                 <div className={styles.noResults}>
-                  Sin resultados para "{searchText}"
+                  Sin resultados para &quot;{searchText}&quot;
                 </div>
               )}
               {!loadingSuggestions && suggestions.map((commerce, idx) => (
@@ -340,7 +340,7 @@ const Navbar = () => {
           {user && authIcons.map((item, idx) => {
             const IconComp = item.icon;
             return (
-              <div key={idx} className={styles.iconWrapper} title={item.label} onClick={() => navigate(item.link)}>
+              <div key={idx} className={styles.iconWrapper} onClick={() => navigate(item.link)}>
                 <IconComp className={styles.outlineIcon} />
                 <span className={styles.iconTooltip}>{item.label}</span>
               </div>
@@ -353,7 +353,6 @@ const Navbar = () => {
               <div
                 key={idx}
                 className={`${styles.iconWrapper} ${item.link === "/mapa" ? styles.mapIcon : ""}`}
-                title={item.label}
                 onClick={() => navigate(item.link)}
               >
                 <IconComp className={styles.outlineIcon} />
