@@ -19,7 +19,7 @@ import {
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
          Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
-         FileText, CalendarDays, Sparkles, Megaphone } from "lucide-react";
+         FileText, CalendarDays, Sparkles, Megaphone, Tag, Search, Info } from "lucide-react";
 import { FaWhatsapp, FaInstagram, FaFacebook } from "react-icons/fa";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
@@ -319,6 +319,7 @@ const ProfileHeader = ({
   const [allDescriptiveTags, setAllDescriptiveTags] = useState([]);
   const [draftDescriptiveTags, setDraftDescriptiveTags] = useState([]);
   const [newTagInput, setNewTagInput] = useState("");
+  const [subcategoryFilter, setSubcategoryFilter] = useState("");
   const [tagSaveError, setTagSaveError] = useState("");
 
   const [pendingCover,  setPendingCover]  = useState(null);
@@ -352,6 +353,24 @@ const ProfileHeader = ({
   const currentDescriptiveTags = useMemo(
     () => (businessData.tags || []).filter(t => t.type === "DESCRIPTIVE"),
     [businessData.tags]);
+
+  // Opciones del SELECTOR de edición: solo subcategorías de la categoría que
+  // se está editando en ese momento (draftCategory), no de businessData.category
+  // (la ya guardada) — si el dueño cambia de categoría a mitad de edición, el
+  // selector se tiene que actualizar al toque a las subcategorías de la nueva.
+  const editorSubcategoryOptions = useMemo(() => {
+    if (!draftCategory) return [];
+    return allSubcategoryTags.filter(t => String(t.category?.idCategory) === String(draftCategory.idCategory));
+  }, [allSubcategoryTags, draftCategory]);
+
+  // Solo tiene sentido mostrar el buscador si hay bastantes opciones —
+  // con pocas, un input extra es más ruido que ayuda.
+  const SUBCATEGORY_SEARCH_THRESHOLD = 8;
+  const filteredSubcategoryOptions = useMemo(() => {
+    if (!subcategoryFilter.trim()) return editorSubcategoryOptions;
+    const q = subcategoryFilter.trim().toLowerCase();
+    return editorSubcategoryOptions.filter(t => t.nameTag.toLowerCase().includes(q));
+  }, [editorSubcategoryOptions, subcategoryFilter]);
 
   const isFav = businessId ? (favoriteCommerceIds?.has(businessId) ?? false) : false;
 
@@ -462,15 +481,28 @@ const ProfileHeader = ({
     }
   }, [isOwner]);
 
-  const loadBusinessData = async () => {
+  const loadBusinessData = async (overlay = null) => {
     setLoad("business", true);
     try {
       const biz = await getMyBusiness();
       if (biz) {
         setBusinessId(biz.id_business);
         const d = normalizeBusiness(biz);
+        // Mismo motivo que en handleSave: si venimos de guardar recién,
+        // no confiamos en que este GET ya refleje categoría/tags al toque.
+        const finalCategory = overlay ? (overlay.categorySaveOk ? overlay.draftCategory : d.category) : d.category;
+        const finalSubs = overlay
+          ? (overlay.subsSaveOk ? overlay.draftSubcategoryTags : (d.tags || []).filter(t => t.type === "SUBCATEGORY"))
+          : (d.tags || []).filter(t => t.type === "SUBCATEGORY");
+        const finalDesc = overlay
+          ? (overlay.descSaveOk ? overlay.draftDescriptiveTags : (d.tags || []).filter(t => t.type === "DESCRIPTIVE"))
+          : (d.tags || []).filter(t => t.type === "DESCRIPTIVE");
+        if (overlay) { d.category = finalCategory; d.tags = [...finalSubs, ...finalDesc]; }
+
         setBusinessData(d); setDraft(d);
-        setDraftCategory(d.category);
+        setDraftCategory(finalCategory);
+        setDraftSubcategoryTags(finalSubs);
+        setDraftDescriptiveTags(finalDesc);
         if (d.schedules && d.schedules.length > 0) {
           const loaded = scheduleFromBackend(d.schedules);
           setSchedule(loaded); setDraftSchedule(loaded);
@@ -555,10 +587,24 @@ const ProfileHeader = ({
   // Selección única: si tocás la categoría ya elegida, la deseleccionás;
   // si tocás otra, la reemplaza (nunca queda más de una activa).
   const selectDraftCategory = useCallback((cat) => {
-    setDraftCategory(prev =>
-      prev && String(prev.idCategory) === String(cat.idCategory) ? null : cat
-    );
-  }, []);
+    setDraftCategory(prev => {
+      const next = prev && String(prev.idCategory) === String(cat.idCategory) ? null : cat;
+      // Si cambia (o se deselecciona) la categoría, las subcategorías que
+      // estaban elegidas de la categoría anterior ya no aplican. Sin esto
+      // quedaban seleccionadas "fantasma" en el estado interno — no se veían
+      // en el selector (porque ahora está filtrado por categoría), pero se
+      // seguían mandando a guardar igual, acumulándose con las nuevas.
+      setDraftSubcategoryTags(prevTags => {
+        if (!next) return [];
+        return prevTags.filter(t => {
+          const catalogTag = allSubcategoryTags.find(c => c.nameTag === t.nameTag);
+          return catalogTag && String(catalogTag.category?.idCategory) === String(next.idCategory);
+        });
+      });
+      setSubcategoryFilter("");
+      return next;
+    });
+  }, [allSubcategoryTags]);
 
   // Comparación con String() porque el id puede venir como number del backend
   // y como string desde otros puntos del form; sin esto la categoría guardada
@@ -707,15 +753,19 @@ const ProfileHeader = ({
         }
       }
 
+      let categorySaveOk = true;
       if (idToUse && draftCategory && String(draftCategory.idCategory) !== String(businessData.category?.idCategory)) {
         try {
           await setCommerceCategory(idToUse, draftCategory.idCategory);
         } catch (catError) {
+          categorySaveOk = false;
           console.warn("⚠️ Error guardando la categoría:", catError.message);
           flashInfo("Datos guardados. Hubo un problema con la categoría, intentá de nuevo.");
         }
       }
 
+      let subsSaveOk = true;
+      let descSaveOk = true;
       if (idToUse) {
         // businessData.tags viene tipado como TagDto (nameTag+type, SIN id) —
         // confirmado que nunca trae idTag. El id real solo existe en el
@@ -740,6 +790,7 @@ const ProfileHeader = ({
           if (subsToAdd.length > 0) await addCommerceSubcategories(idToUse, subsToAdd.map(t => t.nameTag));
           if (subsToRemove.length > 0) await removeCommerceTagIds(idToUse, subsToRemove);
         } catch (tagError) {
+          subsSaveOk = false;
           console.warn("⚠️ Error guardando subcategorías:", tagError.message);
           flashInfo("Datos guardados. Hubo un problema con las subcategorías, intentá de nuevo.");
         }
@@ -758,6 +809,7 @@ const ProfileHeader = ({
           if (descToAdd.length > 0) await addCommerceTags(idToUse, descToAdd.map(t => t.nameTag));
           if (descToRemove.length > 0) await removeCommerceTagIds(idToUse, descToRemove);
         } catch (tagError) {
+          descSaveOk = false;
           console.warn("⚠️ Error guardando etiquetas:", tagError.message);
           flashInfo("Datos guardados. Hubo un problema con las etiquetas, intentá de nuevo.");
         }
@@ -767,17 +819,30 @@ const ProfileHeader = ({
         const biz = await getBusinessById(currentBusinessId);
         if (biz) {
           const d = normalizeBusiness(biz);
+          // No confiamos ciegamente en este GET para categoría/tags: si el
+          // backend tarda un instante en reflejar el guardado (caché, réplica,
+          // lo que sea), este refetch inmediato puede traer todavía la foto
+          // vieja — eso es lo que se veía como "vuelven las categorías/tags
+          // de antes por 1-2 segundos" después de guardar. Como ya sabemos
+          // qué se mandó a guardar (y si se guardó bien o no), pisamos con
+          // eso en vez de esperar que el servidor ya esté al día.
+          const finalCategory = categorySaveOk ? draftCategory : d.category;
+          const finalSubs     = subsSaveOk ? draftSubcategoryTags : (d.tags || []).filter(t => t.type === "SUBCATEGORY");
+          const finalDesc     = descSaveOk ? draftDescriptiveTags : (d.tags || []).filter(t => t.type === "DESCRIPTIVE");
+          d.category = finalCategory;
+          d.tags = [...finalSubs, ...finalDesc];
+
           setBusinessData(d); setDraft(d);
-          setDraftCategory(d.category);
-          setDraftSubcategoryTags((d.tags || []).filter(t => t.type === "SUBCATEGORY"));
-          setDraftDescriptiveTags((d.tags || []).filter(t => t.type === "DESCRIPTIVE"));
+          setDraftCategory(finalCategory);
+          setDraftSubcategoryTags(finalSubs);
+          setDraftDescriptiveTags(finalDesc);
           if (d.schedules && d.schedules.length > 0) {
             const loaded = scheduleFromBackend(d.schedules);
             setSchedule(loaded); setDraftSchedule(loaded);
           }
         }
       } else {
-        await loadBusinessData();
+        await loadBusinessData({ categorySaveOk, subsSaveOk, descSaveOk, draftCategory, draftSubcategoryTags, draftDescriptiveTags });
       }
 
       setPendingCover(null); setPendingAvatar(null);
@@ -1028,12 +1093,20 @@ const ProfileHeader = ({
             <>
               <h1 className={styles.businessName}>{businessData.name || "Sin nombre"}</h1>
 
-              {(businessData.category || currentSubcategoryTags.length > 0) && (
-                <p className={styles.categoryLine}>
-                  {[businessData.category?.name, ...currentSubcategoryTags.map(t => t.nameTag)]
-                    .filter(Boolean).join(" · ")}
-                </p>
-              )}
+              {businessData.category ? (
+                <div className={styles.classificationRow}>
+                  <span className={styles.categoryBadge}>
+                    <Tag size={12}/> {businessData.category.name}
+                  </span>
+                  {currentSubcategoryTags.map(t => (
+                    <span key={t.nameTag} className={styles.subcategoryChipView}>{t.nameTag}</span>
+                  ))}
+                </div>
+              ) : isOwner ? (
+                <button type="button" className={styles.missingCategoryNudge} onClick={handleEdit}>
+                  <Info size={12}/> Sin categoría — no vas a aparecer en búsquedas por rubro. Completala
+                </button>
+              ) : null}
 
               {currentDescriptiveTags.length > 0 && (
                 <div className={styles.descriptiveTagsView}>
@@ -1074,52 +1147,77 @@ const ProfileHeader = ({
 
                 <div className={styles.categoryEditorSection}>
                   <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categoría</p>
-                  <div className={styles.categoryChipsEdit} role="radiogroup" aria-label="Categoría del negocio">
+                  <p className={styles.sectionHint}>Así te van a encontrar en el buscador por rubro.</p>
+                  <div className={styles.categoryPillsEdit} role="radiogroup" aria-label="Categoría del negocio">
                     {allCategories.map(cat => (
                       <button
                         key={cat.idCategory}
                         type="button"
                         role="radio"
                         aria-checked={isDraftCategorySelected(cat)}
-                        className={`${styles.categoryChipEdit} ${isDraftCategorySelected(cat) ? styles.categoryChipEditSelected : ""}`}
+                        className={`${styles.categoryPillEdit} ${isDraftCategorySelected(cat) ? styles.categoryPillEditSelected : ""}`}
                         onClick={() => selectDraftCategory(cat)}
                       >
-                        {isDraftCategorySelected(cat) && <span>✓ </span>}
+                        {isDraftCategorySelected(cat) && <Check size={13}/>}
                         {cat.name}
                       </button>
                     ))}
                   </div>
-                  <p className={styles.categoryCount}>
-                    {draftCategory ? `Categoría: ${draftCategory.name}` : "Elegí una categoría"}
-                  </p>
+                  {!draftCategory && (
+                    <p className={styles.categoryCount}>Elegí una categoría</p>
+                  )}
                 </div>
 
-                {allSubcategoryTags.length > 0 && (
-                  <div className={styles.categoryEditorSection}>
-                    <p className={styles.infoSectionTitle}>Subcategorías <span className={styles.optionalHint}>(podés elegir varias)</span></p>
-                    <div className={styles.categoryChipsEdit}>
-                      {allSubcategoryTags.map(tag => (
-                        <button
-                          key={tag.nameTag}
-                          type="button"
-                          className={`${styles.categoryChipEdit} ${isDraftSubcategorySelected(tag) ? styles.categoryChipEditSelected : ""}`}
-                          onClick={() => toggleDraftSubcategory(tag)}
-                        >
-                          {isDraftSubcategorySelected(tag) && <span>✓ </span>}
-                          {tag.nameTag}
-                        </button>
-                      ))}
-                    </div>
-                    {draftSubcategoryTags.length > 0 && (
-                      <p className={styles.categoryCount}>
-                        {draftSubcategoryTags.length} subcategoría{draftSubcategoryTags.length !== 1 ? "s" : ""} seleccionada{draftSubcategoryTags.length !== 1 ? "s" : ""}
-                      </p>
-                    )}
-                  </div>
-                )}
+                <div className={styles.categoryEditorSection}>
+                  <p className={styles.infoSectionTitle}>Subcategorías <span className={styles.optionalHint}>(podés elegir varias)</span></p>
+                  {!draftCategory ? (
+                    <p className={styles.sectionPlaceholder}>Elegí primero una categoría para ver sus subcategorías.</p>
+                  ) : editorSubcategoryOptions.length === 0 ? null : (
+                    <>
+                      <p className={styles.sectionHint}>Sumá detalles para aparecer en búsquedas más específicas.</p>
+                      {editorSubcategoryOptions.length > SUBCATEGORY_SEARCH_THRESHOLD && (
+                        <div className={styles.subcategorySearchWrap}>
+                          <Search size={13} className={styles.subcategorySearchIcon}/>
+                          <input
+                            type="text"
+                            className={styles.subcategorySearchInput}
+                            placeholder="Buscar subcategoría…"
+                            value={subcategoryFilter}
+                            onChange={(e) => setSubcategoryFilter(e.target.value)}
+                          />
+                        </div>
+                      )}
+                      <div className={styles.subcategoryChipsEdit}>
+                        {filteredSubcategoryOptions.length === 0 ? (
+                          <p className={styles.sectionPlaceholder}>Sin resultados para "{subcategoryFilter}".</p>
+                        ) : filteredSubcategoryOptions.map(tag => (
+                          <button
+                            key={tag.nameTag}
+                            type="button"
+                            role="checkbox"
+                            aria-checked={isDraftSubcategorySelected(tag)}
+                            className={`${styles.subcategoryChipEdit} ${isDraftSubcategorySelected(tag) ? styles.subcategoryChipEditSelected : ""}`}
+                            onClick={() => toggleDraftSubcategory(tag)}
+                          >
+                            <span className={styles.subcategoryCheckbox}>
+                              {isDraftSubcategorySelected(tag) && <Check size={10}/>}
+                            </span>
+                            {tag.nameTag}
+                          </button>
+                        ))}
+                      </div>
+                      {draftSubcategoryTags.length > 0 && (
+                        <p className={styles.categoryCount}>
+                          {draftSubcategoryTags.length} subcategoría{draftSubcategoryTags.length !== 1 ? "s" : ""} seleccionada{draftSubcategoryTags.length !== 1 ? "s" : ""}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 <div className={styles.categoryEditorSection}>
                   <p className={styles.infoSectionTitle}>Etiquetas descriptivas <span className={styles.optionalHint}>(ej: café, pizza, delivery)</span></p>
+                  <p className={styles.sectionHint}>Palabras sueltas que la gente busca — cuantas más pongas, más formas de encontrarte.</p>
                   {draftDescriptiveTags.length > 0 && (
                     <div className={styles.tagsChipsEdit}>
                       {draftDescriptiveTags.map(tag => (
