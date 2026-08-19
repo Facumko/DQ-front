@@ -8,7 +8,7 @@ import {
   addImagesToPost, deleteImagesFromPost,
   replaceCommerceSchedules, scheduleFromBackend,
   getCategories, setCommerceCategory,
-  getTags,
+  getTags, getSubcategoryTags,
   addCommerceSubcategories, addCommerceTags, removeCommerceTagIds,
   createEvent, updateEvent, deleteEvent,
   addImagesToEvent, deleteImagesFromEvent,
@@ -308,9 +308,15 @@ const ProfileHeader = ({
   const [draftCategory,    setDraftCategory]    = useState(null);
 
   // Tags de subcategoría: selección múltiple (a diferencia de la categoría,
-  // que es única). allSubcategoryTags = catálogo completo del backend;
+  // que es única). allSubcategoryTags = catálogo completo para MOSTRAR y
+  // AGRUPAR por categoría, viene de /etiqueta/subcategoria (endpoint
+  // dedicado del back: TagDto con idCategory plano, pero SIN idTag).
   // draftSubcategoryTags = lo que el dueño va eligiendo mientras edita.
   const [allSubcategoryTags, setAllSubcategoryTags] = useState([]);
+  // Catálogo aparte, con idTag real, SOLO para resolver el id al guardar/
+  // borrar (removeCommerceTagIds necesita el id, no el nombre). Viene de
+  // /etiqueta/traer (schema Tag completo). No se usa para mostrar nada.
+  const [subcategoryCatalogWithIds, setSubcategoryCatalogWithIds] = useState([]);
   // Distingue "catálogo todavía no llegó" de "catálogo llegó y está vacío" —
   // allSubcategoryTags.length === 0 no alcanza para eso. Lo necesitamos para
   // no mostrar tags sin filtrar mientras el catálogo sigue en vuelo (ver
@@ -341,7 +347,7 @@ const ProfileHeader = ({
   // Ojo con las subcategorías: businessData.tags es TagDto (nameTag+type,
   // SIN category), así que no podemos filtrar directo por categoría acá.
   // Lo resolvemos cruzando por nombre contra el catálogo completo
-  // (allSubcategoryTags, que sí trae category) — así descartamos cualquier
+  // (allSubcategoryTags, que ahora trae idCategory plano) — así descartamos cualquier
   // subcategoría que haya quedado pegada de una categoría distinta a la
   // actual (por ejemplo, basura de antes de arreglar el bug de remove: se
   // guardaban subcategorías de categorías previas y nunca se borraban).
@@ -359,7 +365,7 @@ const ProfileHeader = ({
       const catalogTag = allSubcategoryTags.find(c => c.nameTag === t.nameTag);
       // Ya cargó el catálogo: si el tag no aparece ahí, es basura real y no
       // válida para ninguna categoría — no lo mostramos.
-      return !!catalogTag && String(catalogTag.category?.idCategory) === String(businessData.category.idCategory);
+      return !!catalogTag && String(catalogTag.idCategory) === String(businessData.category.idCategory);
     });
   }, [businessData.tags, businessData.category, allSubcategoryTags, subcategoryCatalogLoaded]);
   const currentDescriptiveTags = useMemo(
@@ -370,10 +376,22 @@ const ProfileHeader = ({
   // se está editando en ese momento (draftCategory), no de businessData.category
   // (la ya guardada) — si el dueño cambia de categoría a mitad de edición, el
   // selector se tiene que actualizar al toque a las subcategorías de la nueva.
+  // Agrupamos una sola vez por idCategory (Map), en vez de filtrar el
+  // catálogo completo cada vez que cambia draftCategory.
+  const subcategoriesByCategory = useMemo(() => {
+    const map = new Map();
+    for (const tag of allSubcategoryTags) {
+      const key = String(tag.idCategory);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(tag);
+    }
+    return map;
+  }, [allSubcategoryTags]);
+
   const editorSubcategoryOptions = useMemo(() => {
     if (!draftCategory) return [];
-    return allSubcategoryTags.filter(t => String(t.category?.idCategory) === String(draftCategory.idCategory));
-  }, [allSubcategoryTags, draftCategory]);
+    return subcategoriesByCategory.get(String(draftCategory.idCategory)) ?? [];
+  }, [subcategoriesByCategory, draftCategory]);
 
   // Solo tiene sentido mostrar el buscador si hay bastantes opciones —
   // con pocas, un input extra es más ruido que ayuda.
@@ -410,19 +428,29 @@ const ProfileHeader = ({
   }, []);
 
   useEffect(() => {
-    // Antes: getSubcategoryTags() y getDescriptiveTags() se llamaban por
-    // separado, pero las dos internamente pegan a getTags() (/etiqueta/traer)
-    // — el mismo catálogo completo de ~100 tags, bajado y parseado dos veces
-    // para sacar dos slices distintos del mismo array. Ahora lo pedimos una
-    // sola vez y derivamos ambas listas del mismo resultado.
+    // Catálogo para MOSTRAR/AGRUPAR subcategorías: endpoint dedicado del
+    // back, ya trae idCategory plano en cada tag (no hace falta cruzar
+    // contra /etiqueta/traer para saber a qué categoría pertenece cada una).
+    getSubcategoryTags()
+      .then(tags => setAllSubcategoryTags(Array.isArray(tags) ? tags : []))
+      .catch(() => setAllSubcategoryTags([]))
+      .finally(() => setSubcategoryCatalogLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    // Catálogo completo (/etiqueta/traer), usado para:
+    // 1) allDescriptiveTags — no hay endpoint dedicado para DESCRIPTIVE,
+    //    así que se sigue derivando de acá.
+    // 2) subcategoryCatalogWithIds — el idTag real de cada subcategoría,
+    //    necesario solo al guardar/borrar (ver handleSave más abajo). No se
+    //    usa para mostrar nada, por eso no bloquea subcategoryCatalogLoaded.
     getTags()
       .then(all => {
         const list = Array.isArray(all) ? all : [];
-        setAllSubcategoryTags(list.filter(t => t.type === "SUBCATEGORY"));
+        setSubcategoryCatalogWithIds(list.filter(t => t.type === "SUBCATEGORY"));
         setAllDescriptiveTags(list.filter(t => t.type === "DESCRIPTIVE"));
       })
-      .catch(() => { setAllSubcategoryTags([]); setAllDescriptiveTags([]); })
-      .finally(() => setSubcategoryCatalogLoaded(true));
+      .catch(() => { setSubcategoryCatalogWithIds([]); setAllDescriptiveTags([]); });
   }, []);
 
   useEffect(() => {
@@ -622,7 +650,7 @@ const ProfileHeader = ({
         if (!next) return [];
         return prevTags.filter(t => {
           const catalogTag = allSubcategoryTags.find(c => c.nameTag === t.nameTag);
-          return catalogTag && String(catalogTag.category?.idCategory) === String(next.idCategory);
+          return catalogTag && String(catalogTag.idCategory) === String(next.idCategory);
         });
       });
       setSubcategoryFilter("");
@@ -793,13 +821,16 @@ const ProfileHeader = ({
       if (idToUse) {
         // businessData.tags viene tipado como TagDto (nameTag+type, SIN id) —
         // confirmado que nunca trae idTag. El id real solo existe en el
-        // catálogo completo (/etiqueta/traer → allSubcategoryTags /
+        // catálogo completo (/etiqueta/traer → subcategoryCatalogWithIds /
         // allDescriptiveTags, que sí usan el schema "Tag" con idTag), así que
         // lo resolvemos ahí por nombre en vez de esperar que venga en el tag
         // propio del negocio. Antes de este fix, remove nunca encontraba un
         // id válido y las subcategorías/etiquetas viejas quedaban pegadas
         // para siempre, acumulándose con las nuevas en cada edición.
-        const subcategoryIdByName = new Map(allSubcategoryTags.map(t => [t.nameTag, t.idTag]));
+        // OJO: subcategoryCatalogWithIds (no allSubcategoryTags) — el
+        // catálogo de /etiqueta/subcategoria usado para mostrar/agrupar NO
+        // trae idTag, solo sirve para display.
+        const subcategoryIdByName = new Map(subcategoryCatalogWithIds.map(t => [t.nameTag, t.idTag]));
         const descriptiveIdByName = new Map(allDescriptiveTags.map(t => [t.nameTag, t.idTag]));
 
         // Subcategorías (selección múltiple)

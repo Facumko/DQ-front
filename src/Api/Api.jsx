@@ -55,6 +55,7 @@ const ENDPOINTS = {
   REPLACE_SCHEDULES: (commerceId) => `/comercio/reemplazar/horarios/${commerceId}`, 
   SET_COMMERCE_CATEGORY: (commerceId) => `/comercio/establecer/categoria/${commerceId}`,
   GET_COMMERCES_BY_CATEGORIES:   '/comercio/traer/por/categorias',
+  GET_SUBCATEGORY_TAGS: '/etiqueta/subcategoria',
 };
 
 let isRefreshing = false;
@@ -1331,15 +1332,16 @@ export const getPromotionTags = async () =>
 export const getTags = async () =>
   apiRequest('GET', '/etiqueta/traer');
 
-// OJO: /etiqueta/subcategoria devuelve TagDto (solo nameTag+type, SIN idTag
-// ni category) — con eso no se puede ni resolver el id real para borrar, ni
-// filtrar subcategorías por categoría (los dos bugs reportados). /etiqueta/traer
-// sí devuelve el schema completo (Tag: idTag+nameTag+type+category), así que
-// se deriva de ahí filtrando en el cliente — mismo patrón que getDescriptiveTags.
-export const getSubcategoryTags = async () => {
-  const all = await getTags();
-  return Array.isArray(all) ? all.filter(t => t.type === 'SUBCATEGORY') : [];
-};
+// Endpoint dedicado a subcategorías: /etiqueta/subcategoria. Devuelve
+// TagDto (nameTag, type, idCategory) — SIN idTag. Sirve para mostrar y
+// agrupar subcategorías por categoría (idCategory viene plano, no anidado
+// en .category como en el schema Tag de /etiqueta/traer).
+// Si necesitás el idTag real (por ejemplo para borrar una subcategoría
+// puntual de un comercio vía removeCommerceTagIds), hay que resolverlo
+// aparte con getTags() (/etiqueta/traer) en el momento de guardar/borrar,
+// no acá.
+export const getSubcategoryTags = async () =>
+  apiRequest('GET', ENDPOINTS.GET_SUBCATEGORY_TAGS);
 
 export const getDescriptiveTags = async () => {
   const all = await getTags();
