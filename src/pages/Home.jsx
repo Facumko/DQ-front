@@ -233,6 +233,15 @@ const Home = () => {
   const [feedError,           setFeedError]           = useState("");
   const [feedHasMore,         setFeedHasMore]         = useState(true);
   const [currentImageIndex,   setCurrentImageIndex]   = useState({});
+  const [expandedPostIds,     setExpandedPostIds]     = useState(() => new Set());
+  const POST_CONTENT_LIMIT = 220;
+  const togglePostExpanded = (idPost) => {
+    setExpandedPostIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(idPost)) next.delete(idPost); else next.add(idPost);
+      return next;
+    });
+  };
   const [sideFeatured,        setSideFeatured]        = useState([]); // cajas laterales: misma fuente que el carrusel (/destacado → featured)
   const sectionsRef = useRef([]);
   const sidebarMarqueeRef = useRef(null);
@@ -772,7 +781,20 @@ useEffect(() => {
                 {post.content && (
                   <div className={styles.postContent}>
                     <span className={styles.postContentBusiness}>{post.businessName} </span>
-                    <span>{post.content}</span>
+                    <span>
+                      {post.content.length > POST_CONTENT_LIMIT && !expandedPostIds.has(post.id)
+                        ? `${post.content.slice(0, POST_CONTENT_LIMIT).trim()}…`
+                        : post.content}
+                    </span>
+                    {post.content.length > POST_CONTENT_LIMIT && (
+                      <button
+                        type="button"
+                        className={styles.postVerMasBtn}
+                        onClick={() => togglePostExpanded(post.id)}
+                      >
+                        {expandedPostIds.has(post.id) ? " Ver menos" : " Ver más"}
+                      </button>
+                    )}
                   </div>
                 )}
 
