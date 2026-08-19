@@ -331,9 +331,24 @@ const ProfileHeader = ({
 
   // businessData.tags viene mezclado (subcategoría + descriptivo + lo que
   // sea), lo separamos acá para mostrar/editar cada tipo por su lado.
-  const currentSubcategoryTags = useMemo(
-    () => (businessData.tags || []).filter(t => t.type === "SUBCATEGORY"),
-    [businessData.tags]);
+  //
+  // Ojo con las subcategorías: businessData.tags es TagDto (nameTag+type,
+  // SIN category), así que no podemos filtrar directo por categoría acá.
+  // Lo resolvemos cruzando por nombre contra el catálogo completo
+  // (allSubcategoryTags, que sí trae category) — así descartamos cualquier
+  // subcategoría que haya quedado pegada de una categoría distinta a la
+  // actual (por ejemplo, basura de antes de arreglar el bug de remove: se
+  // guardaban subcategorías de categorías previas y nunca se borraban).
+  const currentSubcategoryTags = useMemo(() => {
+    const raw = (businessData.tags || []).filter(t => t.type === "SUBCATEGORY");
+    if (!businessData.category) return raw;
+    return raw.filter(t => {
+      const catalogTag = allSubcategoryTags.find(c => c.nameTag === t.nameTag);
+      // Si todavía no cargó el catálogo o no lo encontramos, lo dejamos pasar
+      // (mejor mostrar de más por un instante que ocultar algo válido).
+      return !catalogTag || String(catalogTag.category?.idCategory) === String(businessData.category.idCategory);
+    });
+  }, [businessData.tags, businessData.category, allSubcategoryTags]);
   const currentDescriptiveTags = useMemo(
     () => (businessData.tags || []).filter(t => t.type === "DESCRIPTIVE"),
     [businessData.tags]);
@@ -702,21 +717,28 @@ const ProfileHeader = ({
       }
 
       if (idToUse) {
-        // ⚠️ Asunción: los tags que vienen en businessData.tags traen idTag
-        // (schema "Tag" del swagger), aunque CommerceResponseDto.tags está
-        // tipado como TagDto (que solo tiene nameTag+type, sin id). Si en la
-        // práctica no viene idTag, remove no va a poder identificar cuál
-        // borrar — confirmar con el back si hace falta.
-        const tagId = (t) => t.idTag ?? t.id ?? null;
+        // businessData.tags viene tipado como TagDto (nameTag+type, SIN id) —
+        // confirmado que nunca trae idTag. El id real solo existe en el
+        // catálogo completo (/etiqueta/traer → allSubcategoryTags /
+        // allDescriptiveTags, que sí usan el schema "Tag" con idTag), así que
+        // lo resolvemos ahí por nombre en vez de esperar que venga en el tag
+        // propio del negocio. Antes de este fix, remove nunca encontraba un
+        // id válido y las subcategorías/etiquetas viejas quedaban pegadas
+        // para siempre, acumulándose con las nuevas en cada edición.
+        const subcategoryIdByName = new Map(allSubcategoryTags.map(t => [t.nameTag, t.idTag]));
+        const descriptiveIdByName = new Map(allDescriptiveTags.map(t => [t.nameTag, t.idTag]));
 
         // Subcategorías (selección múltiple)
         const currentSubNames = new Set(currentSubcategoryTags.map(t => t.nameTag));
         const draftSubNames   = new Set(draftSubcategoryTags.map(t => t.nameTag));
         const subsToAdd    = draftSubcategoryTags.filter(t => !currentSubNames.has(t.nameTag));
-        const subsToRemove = currentSubcategoryTags.filter(t => !draftSubNames.has(t.nameTag) && tagId(t) != null);
+        const subsToRemove = currentSubcategoryTags
+          .filter(t => !draftSubNames.has(t.nameTag))
+          .map(t => subcategoryIdByName.get(t.nameTag))
+          .filter(id => id != null);
         try {
           if (subsToAdd.length > 0) await addCommerceSubcategories(idToUse, subsToAdd.map(t => t.nameTag));
-          if (subsToRemove.length > 0) await removeCommerceTagIds(idToUse, subsToRemove.map(tagId));
+          if (subsToRemove.length > 0) await removeCommerceTagIds(idToUse, subsToRemove);
         } catch (tagError) {
           console.warn("⚠️ Error guardando subcategorías:", tagError.message);
           flashInfo("Datos guardados. Hubo un problema con las subcategorías, intentá de nuevo.");
@@ -726,12 +748,15 @@ const ProfileHeader = ({
         const currentDescNames = new Set(currentDescriptiveTags.map(t => t.nameTag));
         const draftDescNames   = new Set(draftDescriptiveTags.map(t => t.nameTag));
         const descToAdd    = draftDescriptiveTags.filter(t => !currentDescNames.has(t.nameTag));
-        const descToRemove = currentDescriptiveTags.filter(t => !draftDescNames.has(t.nameTag) && tagId(t) != null);
+        const descToRemove = currentDescriptiveTags
+          .filter(t => !draftDescNames.has(t.nameTag))
+          .map(t => descriptiveIdByName.get(t.nameTag))
+          .filter(id => id != null);
         try {
           // addCommerceTags hace upsert por nombre (crea la etiqueta si no
           // existe todavía), así que no hace falta llamar a createTag aparte.
           if (descToAdd.length > 0) await addCommerceTags(idToUse, descToAdd.map(t => t.nameTag));
-          if (descToRemove.length > 0) await removeCommerceTagIds(idToUse, descToRemove.map(tagId));
+          if (descToRemove.length > 0) await removeCommerceTagIds(idToUse, descToRemove);
         } catch (tagError) {
           console.warn("⚠️ Error guardando etiquetas:", tagError.message);
           flashInfo("Datos guardados. Hubo un problema con las etiquetas, intentá de nuevo.");
@@ -1491,4 +1516,4 @@ const ProfileHeader = ({
   );
 };
 
-export default ProfileHeader; 
+export default ProfileHeader;
