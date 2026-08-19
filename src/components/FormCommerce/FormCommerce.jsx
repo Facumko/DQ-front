@@ -177,7 +177,7 @@ function FormCommerce() {
       <PlanRestrictedModal
         isOpen={showPlanRestrictedModal}
         onClose={() => setShowPlanRestrictedModal(false)}
-        onUpgrade={() => navigate("/checkout/basic")}
+        onUpgrade={() => navigate("/planes")}
       />
     </div>
   );

@@ -217,14 +217,11 @@ const useBusinessStatus = (schedule) => {
   return status;
 };
 
-// Promociones requieren una suscripción activa (regla del backend).
-// OJO: /usuario/traer/mis/datos NO devuelve subscription/plan hoy (DTO recortado),
-// así que no podemos leer el tier actual del usuario desde ahí para saber a qué
-// plan exacto ofrecerle el upgrade. Por eso, si está bloqueado, el CTA "Mejorar
-// plan" apunta siempre al plan de entrada ("basic"). Cuando el backend agregue
-// esos campos a la respuesta, se puede volver a calcular el "próximo tier" real
-// (ver nota en el chat: pedido pendiente al equipo de backend).
-const DEFAULT_UPGRADE_TARGET = "basic";
+// Promociones requieren una suscripción activa (regla del backend). Si está
+// bloqueado, el CTA "Mejorar plan" manda a /planes en vez de a un checkout
+// puntual — ahí el usuario ve la comparación completa y elige el plan que
+// realmente cubre lo que necesita (no siempre es "el próximo de la lista":
+// ej. Intermedio tampoco permite eventos, hace falta Premium).
 
 const ProfileHeader = ({
   isOwner        = false,
@@ -510,10 +507,10 @@ const ProfileHeader = ({
       ]);
       setPromotions(Array.isArray(promos) ? promos : []);
       setPromotionTags(Array.isArray(tags) ? tags : []);
-      setPlanAccess({ allowed: true, targetPlanId: null });
+      setPlanAccess({ allowed: true });
     } catch (err) {
       if (err.isPlanError) {
-        setPlanAccess({ allowed: false, targetPlanId: DEFAULT_UPGRADE_TARGET });
+        setPlanAccess({ allowed: false });
       } else {
         flashError(err.message || "Error al cargar promociones");
       }
@@ -1009,7 +1006,7 @@ const ProfileHeader = ({
       setShowModal(false);
     } catch (err) {
       if (err.isPlanError) {
-        setPlanAccess({ allowed: false, targetPlanId: DEFAULT_UPGRADE_TARGET });
+        setPlanAccess({ allowed: false });
         setShowPlanRestrictedModal(true);
       } else {
         flashError(err.message || "Error al guardar");
@@ -1078,7 +1075,7 @@ const ProfileHeader = ({
 
   const handleUpgradePlan = () => {
     setShowPlanRestrictedModal(false);
-    navigate(`/checkout/${planAccess?.targetPlanId || "basic"}`);
+    navigate("/planes");
   };
 
   const openModal = (type, post = null) => {
@@ -1661,7 +1658,7 @@ const ProfileHeader = ({
               </p>
               <button
                 className={styles.btnCreateSecondary}
-                onClick={() => navigate(`/checkout/${planAccess.targetPlanId}`)}
+                onClick={() => navigate("/planes")}
                 style={{ display: "inline-flex", marginTop: 12 }}
               >
                 Mejorar plan
