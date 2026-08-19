@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useMemo } from "react"
-import { getCategories, getTags } from "../../Api/Api"
+import { getCategories, getSubcategoryTags } from "../../Api/Api"
 import LocationPicker from "../../components/LocationPicker/LocationPicker"
 import "./FormStep.css"
 import "./CategoryChips.css"
@@ -21,11 +21,11 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   })
 
   const [categories, setCategories] = useState([])
-  // Catálogo COMPLETO de subcategorías (todas las categorías mezcladas, cada
-  // una con su .category vinculada — viene de /etiqueta/traer, que sí incluye
-  // ese vínculo a diferencia de /etiqueta/subcategoria). El filtrado por la
-  // categoría elegida se hace client-side en subcategoryTags (más abajo),
-  // así no hace falta pegarle de nuevo al back cada vez que cambia la categoría.
+  // Catálogo COMPLETO de subcategorías (todas las categorías mezcladas),
+  // viene de /etiqueta/subcategoria (endpoint dedicado del back, ya trae
+  // idCategory plano en cada tag). El agrupamiento por categoría se hace
+  // client-side en subcategoriesByCategory (más abajo), así no hace falta
+  // pegarle de nuevo al back cada vez que cambia la categoría elegida.
   const [allSubcategoryTags, setAllSubcategoryTags] = useState([])
   const [errors,     setErrors]     = useState({})
   const [isValid,    setIsValid]    = useState(false)
@@ -55,13 +55,22 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   }, [])
 
   useEffect(() => {
-    getTags()
-      .then(tags => {
-        const subcats = Array.isArray(tags) ? tags.filter(t => t.type === "SUBCATEGORY") : []
-        setAllSubcategoryTags(subcats)
-      })
+    getSubcategoryTags()
+      .then(tags => setAllSubcategoryTags(Array.isArray(tags) ? tags : []))
       .catch(() => setAllSubcategoryTags([])) // opcional: si falla, simplemente no se muestran
   }, [])
+
+  // Agrupamos una sola vez por idCategory (Map), en vez de filtrar el
+  // catálogo completo cada vez que cambia la categoría seleccionada.
+  const subcategoriesByCategory = useMemo(() => {
+    const map = new Map()
+    for (const tag of allSubcategoryTags) {
+      const key = String(tag.idCategory)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(tag)
+    }
+    return map
+  }, [allSubcategoryTags])
 
   // Solo las subcategorías de la categoría elegida (si no hay categoría
   // elegida todavía, no mostramos ninguna — evita la "sopa" de subcategorías
@@ -69,8 +78,8 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   const selectedCategoryId = formData.selectedCategories[0]?.idCategory
   const subcategoryTags = useMemo(() => {
     if (!selectedCategoryId) return []
-    return allSubcategoryTags.filter(tag => tag.category?.idCategory === selectedCategoryId)
-  }, [allSubcategoryTags, selectedCategoryId])
+    return subcategoriesByCategory.get(String(selectedCategoryId)) ?? []
+  }, [subcategoriesByCategory, selectedCategoryId])
 
   const formatPhone = (raw) => {
     const digits = raw.replace(/\D/g, "").slice(0, 10)
