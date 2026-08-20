@@ -7,14 +7,20 @@ import styles from "./PlanRestrictedModal.module.css";
  * usuario no tiene una suscripción activa. Ofrece ir directo al checkout
  * del plan sugerido (targetPlanId).
  */
-const PlanRestrictedModal = ({ isOpen, onClose, onUpgrade }) => {
+const PlanRestrictedModal = ({
+  isOpen,
+  onClose,
+  onUpgrade,
+  title = "Necesitás el plan Premium",
+  message = "Crear promociones está disponible solo en el plan Premium. Mejorá tu plan para destacar tu negocio en el carrusel principal.",
+}) => {
   if (!isOpen) return null;
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h2 className={styles.title}>Necesitás un plan superior</h2>
+          <h2 className={styles.title}>{title}</h2>
           <button className={styles.closeBtn} onClick={onClose}>
             <X size={18} />
           </button>
@@ -24,10 +30,7 @@ const PlanRestrictedModal = ({ isOpen, onClose, onUpgrade }) => {
           <div className={styles.iconWrap}>
             <Sparkles size={26} />
           </div>
-          <p className={styles.text}>
-            Para poder crear promociones necesitás tener un plan superior activo.
-            Mejorá tu plan para destacar tu negocio en el carrusel principal.
-          </p>
+          <p className={styles.text}>{message}</p>
         </div>
 
         <div className={styles.footer}>

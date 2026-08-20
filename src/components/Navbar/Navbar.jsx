@@ -6,7 +6,7 @@ import styles from "./Navbar.module.css";
 import {
   FaRegStar, FaRegCalendarAlt,
   FaRegCreditCard, FaRegUser, FaSearch, FaBars,
-  FaMapMarkerAlt, FaStore, FaCog, FaSignOutAlt,
+  FaMapMarkerAlt, FaStore, FaSignOutAlt,
   FaChevronDown, FaChevronRight, FaPlus, FaTimes
 } from "react-icons/fa";
 import CityDrawer from "../CityDrawer/CityDrawer";
@@ -450,11 +450,6 @@ const Navbar = () => {
                       </div>
                     </div>
                   )}
-
-                  <div className={styles.userMenuItem} onClick={() => { navigate("/configuracion"); setShowMenu(false); }}>
-                    <FaCog className={styles.menuItemIcon} />
-                    Configuración
-                  </div>
 
                   <div className={styles.userMenuDivider} />
 
