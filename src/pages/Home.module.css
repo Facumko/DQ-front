@@ -126,6 +126,7 @@
   font-weight: 700;
 }
 
+.slideBusinessName { font-size: 0.95rem; font-weight: 600; margin: 0 0 8px 0; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.03em; }
 .slideTitle    { font-size: 2.5rem; font-weight: 700; margin: 0 0 12px 0; line-height: 1.2; }
 .slideSubtitle { font-size: 1rem; margin: 0 0 24px 0; opacity: 0.95; line-height: 1.5; }
 
