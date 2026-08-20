@@ -21,7 +21,8 @@ import { cheapestPlanWithEvents } from "../../data/plansConfig";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
          Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
-         FileText, CalendarDays, Sparkles, Megaphone, Tag, Search, Info } from "lucide-react";
+         FileText, CalendarDays, Sparkles, Megaphone, Tag, Search, Info,
+         ChevronDown } from "lucide-react";
 import { FaWhatsapp, FaInstagram, FaFacebook } from "react-icons/fa";
 import CreatePostModal from "./CreatePostModal";
 import PostGallery from "./PostGallery";
@@ -225,6 +226,43 @@ const useBusinessStatus = (schedule) => {
 // realmente cubre lo que necesita (no siempre es "el próximo de la lista":
 // ej. Intermedio tampoco permite eventos, hace falta Premium).
 
+// Sección colapsable del modo edición del perfil de comercio. Antes todos
+// los campos (descripción, categoría, subcategorías, visibilidad, etiquetas,
+// horario, contacto, ubicación) se apilaban sueltos uno tras otro con solo
+// un <p> de título — mucha información de golpe para alguien no habituado
+// a la tecnología. Ahora cada grupo vive en un acordeón: un título claro,
+// un adelanto de lo cargado (subtitle) y el contenido oculto hasta que el
+// usuario lo abre, con una sola sección abierta a la vez.
+function AccordionSection({ icon, title, subtitle, isOpen, onToggle, hasError, children }) {
+  return (
+    <div className={`${styles.accordionItem} ${isOpen ? styles.accordionItemOpen : ""}`}>
+      <button
+        type="button"
+        className={styles.accordionHeader}
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        <span className={styles.accordionHeaderLeft}>
+          <span className={styles.accordionIcon}>{icon}</span>
+          <span className={styles.accordionHeaderText}>
+            <span className={styles.accordionTitle}>
+              {title}
+              {hasError && <span className={styles.accordionErrorDot} title="Hay un dato para revisar acá" />}
+            </span>
+            {subtitle && <span className={styles.accordionSubtitle}>{subtitle}</span>}
+          </span>
+        </span>
+        <ChevronDown size={16} className={styles.accordionChevron} />
+      </button>
+      {isOpen && (
+        <div className={styles.accordionBody}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const ProfileHeader = ({
   isOwner        = false,
   businessData: externalData = null,
@@ -241,6 +279,13 @@ const ProfileHeader = ({
   const [infoMsg,    setInfoMsg]    = useState("");
 
   const [isEditing,   setIsEditing]  = useState(false);
+  // Qué sección del acordeón de edición está abierta ("basicos" | "categoria"
+  // | "horario" | "contacto" | null). Una sola a la vez, para no repetir el
+  // problema de mostrar todos los campos juntos.
+  const [activeEditSection, setActiveEditSection] = useState("basicos");
+  const toggleEditSection = useCallback((id) => {
+    setActiveEditSection((prev) => (prev === id ? null : id));
+  }, []);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const DESCRIPTIVE_TAGS_COLLAPSE_AT = 5;
   const [showModal,   setShowModal]  = useState(false);
@@ -661,6 +706,7 @@ const ProfileHeader = ({
     setDraftDescriptiveTags(currentDescriptiveTags);
     setNewTagInput(""); setTagSaveError("");
     setIsEditing(true);
+    setActiveEditSection("basicos");
     setErrorMsg(""); setSuccessMsg("");
     setPendingCover(null); setPendingAvatar(null);
     clearErrors();
@@ -827,18 +873,24 @@ const ProfileHeader = ({
     const instagram  = t(draft.instagram);
     const facebook   = t(draft.facebook);
     let valid = true;
+    let sectionToOpen = null; // primera sección con error, para abrirla y que se vea
     if (!validate("name", name, { required: true, maxLength: 100 })) valid = false;
-    if (!validate("description", desc, { required: true, maxLength: 500 })) valid = false;
-    if (email && !validate("email", email, { email: true })) valid = false;
-    if (phone && !validate("phone", phone, { phone: true })) valid = false;
-    if (link      && !validate("link",      link,      { url: true })) valid = false;
-    if (instagram && !validate("instagram", instagram, { url: true })) valid = false;
-    if (facebook  && !validate("facebook",  facebook,  { url: true })) valid = false;
-    if (!valid) { flashError("Revisá los campos marcados"); return; }
+    if (!validate("description", desc, { required: true, maxLength: 500 })) { valid = false; sectionToOpen ||= "basicos"; }
+    if (email && !validate("email", email, { email: true })) { valid = false; sectionToOpen ||= "contacto"; }
+    if (phone && !validate("phone", phone, { phone: true })) { valid = false; sectionToOpen ||= "contacto"; }
+    if (link      && !validate("link",      link,      { url: true })) { valid = false; sectionToOpen ||= "contacto"; }
+    if (instagram && !validate("instagram", instagram, { url: true })) { valid = false; sectionToOpen ||= "contacto"; }
+    if (facebook  && !validate("facebook",  facebook,  { url: true })) { valid = false; sectionToOpen ||= "contacto"; }
+    if (!valid) {
+      flashError("Revisá los campos marcados");
+      if (sectionToOpen) setActiveEditSection(sectionToOpen);
+      return;
+    }
 
     const invalidDay = findInvalidScheduleDay(draftSchedule);
     if (invalidDay) {
       flashError(`El horario del ${DAY_LABELS[invalidDay]} no es válido: el cierre debe ser después de la apertura`);
+      setActiveEditSection("horario");
       return;
     }
 
@@ -1271,156 +1323,171 @@ const ProfileHeader = ({
           <OnboardingQuestionnaire businessId={businessId} tags={businessData.tags} />
         )}
 
-        <div className={styles.infoGrid}>
-          <div className={styles.infoCol}>
-            <p className={styles.infoSectionTitle}>Sobre el negocio</p>
-            {isEditing ? (
-              <>
-                <textarea className={styles.editTextarea} value={draft.description}
-                  onChange={(e) => { handleInputChange("description")(e); validate("description", e.target.value, { required: true, maxLength: 500 }); }}
-                  placeholder="Descripción del negocio *" maxLength={500} />
-                {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
-                <span className={styles.charCount}>{draft.description.length}/500</span>
+        {isEditing ? (
+          <div className={styles.editAccordion}>
+            <AccordionSection
+              icon={<FileText size={15}/>}
+              title="Datos básicos"
+              subtitle={draft.description ? `${draft.description.slice(0, 60)}${draft.description.length > 60 ? "…" : ""}` : "Contá de qué se trata tu negocio"}
+              isOpen={activeEditSection === "basicos"}
+              onToggle={() => toggleEditSection("basicos")}
+              hasError={!!errors.description}
+            >
+              <textarea className={styles.editTextarea} value={draft.description}
+                onChange={(e) => { handleInputChange("description")(e); validate("description", e.target.value, { required: true, maxLength: 500 }); }}
+                placeholder="Descripción del negocio *" maxLength={500} />
+              {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
+              <span className={styles.charCount}>{draft.description.length}/500</span>
+            </AccordionSection>
 
-                <div className={styles.categoryEditorSection}>
-                  <p className={styles.infoSectionTitle} style={{ marginTop: 16 }}>Categoría</p>
-                  <p className={styles.sectionHint}>Así te van a encontrar en el buscador por rubro.</p>
-                  <div className={styles.categoryPillsEdit} role="radiogroup" aria-label="Categoría del negocio">
-                    {allCategories.map(cat => (
-                      <button
-                        key={cat.idCategory}
-                        type="button"
-                        role="radio"
-                        aria-checked={isDraftCategorySelected(cat)}
-                        className={`${styles.categoryPillEdit} ${isDraftCategorySelected(cat) ? styles.categoryPillEditSelected : ""}`}
-                        onClick={() => selectDraftCategory(cat)}
-                      >
-                        {isDraftCategorySelected(cat) && <Check size={13}/>}
-                        {cat.name}
-                      </button>
-                    ))}
-                  </div>
-                  {!draftCategory && (
-                    <p className={styles.categoryCount}>Elegí una categoría</p>
-                  )}
+            <AccordionSection
+              icon={<Tag size={15}/>}
+              title="Categoría y etiquetas"
+              subtitle={draftCategory ? draftCategory.name : "Elegí un rubro para el buscador"}
+              isOpen={activeEditSection === "categoria"}
+              onToggle={() => toggleEditSection("categoria")}
+            >
+              <div className={styles.categoryEditorSection}>
+                <p className={styles.infoSectionTitle}>Categoría</p>
+                <p className={styles.sectionHint}>Así te van a encontrar en el buscador por rubro.</p>
+                <div className={styles.categoryPillsEdit} role="radiogroup" aria-label="Categoría del negocio">
+                  {allCategories.map(cat => (
+                    <button
+                      key={cat.idCategory}
+                      type="button"
+                      role="radio"
+                      aria-checked={isDraftCategorySelected(cat)}
+                      className={`${styles.categoryPillEdit} ${isDraftCategorySelected(cat) ? styles.categoryPillEditSelected : ""}`}
+                      onClick={() => selectDraftCategory(cat)}
+                    >
+                      {isDraftCategorySelected(cat) && <Check size={13}/>}
+                      {cat.name}
+                    </button>
+                  ))}
                 </div>
+                {!draftCategory && (
+                  <p className={styles.categoryCount}>Elegí una categoría</p>
+                )}
+              </div>
 
-                <div className={styles.categoryEditorSection}>
-                  <p className={styles.infoSectionTitle}>Subcategorías <span className={styles.optionalHint}>(podés elegir varias)</span></p>
-                  {!draftCategory ? (
-                    <p className={styles.sectionPlaceholder}>Elegí primero una categoría para ver sus subcategorías.</p>
-                  ) : editorSubcategoryOptions.length === 0 ? null : (
-                    <>
-                      <p className={styles.sectionHint}>Sumá detalles para aparecer en búsquedas más específicas.</p>
-                      {editorSubcategoryOptions.length > SUBCATEGORY_SEARCH_THRESHOLD && (
-                        <div className={styles.subcategorySearchWrap}>
-                          <Search size={13} className={styles.subcategorySearchIcon}/>
-                          <input
-                            type="text"
-                            className={styles.subcategorySearchInput}
-                            placeholder="Buscar subcategoría…"
-                            value={subcategoryFilter}
-                            onChange={(e) => setSubcategoryFilter(e.target.value)}
-                          />
-                        </div>
-                      )}
-                      <div className={styles.subcategoryChipsEdit}>
-                        {filteredSubcategoryOptions.length === 0 ? (
-                          <p className={styles.sectionPlaceholder}>Sin resultados para &quot;{subcategoryFilter}&quot;.</p>
-                        ) : filteredSubcategoryOptions.map(tag => (
-                          <button
-                            key={tag.nameTag}
-                            type="button"
-                            role="checkbox"
-                            aria-checked={isDraftSubcategorySelected(tag)}
-                            className={`${styles.subcategoryChipEdit} ${isDraftSubcategorySelected(tag) ? styles.subcategoryChipEditSelected : ""}`}
-                            onClick={() => toggleDraftSubcategory(tag)}
-                          >
-                            <span className={styles.subcategoryCheckbox}>
-                              {isDraftSubcategorySelected(tag) && <Check size={10}/>}
-                            </span>
-                            {tag.nameTag}
-                          </button>
-                        ))}
+              <div className={styles.categoryEditorSection}>
+                <p className={styles.infoSectionTitle}>Subcategorías <span className={styles.optionalHint}>(podés elegir varias)</span></p>
+                {!draftCategory ? (
+                  <p className={styles.sectionPlaceholder}>Elegí primero una categoría para ver sus subcategorías.</p>
+                ) : editorSubcategoryOptions.length === 0 ? null : (
+                  <>
+                    <p className={styles.sectionHint}>Sumá detalles para aparecer en búsquedas más específicas.</p>
+                    {editorSubcategoryOptions.length > SUBCATEGORY_SEARCH_THRESHOLD && (
+                      <div className={styles.subcategorySearchWrap}>
+                        <Search size={13} className={styles.subcategorySearchIcon}/>
+                        <input
+                          type="text"
+                          className={styles.subcategorySearchInput}
+                          placeholder="Buscar subcategoría…"
+                          value={subcategoryFilter}
+                          onChange={(e) => setSubcategoryFilter(e.target.value)}
+                        />
                       </div>
-                      {draftSubcategoryTags.length > 0 && (
-                        <p className={styles.categoryCount}>
-                          {draftSubcategoryTags.length} subcategoría{draftSubcategoryTags.length !== 1 ? "s" : ""} seleccionada{draftSubcategoryTags.length !== 1 ? "s" : ""}
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <div className={styles.categoryEditorSection}>
-                  <p className={styles.infoSectionTitle}>Visibilidad en &quot;Explorá más&quot; <span className={styles.optionalHint}>(activá lo que te aplique)</span></p>
-                  <div className={styles.categoryChipsEdit}>
-                    {ONBOARDING_QUESTIONS.map((q) => (
-                      <button
-                        key={q.tagName}
-                        type="button"
-                        className={`${styles.categoryChipEdit} ${isDraftOnboardingTagSelected(q.tagName) ? styles.categoryChipEditSelected : ""}`}
-                        onClick={() => toggleDraftOnboardingTag(q.tagName)}
-                        title={q.question}
-                      >
-                        {isDraftOnboardingTagSelected(q.tagName) && <span>✓ </span>}
-                        {q.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className={styles.categoryCount}>Define en qué cajas de &quot;Explorá más&quot; del Home aparecés. Podés cambiarlo cuando quieras.</p>
-                </div>
-
-                <div className={styles.categoryEditorSection}>
-                  <p className={styles.infoSectionTitle}>Etiquetas descriptivas <span className={styles.optionalHint}>(ej: café, pizza, delivery)</span></p>
-                  <p className={styles.sectionHint}>Palabras sueltas que la gente busca — cuantas más pongas, más formas de encontrarte.</p>
-                  {draftDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).length > 0 && (
-                    <div className={styles.tagsChipsEdit}>
-                      {draftDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).map(tag => (
-                        <span key={tag.nameTag} className={styles.tagChipRemovable}>
-                          #{tag.nameTag}
-                          <button
-                            type="button"
-                            className={styles.tagChipRemoveBtn}
-                            onClick={() => removeDraftDescriptiveTag(tag)}
-                            aria-label={`Quitar ${tag.nameTag}`}
-                          >×</button>
-                        </span>
+                    )}
+                    <div className={styles.subcategoryChipsEdit}>
+                      {filteredSubcategoryOptions.length === 0 ? (
+                        <p className={styles.sectionPlaceholder}>Sin resultados para &quot;{subcategoryFilter}&quot;.</p>
+                      ) : filteredSubcategoryOptions.map(tag => (
+                        <button
+                          key={tag.nameTag}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={isDraftSubcategorySelected(tag)}
+                          className={`${styles.subcategoryChipEdit} ${isDraftSubcategorySelected(tag) ? styles.subcategoryChipEditSelected : ""}`}
+                          onClick={() => toggleDraftSubcategory(tag)}
+                        >
+                          <span className={styles.subcategoryCheckbox}>
+                            {isDraftSubcategorySelected(tag) && <Check size={10}/>}
+                          </span>
+                          {tag.nameTag}
+                        </button>
                       ))}
                     </div>
-                  )}
-                  <div className={styles.tagInputRow}>
-                    <input
-                      type="text"
-                      className={styles.tagInput}
-                      value={newTagInput}
-                      onChange={(e) => { setNewTagInput(e.target.value); if (tagSaveError) setTagSaveError(""); }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === ",") {
-                          e.preventDefault();
-                          addDraftDescriptiveTagFromInput();
-                        }
-                      }}
-                      placeholder="Escribí una etiqueta y presioná Enter"
-                      maxLength={40}
-                      list="descriptive-tags-suggestions"
-                    />
-                    <datalist id="descriptive-tags-suggestions">
-                      {allDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).map(t => <option key={t.nameTag} value={t.nameTag} />)}
-                    </datalist>
-                    <button type="button" className={styles.tagAddBtn} onClick={addDraftDescriptiveTagFromInput}>
-                      Agregar
-                    </button>
-                  </div>
-                  {tagSaveError && <span className={styles.fieldError}>{tagSaveError}</span>}
-                </div>
-              </>
-            ) : (
-              <p className={styles.descriptionText}>{businessData.description || "Sin descripción"}</p>
-            )}
+                    {draftSubcategoryTags.length > 0 && (
+                      <p className={styles.categoryCount}>
+                        {draftSubcategoryTags.length} subcategoría{draftSubcategoryTags.length !== 1 ? "s" : ""} seleccionada{draftSubcategoryTags.length !== 1 ? "s" : ""}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
 
-            {!isEditing && <ScheduleDisplay schedule={schedule} />}
-            {isEditing && (
+              <div className={styles.categoryEditorSection}>
+                <p className={styles.infoSectionTitle}>Visibilidad en &quot;Explorá más&quot; <span className={styles.optionalHint}>(activá lo que te aplique)</span></p>
+                <div className={styles.categoryChipsEdit}>
+                  {ONBOARDING_QUESTIONS.map((q) => (
+                    <button
+                      key={q.tagName}
+                      type="button"
+                      className={`${styles.categoryChipEdit} ${isDraftOnboardingTagSelected(q.tagName) ? styles.categoryChipEditSelected : ""}`}
+                      onClick={() => toggleDraftOnboardingTag(q.tagName)}
+                      title={q.question}
+                    >
+                      {isDraftOnboardingTagSelected(q.tagName) && <span>✓ </span>}
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+                <p className={styles.categoryCount}>Define en qué cajas de &quot;Explorá más&quot; del Home aparecés. Podés cambiarlo cuando quieras.</p>
+              </div>
+
+              <div className={styles.categoryEditorSection}>
+                <p className={styles.infoSectionTitle}>Etiquetas descriptivas <span className={styles.optionalHint}>(ej: café, pizza, delivery)</span></p>
+                <p className={styles.sectionHint}>Palabras sueltas que la gente busca - cuantas más pongas, más formas de encontrarte.</p>
+                {draftDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).length > 0 && (
+                  <div className={styles.tagsChipsEdit}>
+                    {draftDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).map(tag => (
+                      <span key={tag.nameTag} className={styles.tagChipRemovable}>
+                        #{tag.nameTag}
+                        <button
+                          type="button"
+                          className={styles.tagChipRemoveBtn}
+                          onClick={() => removeDraftDescriptiveTag(tag)}
+                          aria-label={`Quitar ${tag.nameTag}`}
+                        >×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className={styles.tagInputRow}>
+                  <input
+                    type="text"
+                    className={styles.tagInput}
+                    value={newTagInput}
+                    onChange={(e) => { setNewTagInput(e.target.value); if (tagSaveError) setTagSaveError(""); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        addDraftDescriptiveTagFromInput();
+                      }
+                    }}
+                    placeholder="Escribí una etiqueta y presioná Enter"
+                    maxLength={40}
+                    list="descriptive-tags-suggestions"
+                  />
+                  <datalist id="descriptive-tags-suggestions">
+                    {allDescriptiveTags.filter(t => !ONBOARDING_TAG_NAMES.has(t.nameTag)).map(t => <option key={t.nameTag} value={t.nameTag} />)}
+                  </datalist>
+                  <button type="button" className={styles.tagAddBtn} onClick={addDraftDescriptiveTagFromInput}>
+                    Agregar
+                  </button>
+                </div>
+                {tagSaveError && <span className={styles.fieldError}>{tagSaveError}</span>}
+              </div>
+            </AccordionSection>
+
+            <AccordionSection
+              icon={<Clock size={15}/>}
+              title="Horario"
+              subtitle="Días y horas de atención"
+              isOpen={activeEditSection === "horario"}
+              onToggle={() => toggleEditSection("horario")}
+            >
               <ScheduleEditor schedule={draftSchedule} onChange={(day, field, val) => {
                 setDraftSchedule((prev) => {
                   const next = { ...prev };
@@ -1435,15 +1502,18 @@ const ProfileHeader = ({
                   return next;
                 });
               }} />
-            )}
-          </div>
+            </AccordionSection>
 
-          <div className={styles.infoCol}>
-            <p className={styles.infoSectionTitle}>Contacto</p>
-
-            <div className={styles.contactRow}>
-              <Phone size={16} className={styles.contactIcon}/>
-              {isEditing ? (
+            <AccordionSection
+              icon={<Phone size={15}/>}
+              title="Contacto y ubicación"
+              subtitle="Teléfono, redes sociales y dirección"
+              isOpen={activeEditSection === "contacto"}
+              onToggle={() => toggleEditSection("contacto")}
+              hasError={!!(errors.email || errors.phone || errors.link || errors.instagram || errors.facebook)}
+            >
+              <div className={styles.contactRow}>
+                <Phone size={16} className={styles.contactIcon}/>
                 <div style={{ flex: 1 }}>
                   <input className={`${styles.editInput} ${errors.phone ? styles.inputError : ""}`}
                     type="tel" value={draft.phone}
@@ -1451,103 +1521,46 @@ const ProfileHeader = ({
                     placeholder="Teléfono" />
                   {errors.phone && <span className={styles.fieldError}>{errors.phone}</span>}
                 </div>
-              ) : (
-                <span className={businessData.phone ? styles.contactText : styles.contactEmpty}>
-                  {businessData.phone || "Sin teléfono"}
-                </span>
-              )}
-              {!isEditing && businessData.phone && (
-                <a
-                  className={styles.whatsappBtn}
-                  href={`https://wa.me/${toWhatsappNumber(businessData.phone)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Escribir por WhatsApp"
-                >
-                  <FaWhatsapp size={15} />
-                </a>
-              )}
-            </div>
+              </div>
 
-            {(isEditing || businessData.email || isOwner) && (
               <div className={styles.contactRow}>
                 <Mail size={16} className={styles.contactIcon}/>
-                {isEditing ? (
-                  <div style={{ flex: 1 }}>
-                    <input className={`${styles.editInput} ${errors.email ? styles.inputError : ""}`}
-                      type="email" value={draft.email}
-                      onChange={(e) => { handleInputChange("email")(e); validate("email", e.target.value, { email: true }); }}
-                      placeholder="Email" maxLength={60}/>
-                    {errors.email && <span className={styles.fieldError}>{errors.email}</span>}
-                  </div>
-                ) : (
-                  <span className={businessData.email ? styles.contactText : styles.contactEmpty}>
-                    {businessData.email || "Sin email"}
-                  </span>
-                )}
+                <div style={{ flex: 1 }}>
+                  <input className={`${styles.editInput} ${errors.email ? styles.inputError : ""}`}
+                    type="email" value={draft.email}
+                    onChange={(e) => { handleInputChange("email")(e); validate("email", e.target.value, { email: true }); }}
+                    placeholder="Email" maxLength={60}/>
+                  {errors.email && <span className={styles.fieldError}>{errors.email}</span>}
+                </div>
               </div>
-            )}
 
-            {(isEditing || businessData.link || isOwner) && (
               <div className={styles.contactRow}>
                 <Link2 size={16} className={styles.contactIcon}/>
-                {isEditing ? (
-                  <input className={`${styles.editInput} ${errors.link ? styles.inputError : ""}`}
-                    type="url" value={String(draft.link || "")}
-                    onChange={(e) => { handleInputChange("link")(e); validate("link", e.target.value, { url: true }); }}
-                    placeholder="https://tusitio.com" maxLength={200}/>
-                ) : businessData.link ? (
-                  <a className={styles.contactText}
-                     href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
-                     target="_blank" rel="noopener noreferrer">
-                    {businessData.link}
-                  </a>
-                ) : (
-                  <span className={styles.contactEmpty}>Sin link</span>
-                )}
+                <input className={`${styles.editInput} ${errors.link ? styles.inputError : ""}`}
+                  type="url" value={String(draft.link || "")}
+                  onChange={(e) => { handleInputChange("link")(e); validate("link", e.target.value, { url: true }); }}
+                  placeholder="https://tusitio.com" maxLength={200}/>
                 {errors.link && <span className={styles.fieldError}>{errors.link}</span>}
               </div>
-            )}
 
-            {(isEditing || businessData.instagram || isOwner) && (
               <div className={styles.contactRow}>
                 <FaInstagram size={16} className={styles.contactIcon}/>
-                {isEditing ? (
-                  <input className={`${styles.editInput} ${errors.instagram ? styles.inputError : ""}`}
-                    type="url" value={String(draft.instagram || "")}
-                    onChange={(e) => { handleInputChange("instagram")(e); validate("instagram", e.target.value, { url: true }); }}
-                    placeholder="https://instagram.com/tunegocio" maxLength={200}/>
-                ) : businessData.instagram ? (
-                  <a className={styles.contactText} href={businessData.instagram} target="_blank" rel="noopener noreferrer">
-                    {businessData.instagram}
-                  </a>
-                ) : (
-                  <span className={styles.contactEmpty}>Sin Instagram</span>
-                )}
+                <input className={`${styles.editInput} ${errors.instagram ? styles.inputError : ""}`}
+                  type="url" value={String(draft.instagram || "")}
+                  onChange={(e) => { handleInputChange("instagram")(e); validate("instagram", e.target.value, { url: true }); }}
+                  placeholder="https://instagram.com/tunegocio" maxLength={200}/>
                 {errors.instagram && <span className={styles.fieldError}>{errors.instagram}</span>}
               </div>
-            )}
 
-            {(isEditing || businessData.facebook || isOwner) && (
               <div className={styles.contactRow}>
                 <FaFacebook size={16} className={styles.contactIcon}/>
-                {isEditing ? (
-                  <input className={`${styles.editInput} ${errors.facebook ? styles.inputError : ""}`}
-                    type="url" value={String(draft.facebook || "")}
-                    onChange={(e) => { handleInputChange("facebook")(e); validate("facebook", e.target.value, { url: true }); }}
-                    placeholder="https://facebook.com/tunegocio" maxLength={200}/>
-                ) : businessData.facebook ? (
-                  <a className={styles.contactText} href={businessData.facebook} target="_blank" rel="noopener noreferrer">
-                    {businessData.facebook}
-                  </a>
-                ) : (
-                  <span className={styles.contactEmpty}>Sin Facebook</span>
-                )}
+                <input className={`${styles.editInput} ${errors.facebook ? styles.inputError : ""}`}
+                  type="url" value={String(draft.facebook || "")}
+                  onChange={(e) => { handleInputChange("facebook")(e); validate("facebook", e.target.value, { url: true }); }}
+                  placeholder="https://facebook.com/tunegocio" maxLength={200}/>
                 {errors.facebook && <span className={styles.fieldError}>{errors.facebook}</span>}
               </div>
-            )}
 
-            {isEditing ? (
               <div style={{ marginTop: 14 }}>
                 <LocationPicker
                   label="Ubicación del negocio"
@@ -1555,13 +1568,96 @@ const ProfileHeader = ({
                   onChange={(loc) => setDraft((p) => ({ ...p, location: loc }))}
                 />
               </div>
-            ) : businessData.location?.lat ? (
-              <div style={{ marginTop: 14 }}>
-                <LocationDisplay location={businessData.location} label="Ubicación" />
-              </div>
-            ) : null}
+            </AccordionSection>
           </div>
-        </div>
+        ) : (
+          <div className={styles.infoGrid}>
+            <div className={styles.infoCol}>
+              <p className={styles.infoSectionTitle}>Sobre el negocio</p>
+              <p className={styles.descriptionText}>{businessData.description || "Sin descripción"}</p>
+
+              <ScheduleDisplay schedule={schedule} />
+            </div>
+
+            <div className={styles.infoCol}>
+              <p className={styles.infoSectionTitle}>Contacto</p>
+
+              <div className={styles.contactRow}>
+                <Phone size={16} className={styles.contactIcon}/>
+                <span className={businessData.phone ? styles.contactText : styles.contactEmpty}>
+                  {businessData.phone || "Sin teléfono"}
+                </span>
+                {businessData.phone && (
+                  <a
+                    className={styles.whatsappBtn}
+                    href={`https://wa.me/${toWhatsappNumber(businessData.phone)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Escribir por WhatsApp"
+                  >
+                    <FaWhatsapp size={15} />
+                  </a>
+                )}
+              </div>
+
+              {(businessData.email || isOwner) && (
+                <div className={styles.contactRow}>
+                  <Mail size={16} className={styles.contactIcon}/>
+                  <span className={businessData.email ? styles.contactText : styles.contactEmpty}>
+                    {businessData.email || "Sin email"}
+                  </span>
+                </div>
+              )}
+
+              {(businessData.link || isOwner) && (
+                <div className={styles.contactRow}>
+                  <Link2 size={16} className={styles.contactIcon}/>
+                  {businessData.link ? (
+                    <a className={styles.contactText}
+                       href={String(businessData.link).startsWith("http") ? businessData.link : `https://${businessData.link}`}
+                       target="_blank" rel="noopener noreferrer">
+                      {businessData.link}
+                    </a>
+                  ) : (
+                    <span className={styles.contactEmpty}>Sin link</span>
+                  )}
+                </div>
+              )}
+
+              {(businessData.instagram || isOwner) && (
+                <div className={styles.contactRow}>
+                  <FaInstagram size={16} className={styles.contactIcon}/>
+                  {businessData.instagram ? (
+                    <a className={styles.contactText} href={businessData.instagram} target="_blank" rel="noopener noreferrer">
+                      {businessData.instagram}
+                    </a>
+                  ) : (
+                    <span className={styles.contactEmpty}>Sin Instagram</span>
+                  )}
+                </div>
+              )}
+
+              {(businessData.facebook || isOwner) && (
+                <div className={styles.contactRow}>
+                  <FaFacebook size={16} className={styles.contactIcon}/>
+                  {businessData.facebook ? (
+                    <a className={styles.contactText} href={businessData.facebook} target="_blank" rel="noopener noreferrer">
+                      {businessData.facebook}
+                    </a>
+                  ) : (
+                    <span className={styles.contactEmpty}>Sin Facebook</span>
+                  )}
+                </div>
+              )}
+
+              {businessData.location?.lat ? (
+                <div style={{ marginTop: 14 }}>
+                  <LocationDisplay location={businessData.location} label="Ubicación" />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className={styles.actionsBar}>
