@@ -64,8 +64,8 @@ const ResetPasswordPage = () => {
     e.preventDefault();
     setError("");
 
-    if (newPassword.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
+    if (newPassword.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -80,7 +80,7 @@ const ResetPasswordPage = () => {
       await new Promise((r) => setTimeout(r, 900)); // simula latencia
       setSuccess(true);
       setTimeout(() => navigate("/?login=true"), 3000);
-    } catch (err) {
+    } catch {
       setError("Ocurrió un error. El enlace puede haber expirado. Solicitá uno nuevo.");
     } finally {
       setLoading(false);

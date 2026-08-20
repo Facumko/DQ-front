@@ -1,21 +1,22 @@
-import React from "react";
+import React, { useContext } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { UserContext } from "../pages/UserContext";
+import LoginModal from "../components/LoginForm/LoginModal";
 import ScrollToTop from "../components/ScrollToTop/ScrollToTop";
 import Navbar from "../components/Navbar/Navbar";
 import Footer from "../components/Footer/Footer";
 import Home from "../pages/Home";
 import Negocios from "../pages/Negocios";
 import Eventos from "../pages/Eventos";
-import Login from "../pages/Login";
 import Profile from "../pages/Profile";
 import Favorites from "../components/Favorites/Favorites";
 import FormCommerce from "../components/FormCommerce/FormCommerce";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
 import SearchPage from "../pages/SearchPage";
 import Planes from "../components/Plans/Plans";
-import PoliticaPrivacidad from "../pages/legal/PoliticaPrivacidad";
-import TerminosUso from "../pages/legal/TerminosUso";
-import Arrepentimiento from "../pages/legal/Arrepentimiento";
+import PoliticaPrivacidad from "../pages/Legal/PoliticaPrivacidad";
+import TerminosUso from "../pages/Legal/TerminosUso";
+import Arrepentimiento from "../pages/Legal/Arrepentimiento";
 import Contacto from "../pages/Contacto";
 import PreguntasFrecuentes from "../pages/PreguntasFrecuentes";
 import ComoFunciona from "../pages/ComoFunciona";
@@ -25,8 +26,12 @@ import CheckoutPage from "../pages/checkout/CheckoutPage";
 import PagoExitoso from "../pages/checkout/PagoExitoso";
 import PagoFallido from "../pages/checkout/PagoFallido";
 import PagoPendiente from "../pages/checkout/PagoPendiente";
+import SuscripcionResultado from "../pages/checkout/SuscripcionResultado";
+// ── OAuth2 ────────────────────────────────────────────────────────────────────
+import OAuth2RedirectHandler from "../pages/auth/OAuth2RedirectHandler";
 
 const AppRoutes = () => {
+  const { showLoginModal, closeLoginModal } = useContext(UserContext);
   return (
     <Router>
       {/* Sube al tope en cada cambio de ruta */}
@@ -34,6 +39,10 @@ const AppRoutes = () => {
 
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <Navbar />
+
+        {/* Modal de login/registro global — cualquier componente lo abre
+            llamando a openLoginModal() del UserContext, sin navegar a ninguna ruta */}
+        {showLoginModal && <LoginModal onClose={closeLoginModal} />}
 
         {/* El main crece para empujar el footer al fondo */}
         <main style={{ flex: 1 }}>
@@ -55,14 +64,22 @@ const AppRoutes = () => {
 
             {/* Secciones */}
             <Route path="/eventos" element={<Eventos />} />
-            <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+            {/* ── OAuth2 callback — debe coincidir con app.oauth2.redirect-uri ── */}
+            <Route path="/oauth2/success" element={<OAuth2RedirectHandler />} />
 
             {/* Checkout y retornos de Mercado Pago */}
             <Route path="/checkout/:planId" element={<CheckoutPage />} />
             <Route path="/pago/exitoso"     element={<PagoExitoso />} />
             <Route path="/pago/fallido"     element={<PagoFallido />} />
             <Route path="/pago/pendiente"   element={<PagoPendiente />} />
+            {/* Retorno real del flujo de Suscripciones (preapproval) de Mercado
+                Pago — distinto del Checkout Pro de pago único de arriba. El
+                back redirige acá con ?preapproval_id=..., sin status en la URL
+                (el estado real llega después por webhook), por eso esta página
+                consulta /suscripcion/mi-suscripcion en vez de confiar en la URL. */}
+            <Route path="/suscripcion/resultado" element={<SuscripcionResultado />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/planes" element={<Planes />} />
 

@@ -1,27 +1,31 @@
 import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import ProfileHeader from "../components/ProfileHeader/ProfileHeader";
-import Publications from "../components/Publications/Publications";
-import Gallery from "../components/Gallery/Gallery";
-import FloatingChat from "../components/FloatingChat/FloatingChat";
-import { getBusinessByUserId, getBusinessById } from "../Api/Api";
+import { getMyBusiness, getBusinessById } from "../Api/Api";
 import { useParams, useNavigate } from "react-router-dom";
+import { Loader } from "lucide-react";
 
 const Negocios = () => {
-  const { user } = useContext(UserContext);
+  const { user, openLoginModal } = useContext(UserContext);
   const { id } = useParams();
   const navigate = useNavigate();
 
   const isPublic = !!id;
 
   const [businessData, setBusinessData] = useState(null);
-  const [posts,        setPosts]        = useState([]);
-  const [gallery,      setGallery]      = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
 
-  // ✅ isOwner se calcula DESPUÉS de cargar el negocio, comparando IDs
   const isOwner = !!user && !!businessData && Number(businessData.id_user) === Number(user.id_user);
+
+  // Recordar el último comercio PROPIO visitado, para que /mi-negocio (que no
+  // trae un id en la URL) no siempre le muestre al usuario su primer comercio
+  // cuando tiene varios — ver getMyBusiness() en Api.jsx.
+  useEffect(() => {
+    if (isOwner && businessData?.id_business) {
+      localStorage.setItem('dq_last_commerce_id', String(businessData.id_business));
+    }
+  }, [isOwner, businessData?.id_business]);
 
   useEffect(() => {
     const load = async () => {
@@ -35,12 +39,10 @@ const Negocios = () => {
           business = await getBusinessById(id);
         } else {
           if (!user?.id_user) {
-            navigate("/login");
+            openLoginModal();
             return;
           }
-
-          business = await getBusinessByUserId(user.id_user);
-
+          business = await getMyBusiness();
           if (!business) {
             navigate("/registro-negocio");
             return;
@@ -48,16 +50,12 @@ const Negocios = () => {
         }
 
         if (business) {
-          // Api.jsx ya normaliza idCommerce -> id_business
-          const normalized = {
+          setBusinessData({
             ...business,
-            id:         business.id_business || business.idCommerce || business.id,
+            id:          business.id_business || business.idCommerce || business.id,
             id_business: business.id_business || business.idCommerce,
-            idowner:    business.id_user || business.idOwner || user?.id_user,
-          };
-          setBusinessData(normalized);
-          setPosts(business.posts   || []);
-          setGallery(business.gallery || []);
+            idowner:     business.id_user     || business.idOwner    || user?.id_user,
+          });
         } else {
           setError(isPublic ? "Negocio no encontrado" : "No tenés un negocio creado");
         }
@@ -69,15 +67,20 @@ const Negocios = () => {
     };
 
     load();
-  }, [user?.id_user, id]); // solo estas dos dependencias para evitar loop infinito
+  }, [user?.id_user, id, isPublic, navigate, openLoginModal]);
+
 
   if (loading) {
     return (
       <div style={{ background: "#f4f5f8", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>🔄</div>
+          <Loader
+            size={40}
+            style={{ animation: "dq-spin 1s linear infinite", color: "#B00020", marginBottom: "1rem" }}
+          />
           <p>Cargando {isPublic ? "perfil del negocio" : "tu negocio"}...</p>
         </div>
+        <style>{"@keyframes dq-spin { to { transform: rotate(360deg); } }"}</style>
       </div>
     );
   }
@@ -91,7 +94,7 @@ const Negocios = () => {
           {!user && (
             <>
               <p style={{ color: "#666", marginBottom: "1.5rem" }}>Iniciá sesión para acceder a tu negocio</p>
-              <button onClick={() => navigate("/login")} style={{ padding: "10px 20px", borderRadius: "6px", border: "none", cursor: "pointer", marginRight: "10px", background: "#B00020", color: "#fff" }}>
+              <button onClick={() => openLoginModal()} style={{ padding: "10px 20px", borderRadius: "6px", border: "none", cursor: "pointer", marginRight: "10px", background: "#B00020", color: "#fff" }}>
                 Iniciar sesión
               </button>
             </>
@@ -107,9 +110,6 @@ const Negocios = () => {
   return (
     <div style={{ background: "#f4f5f8", minHeight: "100vh", padding: "24px" }}>
       <ProfileHeader isOwner={isOwner} businessData={businessData} />
-      <Publications publicaciones={posts} isOwner={isOwner} />
-      <Gallery images={gallery} isOwner={isOwner} />
-      <FloatingChat />
     </div>
   );
 };

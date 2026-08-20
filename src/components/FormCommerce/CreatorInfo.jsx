@@ -2,10 +2,10 @@
 import { useState, useEffect, useContext } from "react"
 import { useNavigate } from "react-router-dom"
 import { UserContext } from "../../pages/UserContext"
-import { getUserById, updateUser } from "../../Api/Api"
+import { getMyUser, updateUser } from "../../Api/Api"
 import "./FormStep.css"
 
-function CreatorInfo({ data, onUpdate, onNext, onBack }) {
+function CreatorInfo({ data, onUpdate, onNext}) {
   const navigate = useNavigate()
   const { user } = useContext(UserContext)
   const [formData, setFormData] = useState({
@@ -28,8 +28,8 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
 
       try {
         setIsLoading(true)
-        console.log("🔍 Cargando datos del usuario ID:", user.id_user)
-        const userData = await getUserById(user.id_user)
+        console.log("🔍 Cargando datos del usuario desde token")
+        const userData = await getMyUser()
         
         console.log("📋 Datos del usuario recibidos:", userData)
         
@@ -117,15 +117,17 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
   }
 
   const handleNext = async () => {
+    // El botón "Siguiente" ya está disabled mientras !isValid, así que esto
+    // en la práctica es inalcanzable — se deja como guarda silenciosa en vez
+    // de un alert() nativo (ya no correspondía tener uno acá).
     if (!isValid || !user?.id_user) {
       console.log("❌ No se puede avanzar:", { isValid, userId: user?.id_user })
-      alert("Por favor completa todos los campos requeridos correctamente")
       return
     }
 
     try {
       // Verificar si hay datos nuevos para actualizar
-      const userData = await getUserById(user.id_user)
+      const userData = await getMyUser()
       const updates = {}
       
       if (!userData.phone && formData.phone) updates.phone = formData.phone
@@ -133,7 +135,7 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
 
       if (Object.keys(updates).length > 0) {
         console.log("📝 Actualizando datos del usuario:", updates)
-        await updateUser(user.id_user, updates)
+        await updateUser(updates)
       }
 
       // Pasar al siguiente paso
@@ -175,7 +177,6 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
             required
             maxLength={30}
           />
-          {user?.name && <small className="field-note">✓ Precargado desde tu cuenta</small>}
         </div>
 
         <div className="form-group">
@@ -190,7 +191,6 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
             required
             maxLength={45}
           />
-          {user?.lastname && <small className="field-note">✓ Precargado desde tu cuenta</small>}
         </div>
 
         <div className="form-group">
@@ -236,7 +236,7 @@ function CreatorInfo({ data, onUpdate, onNext, onBack }) {
       </div>
 
       {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <div style={{ marginTop: '20px', padding: '10px', background: '#f5f5f5', borderRadius: '5px', fontSize: '12px' }}>
           <strong>Debug:</strong> 
           User ID: {user?.id_user} | 

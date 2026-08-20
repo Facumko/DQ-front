@@ -1,72 +1,17 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import LoginModal from "../LoginForm/LoginModal";
+import { getPlans, getMySubscription, changePlan, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
+import { PLANS_CONFIG } from "../../data/PlansConfig";
 import styles from "./Plans.module.css";
 
-const PLANS = [
-  {
-    id: "basic",
-    badge: "Básico",
-    name: "Punto de Encuentro",
-    tagline: "Para empezar a estar en el mapa",
-    color: "#0369a1",
-    colorBg: "#e0f2fe",
-    highlight: false,
-    features: [
-      { text: "1 perfil de comercio", included: true },
-      { text: "Información completa del comercio", included: true },
-      { text: "Imagen de perfil y portada", included: true },
-      { text: "Aparición en sección destacada por categoría", included: true },
-      { text: "Hasta 5 imágenes en el perfil", included: true },
-      { text: "Publicaciones en el feed", included: false },
-      { text: "Creación de eventos", included: false },
-      { text: "Aparición en carrusel principal", included: false },
-      { text: "Más de un perfil de comercio", included: false },
-    ],
-  },
-  {
-    id: "mid",
-    badge: "Intermedio",
-    name: "Lugar en el Mapa",
-    tagline: "Conectá con tu comunidad",
-    color: "#b45309",
-    colorBg: "#fef3c7",
-    highlight: false,
-    features: [
-      { text: "1 perfil de comercio", included: true },
-      { text: "Información completa del comercio", included: true },
-      { text: "Imagen de perfil y portada", included: true },
-      { text: "Aparición en sección destacada por categoría", included: true },
-      { text: "Hasta 10 imágenes en el perfil", included: true },
-      { text: "10 publicaciones en el feed por día", included: true },
-      { text: "Creación de eventos", included: false },
-      { text: "Aparición en carrusel principal", included: false },
-      { text: "Más de un perfil de comercio", included: false },
-    ],
-  },
-  {
-    id: "premium",
-    badge: "Premium",
-    name: "Referente de la Ciudad",
-    tagline: "Máxima visibilidad y presencia",
-    color: "#9d174d",
-    colorBg: "#fce7f3",
-    highlight: false,
-    features: [
-      { text: "Múltiples perfiles de comercio", included: true },
-      { text: "Información completa del comercio", included: true },
-      { text: "Imagen de perfil y portada", included: true },
-      { text: "Aparición en sección destacada", included: true },
-      { text: "Hasta 20 imágenes en el perfil", included: true },
-      { text: "Publicaciones ilimitadas en el feed", included: true },
-      { text: "Creación de eventos", included: true },
-      { text: "Aparición en carrusel principal", included: true },
-      { text: "Más de un perfil de comercio", included: true },
-    ],
-  },
-];
+const formatARS = (n) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+
+// highlight (tarjeta destacada) es solo un detalle visual de esta pantalla,
+// no forma parte de la config compartida (data/plansConfig.js).
+const PLANS = PLANS_CONFIG.map(p => ({ ...p, highlight: false }));
 
 const FAQS = [
   {
@@ -92,11 +37,66 @@ const FAQS = [
 ];
 
 export default function Planes() {
-  const { user } = useContext(UserContext);
+  const { user, openLoginModal } = useContext(UserContext);
   const navigate = useNavigate();
-  const [showLogin, setShowLogin] = useState(false);
   const [openFaq, setOpenFaq]     = useState(null);
   const [hoveredPlan, setHoveredPlan] = useState(null);
+  // Precios reales del backend, mapeados por id "amigable" del front
+  // (basic/mid/premium). null mientras carga o si el fetch falla — en
+  // ambos casos se muestra el fallback visual, nunca un precio inventado.
+  const [realPrices, setRealPrices] = useState({});
+
+  // Si el usuario ya tiene una suscripción ACTIVA, cambiar de plan no debe
+  // pasar por Mercado Pago de nuevo (eso generaba una suscripción nueva en
+  // paralelo a la existente) — se llama a changePlan() directamente.
+  const [subscription, setSubscription] = useState(null);
+  const [loadingSub,   setLoadingSub]   = useState(true);
+  const [confirmPlan,  setConfirmPlan]  = useState(null); // planId pendiente de confirmar
+  const [changingPlan, setChangingPlan] = useState(false);
+  const [toast,        setToast]        = useState(null);
+
+  const showToast = useCallback((msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4500);
+  }, []);
+
+  const typeToFrontId = useMemo(() => Object.fromEntries(
+    Object.entries(FRONT_PLAN_ID_TO_TYPE).map(([frontId, type]) => [type, frontId])
+  ), []);
+
+  const loadSubscription = useCallback(async () => {
+    if (!user) { setSubscription(null); setLoadingSub(false); return; }
+    setLoadingSub(true);
+    try {
+      const sub = await getMySubscription();
+      setSubscription(sub || null);
+    } catch {
+      setSubscription(null);
+    } finally {
+      setLoadingSub(false);
+    }
+  }, [user]);
+
+  useEffect(() => { loadSubscription(); }, [loadSubscription]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPlans()
+      .then(plans => {
+        if (cancelled || !Array.isArray(plans)) return;
+        const typeToFrontId = Object.fromEntries(
+          Object.entries(FRONT_PLAN_ID_TO_TYPE).map(([frontId, type]) => [type, frontId])
+        );
+        const prices = {};
+        plans.forEach(p => {
+          const frontId = typeToFrontId[p.planType];
+          if (frontId && typeof p.price === "number") prices[frontId] = p.price;
+        });
+        setRealPrices(prices);
+      })
+      .catch(() => { /* silencioso — se muestra el fallback visual */ });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -104,12 +104,45 @@ export default function Planes() {
     return () => { document.title = "Dónde Queda?"; };
   }, []);
 
+  const currentFrontPlanId = subscription?.status === "ACTIVE"
+    ? typeToFrontId[subscription.plan?.planType]
+    : null;
+
   const handleSelectPlan = (planId) => {
     if (!user) {
-      setShowLogin(true);
+      openLoginModal();
       return;
     }
+    // Ya tiene ESTE plan activo: no hay nada que hacer.
+    if (planId === currentFrontPlanId) {
+      showToast("Ya tenés este plan activo.");
+      return;
+    }
+    // Tiene una suscripción activa (de OTRO plan): cambiar de plan en la
+    // suscripción existente, no crear una nueva vía Mercado Pago.
+    if (subscription?.status === "ACTIVE") {
+      setConfirmPlan(planId);
+      return;
+    }
+    // Sin suscripción activa (nunca se suscribió, o venció/canceló): flujo
+    // normal de alta, pasa por checkout y Mercado Pago.
     navigate(`/checkout/${planId}`);
+  };
+
+  const handleConfirmChangePlan = async () => {
+    if (!confirmPlan) return;
+    const planType = FRONT_PLAN_ID_TO_TYPE[confirmPlan];
+    setChangingPlan(true);
+    try {
+      await changePlan(planType);
+      showToast("Tu plan se actualizó correctamente.");
+      setConfirmPlan(null);
+      await loadSubscription();
+    } catch (err) {
+      showToast(err?.message || "No se pudo cambiar el plan. Intentá de nuevo.", "error");
+    } finally {
+      setChangingPlan(false);
+    }
   };
 
   const containerVariants = {
@@ -190,10 +223,22 @@ export default function Planes() {
 
               {/* Precio */}
               <div className={styles.priceBox}>
-                <span className={styles.priceLabel}>desde</span>
-                <span className={styles.priceAmount}>$<span className={styles.priceBig}>—</span></span>
-                <span className={styles.pricePeriod}>/mes</span>
-                <p className={styles.priceNote}>El precio se muestra al seleccionar el plan</p>
+                {realPrices[plan.id] != null ? (
+                  <>
+                    <span className={styles.priceLabel}>desde</span>
+                    <span className={styles.priceAmount}>
+                      <span className={styles.priceBig}>{formatARS(realPrices[plan.id])}</span>
+                    </span>
+                    <span className={styles.pricePeriod}>/mes</span>
+                  </>
+                ) : (
+                  <>
+                    <span className={styles.priceLabel}>desde</span>
+                    <span className={styles.priceAmount}>$<span className={styles.priceBig}>—</span></span>
+                    <span className={styles.pricePeriod}>/mes</span>
+                    <p className={styles.priceNote}>El precio se muestra al seleccionar el plan</p>
+                  </>
+                )}
               </div>
 
               {/* Separador */}
@@ -222,23 +267,30 @@ export default function Planes() {
               </ul>
 
               {/* CTA */}
-              <motion.button
-                className={`${styles.ctaBtn} ${plan.highlight ? styles.ctaBtnHighlight : ""}`}
-                style={
-                  plan.highlight
-                    ? {}
-                    : {
-                        borderColor: hoveredPlan === plan.id ? plan.color : undefined,
-                        color: hoveredPlan === plan.id ? "#fff" : plan.color,
-                        background: hoveredPlan === plan.id ? plan.color : "transparent",
-                      }
-                }
-                onClick={() => handleSelectPlan(plan.id)}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                Elegir {plan.badge}
-              </motion.button>
+              {plan.id === currentFrontPlanId ? (
+                <div className={styles.currentPlanBadge}>
+                  <Check /> Tu plan actual
+                </div>
+              ) : (
+                <motion.button
+                  className={`${styles.ctaBtn} ${plan.highlight ? styles.ctaBtnHighlight : ""}`}
+                  style={
+                    plan.highlight
+                      ? {}
+                      : {
+                          borderColor: hoveredPlan === plan.id ? plan.color : undefined,
+                          color: hoveredPlan === plan.id ? "#fff" : plan.color,
+                          background: hoveredPlan === plan.id ? plan.color : "transparent",
+                        }
+                  }
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={loadingSub}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  {subscription?.status === "ACTIVE" ? `Cambiar a ${plan.badge}` : `Elegir ${plan.badge}`}
+                </motion.button>
+              )}
             </motion.div>
           ))}
         </motion.div>
@@ -262,6 +314,8 @@ export default function Planes() {
           Compará los planes
         </motion.h2>
 
+        <p className={styles.tableSwipeHint}>Deslizá para ver los 3 planes →</p>
+
         <motion.div
           className={styles.tableWrapper}
           initial={{ opacity: 0, y: 20 }}
@@ -283,11 +337,10 @@ export default function Planes() {
                 ["Perfil de comercio",                    true,  true,  true ],
                 ["Información + imagen de perfil y portada", true,  true,  true ],
                 ["Sección destacada por categoría",       true,  true,  true ],
-                ["Hasta 5 imágenes en el perfil",         true,  true,  true ],
-                ["Publicaciones en el feed",              false, true,  true ],
+                ["Publicaciones en el feed",              true,  true,  true ],
                 ["Creación de eventos",                   false, false, true ],
                 ["Carrusel en página principal",          false, false, true ],
-                ["Más de un perfil de comercio",          false, false, true ],
+                ["Más de un perfil de comercio",          false, true,  true ],
               ].map(([label, basic, mid, premium], i) => (
                 <tr key={i}>
                   <td className={styles.featLabel}>{label}</td>
@@ -388,7 +441,7 @@ export default function Planes() {
           <p>Registrate gratis y explorá todo lo que tiene para ofrecer tu ciudad.</p>
           <motion.button
             className={styles.ctaFinalBtn}
-            onClick={() => setShowLogin(true)}
+            onClick={() => openLoginModal()}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
@@ -397,7 +450,43 @@ export default function Planes() {
         </motion.div>
       </section>
 
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+      {/* ── Confirmación al cambiar de plan (suscripción ya activa) ── */}
+      {confirmPlan && (
+        <div className={styles.confirmOverlay} onClick={() => !changingPlan && setConfirmPlan(null)}>
+          <div className={styles.confirmBox} onClick={(e) => e.stopPropagation()}>
+            <p>
+              ¿Cambiar tu plan a <strong>{PLANS.find(p => p.id === confirmPlan)?.badge}</strong>?
+              El cambio se aplica al inicio del próximo período de facturación, no se te cobra nada ahora.
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmBtnCancel}
+                onClick={() => setConfirmPlan(null)}
+                disabled={changingPlan}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                className={styles.confirmBtnOk}
+                onClick={handleConfirmChangePlan}
+                disabled={changingPlan}
+              >
+                {changingPlan ? "Cambiando…" : "Sí, cambiar plan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className={`${styles.toast} ${styles["toast_" + toast.type]}`}>
+          {toast.msg}
+          <button className={styles.toastClose} onClick={() => setToast(null)}>✕</button>
+        </div>
+      )}
     </div>
   );
 }

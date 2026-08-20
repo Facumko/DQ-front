@@ -8,10 +8,10 @@ const Badge = ({ type, text }) => {
 
   // Determina el color de fondo según el tipo de badge
   switch(type.toLowerCase()) {
-    case "Destacado":
+    case "destacado":
       bgColor = "var(--badge-green, #21B457)"; // Verde para destacados
       break;
-    case "Oferta":
+    case "oferta":
       bgColor = "var(--badge-red, #DC2626)"; // Rojo para ofertas
       break;
     default:

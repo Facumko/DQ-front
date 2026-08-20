@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@100;200;300;400;500;600;700&display=swap');
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   /* Colores principales */
   --brand-600: #B00020;
@@ -15,6 +19,21 @@
   /* Otros */
   --text-color: #333;
   --bg-color: #fafafa;
+
+  /* ============================================================
+     ESCALA DE Z-INDEX — única fuente de verdad para todo apilamiento
+     de la app. Cualquier overlay/modal/drawer nuevo debe usar una de
+     estas variables, nunca un número mágico suelto.
+     ============================================================ */
+  --z-navbar:         100;   /* navbar sticky */
+  --z-dropdown:       500;   /* sugerencias de búsqueda, menús flotantes dentro del flujo normal */
+  --z-fab:            800;   /* botones flotantes (ej. chat) */
+  --z-modal-backdrop: 1000;  /* fondo + caja de CUALQUIER modal de primer nivel */
+  --z-modal-content:  1010;  /* solo para casos donde el panel del modal es un elemento
+                                 fixed separado de su propio backdrop (ej. drawers laterales) */
+  --z-modal-confirm:  1100;  /* diálogos de confirmación que se abren ENCIMA de un modal
+                                 ya abierto (ej. "¿eliminar esta imagen?" dentro de un form) */
+  --z-toast:          4000;  /* notificaciones tipo toast — siempre por encima de todo */
 }
 
 /* Aplicar fuente globalmente */
@@ -25,6 +44,7 @@ body {
   background-color: var(--bg-color);
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
 /* Títulos un poco más marcados */
@@ -57,14 +77,8 @@ p, span, li, a {
   font-family: var(--font-family);
 }
 
-/* ============================================
-   🎨 VARIABLES GLOBALES NUEVAS
-   Agregar al final de index.css
-   ============================================ */
-
 /* Paleta de colores extendida */
 :root {
-  /* Ya existen estas, solo agregar las que faltan */
   --secondary-orange: #FB8C00;
   --success-green: #43A047;
   --info-blue: #1976D2;

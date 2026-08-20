@@ -1,87 +1,100 @@
+/* ============================================================
+   EVENTOS — Dónde Queda?
+   Header liviano + calendario como único protagonista
+   ============================================================ */
+
 .page {
   min-height: 100vh;
-  background: #f4f5f8;
-  padding: 32px 24px 48px;
-  max-width: 1200px;
-  margin: 0 auto;
+  background: var(--gray-50);
+}
+
+/* ===== HERO / HEADER ===== */
+.hero {
+  background: #fff;
+  padding: var(--spacing-lg) var(--spacing-lg);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .header {
+  max-width: 1100px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.headerContent {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  gap: var(--spacing-md);
 }
 
 .headerIcon {
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, #B00020, #800018);
-  border-radius: 16px;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--brand-600);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  box-shadow: 0 4px 12px rgba(176, 0, 32, 0.3);
-  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
-  font-size: 2rem;
-  font-weight: 800;
-  color: #111;
-  margin: 0;
-  letter-spacing: -0.03em;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 2px;
+  font-family: 'Lexend', sans-serif;
 }
 
 .subtitle {
-  font-size: 1rem;
-  color: #888;
-  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  margin: 0;
 }
 
-/* Badge contador próximos eventos */
-.upcomingBadge {
-  display: inline-flex;
+/* ===== MENSAJE DE ERROR ===== */
+.errorBanner {
+  max-width: 1100px;
+  margin: var(--spacing-md) auto 0;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #B00020, #800018);
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: 50px;
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: 0 4px 14px rgba(176, 0, 32, 0.35);
-  animation: badgeIn .4s cubic-bezier(.4,0,.2,1);
-}
-.upcomingBadge strong { font-weight: 900; font-size: 16px; }
-.sparkle { animation: spin 3s linear infinite; }
-
-@keyframes badgeIn {
-  from { transform: scale(.85) translateY(6px); opacity: 0; }
-  to   { transform: scale(1)   translateY(0);   opacity: 1; }
-}
-@keyframes spin {
-  0%   { transform: rotate(0deg)   scale(1); }
-  50%  { transform: rotate(180deg) scale(1.2); }
-  100% { transform: rotate(360deg) scale(1); }
+  color: #c53030;
+  font-size: 0.88rem;
 }
 
+/* ===== CALENDARIO ===== */
 .calendarWrapper {
-  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
 }
 
-@media (max-width: 768px) {
-  .page { padding: 20px 16px 32px; }
-  .title { font-size: 1.5rem; }
-  .headerIcon { width: 48px; height: 48px; border-radius: 12px; }
-  .header { flex-direction: column; align-items: flex-start; }
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  min-height: 40vh;
+  color: var(--gray-500);
+}
+
+.loadingState p { margin: 0; font-size: 0.95rem; }
+
+.spin { animation: eventos-spin 1s linear infinite; color: var(--brand-600); }
+
+@keyframes eventos-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+  .hero { padding: var(--spacing-md); }
+  .headerIcon { width: 42px; height: 42px; }
+  .title { font-size: 1.35rem; }
+  .subtitle { font-size: 0.82rem; }
+  .calendarWrapper { padding: var(--spacing-md) var(--spacing-sm); }
 }

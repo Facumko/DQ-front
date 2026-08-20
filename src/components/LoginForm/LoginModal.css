@@ -33,7 +33,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 16px;
   animation: overlayIn 0.2s ease;
 }
@@ -504,6 +504,35 @@
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-8px); }
+  40%       { transform: translateX(8px); }
+  60%       { transform: translateX(-5px); }
+  80%       { transform: translateX(5px); }
+}
+
+.modal-card.shake {
+  animation: shake 0.4s ease;
+}
+
+.field-error-inline {
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: slideDown 0.2s ease;
+}
+
+.error-message.blocked {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
 }
 
 /* ── Spinner ─────────────────────────────────────────────────────────────── */

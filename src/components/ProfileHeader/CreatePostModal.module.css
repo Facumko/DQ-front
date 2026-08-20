@@ -2,18 +2,24 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 24px;
+  animation: fadeIn 0.15s ease;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
 /* ---------- modal ---------- */
 .modal {
-  background: white;
+  box-sizing: border-box;
+  background: #fff;
   padding: 24px;
   border-radius: 16px;
   width: 90%;
@@ -23,102 +29,239 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.22s cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
+@keyframes slideUp {
+  from { transform: translateY(20px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+
+.modal h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 12px;
+  padding-right: 28px;
+}
 
 .closeButton {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  right: 14px;
   background: none;
   border: none;
   cursor: pointer;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+  z-index: 1;
+}
+.closeButton:hover { background: #f3f4f6; color: #111; }
+
+/* ---------- banners ---------- */
+.warningBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff8e6;
+  color: #92660a;
+  border: 1px solid #fde8b8;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  margin-bottom: 12px;
 }
 
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f4;
+  color: #B00020;
+  border: 1px solid #f7c9d1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  margin-bottom: 12px;
+}
 
 .form {
   flex: 1 1 auto;
-  overflow-y: auto;
+  min-height: 0;
+  overflow-y: scroll; /* "scroll" en vez de "auto": fuerza que el scroll esté
+    siempre activo e interactivo, sin depender de que el navegador detecte
+    bien el overflow. Si esto no alcanza, el problema no es CSS. */
+  overscroll-behavior: contain; /* evita que el scroll "se escape" hacia la
+    página de fondo en vez de quedarse adentro del modal */
   padding-right: 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
-
 
 .textarea {
   resize: vertical;
   min-height: 80px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #111827;
+  transition: border-color 0.15s;
 }
-
+.textarea:focus {
+  outline: none;
+  border-color: #B00020;
+}
 
 .charCount {
   font-size: 0.75rem;
-  color: #888;
+  color: #9ca3af;
   text-align: right;
-  margin-top: -8px;
-  margin-bottom: 8px;
+  margin-top: -10px;
 }
-
 
 .fileLabel {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   cursor: pointer;
-  color: #3498db;
+  color: #B00020;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 10px;
+  border: 1.5px dashed #f0b3bd;
+  border-radius: 10px;
+  background: #fef2f4;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fileLabel:hover {
+  background: #fde6e9;
+  border-color: #B00020;
 }
 
+.fileLabel.disabled {
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  background: #f9fafb;
+  cursor: not-allowed;
+}
 
 .fileInput {
   display: none;
 }
-
 
 .row {
   display: flex;
   gap: 12px;
 }
 
-
 .row label {
   flex: 1;
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.row label > span,
+.row label svg {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-
-.row input {
+.row input,
+.fieldLabel input {
   flex: 1;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  padding: 9px 10px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #111827;
+  transition: border-color 0.15s;
+}
+.row input:focus,
+.fieldLabel input:focus {
+  outline: none;
+  border-color: #B00020;
 }
 
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.fieldLabelText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inputErrorBorder {
+  border-color: #dc2626 !important;
+  background: #fef2f2 !important;
+}
+
+.fieldErrorText {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.fieldFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.charCountSmall {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin-left: auto;
+}
 
 .submitButton {
-  background: #2ecc71;
+  background: #B00020;
   color: white;
   border: none;
-  padding: 10px;
-  border-radius: 8px;
+  padding: 11px;
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: background 0.15s;
 }
-
+.submitButton:hover {
+  background: #8a0018;
+}
 
 .form::-webkit-scrollbar {
   width: 6px;
 }
-.form::-webkit-thumb {
-  background: #ccc;
+.form::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
   border-radius: 3px;
 }
-
 
 /* ---------- GALERÍA DENTRO DEL MODAL ---------- */
 .mainViewer {
@@ -126,12 +269,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f5f5;
+  background: #f9fafb;
   border-radius: 12px;
   overflow: hidden;
   min-height: 200px;
 }
-
 
 .mainImg {
   width: 100%;
@@ -139,7 +281,6 @@
   object-fit: contain;
   border-radius: 12px;
 }
-
 
 .navBtn {
   position: absolute;
@@ -149,98 +290,144 @@
   color: white;
   border: none;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 2;
+  font-size: 1.1rem;
+  transition: background 0.15s;
 }
-
+.navBtn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
 
 .navBtn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }
 
-
 .navBtn:first-of-type {
   left: 12px;
 }
-
 
 .navBtn:last-of-type {
   right: 12px;
 }
 
-
-.counter {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  font-size: 0.75rem;
-  padding: 4px 10px;
-  border-radius: 12px;
-}
-
-
-.thumbs {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  margin-top: 8px;
-}
-
-
-.thumb {
-  position: relative;
-  min-width: 70px;
-  height: 70px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid transparent;
-  cursor: pointer;
-}
-
-
-.thumb.active {
-  border-color: #3498db;
-}
-
-
-.thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-
-.removeThumb {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
+.dots {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  padding: 2px 0;
 }
 
-
-.thumb.active {
-  border-color: #3498db;
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.dot:hover { background: #9ca3af; }
+.dotActive {
+  background: #B00020;
+  transform: scale(1.3);
 }
 
-.thumb.newImage {
-  border-color: #2ecc71;
-  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.3);
+.photoToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.toolbarBtn:hover:not(:disabled) { border-color: #B00020; color: #B00020; background: #fef2f4; }
+.toolbarBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.toolbarBtnDanger { color: #dc2626; }
+.toolbarBtnDanger:hover:not(:disabled) { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+
+/* ---------- confirmación de borrado / descarte ---------- */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-confirm); /* se abre encima del modal principal (.overlay) */
+  padding: 16px;
+}
+
+.confirmBox {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 340px;
+  padding: 22px 22px 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.confirmBox p {
+  font-size: 0.88rem;
+  color: #374151;
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.confirmCancel {
+  padding: 9px 18px;
+  background: transparent;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.confirmCancel:hover { border-color: #9ca3af; color: #374151; }
+
+.confirmDelete {
+  padding: 9px 18px;
+  background: #B00020;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.confirmDelete:hover { background: #8a0018; }

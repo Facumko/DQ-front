@@ -14,8 +14,7 @@ const BlurUpImage = ({
   className = '',
   style = {},
   objectFit = 'cover',
-  aspectRatio,   // ej: "16/9" o "1/1" — si se pasa, el skeleton mantiene el ratio
-  rounded,       // "full" | "md" | "lg" — border-radius
+  aspectRatio,
 }) => {
   const [loaded,  setLoaded]  = useState(false);
   const [errored, setErrored] = useState(false);

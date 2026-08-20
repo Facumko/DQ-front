@@ -1,6 +1,7 @@
 import { useState, useContext, useEffect, useRef } from "react";
 import { UserContext } from "../../pages/UserContext";
 import { validateEmail, validatePasswordStrength } from "../../Api/Api";
+import { getOrCreateDeviceId, getDeviceName } from "../../utils/deviceId";
 import "./LoginModal.css";
 import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaCheckCircle, FaArrowLeft } from "react-icons/fa";
 
@@ -11,6 +12,30 @@ import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaCheckCircle, FaArrowLeft } f
 // "register"  → email nuevo  → crear contraseña
 // "forgot"    → olvidé contraseña
 // "resetSent" → enlace enviado
+
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
+
+// Puras (no dependen de props/estado del componente): las sacamos afuera
+// para que sean estables entre renders, en vez de recrearse cada vez.
+const COOLDOWN_SECS = 60;
+const MAX_RESENDS   = 3;
+const LS_KEY        = (e) => `dq_reset_${e}`;
+
+const getPersistedState = (em) => {
+  if (!em) return { count: 0, secondsLeft: 0 };
+  try {
+    const raw = localStorage.getItem(LS_KEY(em));
+    if (!raw) return { count: 0, secondsLeft: 0 };
+    const { count, lastSentAt } = JSON.parse(raw);
+    const secondsLeft = Math.max(0, COOLDOWN_SECS - Math.floor((Date.now() - lastSentAt) / 1000));
+    return { count, secondsLeft };
+  } catch { return { count: 0, secondsLeft: 0 }; }
+};
+
+const persistSend = (em) => {
+  const { count } = getPersistedState(em);
+  localStorage.setItem(LS_KEY(em), JSON.stringify({ count: count + 1, lastSentAt: Date.now() }));
+};
 
 export default function LoginModal({ onClose }) {
   const { login, register, loading, error, clearError, isLocked } = useContext(UserContext);
@@ -33,31 +58,14 @@ export default function LoginModal({ onClose }) {
   // Reset
   const [resetEmail, setResetEmail] = useState("");
 
-  // Cooldown
-  const COOLDOWN_SECS = 60;
-  const MAX_RESENDS   = 3;
-  const LS_KEY        = (e) => `dq_reset_${e}`;
-
-  const getPersistedState = (em) => {
-    if (!em) return { count: 0, secondsLeft: 0 };
-    try {
-      const raw = localStorage.getItem(LS_KEY(em));
-      if (!raw) return { count: 0, secondsLeft: 0 };
-      const { count, lastSentAt } = JSON.parse(raw);
-      const secondsLeft = Math.max(0, COOLDOWN_SECS - Math.floor((Date.now() - lastSentAt) / 1000));
-      return { count, secondsLeft };
-    } catch { return { count: 0, secondsLeft: 0 }; }
-  };
-
-  const persistSend = (em) => {
-    const { count } = getPersistedState(em);
-    localStorage.setItem(LS_KEY(em), JSON.stringify({ count: count + 1, lastSentAt: Date.now() }));
-  };
-
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendCount,    setResendCount]    = useState(0);
   const [localError,     setLocalError]     = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [shake,          setShake]          = useState(false);
+  const [fieldError,     setFieldError]     = useState(""); // Para errores inline
+  const [lockoutTime,    setLockoutTime]    = useState(0); // Para countdown del bloqueo
+  const [bannerClass,    setBannerClass]    = useState(""); // Para clase especial del banner
 
   const emailRef    = useRef(null);
   const passwordRef = useRef(null);
@@ -67,7 +75,7 @@ export default function LoginModal({ onClose }) {
     if ((step === "login" || step === "register") && passwordRef.current) passwordRef.current.focus();
   }, [step]);
 
-  useEffect(() => { if (localError) setLocalError(""); }, [email, loginPassword, registerPassword, confirmPassword]);
+  useEffect(() => { if (localError) setLocalError(""); }, [email, loginPassword, registerPassword, confirmPassword, localError]);
   useEffect(() => { return () => { if (clearError) clearError(); }; }, [clearError]);
 
   useEffect(() => {
@@ -79,6 +87,27 @@ export default function LoginModal({ onClose }) {
   useEffect(() => {
     if (successMessage) { const t = setTimeout(() => setSuccessMessage(""), 3000); return () => clearTimeout(t); }
   }, [successMessage]);
+
+  // Countdown del bloqueo temporal
+  useEffect(() => {
+    const lockStatus = isLocked();
+    if (lockStatus?.locked) {
+      setLockoutTime(lockStatus.remainingSeconds);
+      const interval = setInterval(() => {
+        setLockoutTime(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setLoginPassword(""); // Limpiar password cuando se desbloquea
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setLockoutTime(0);
+    }
+  }, [isLocked]);
 
   useEffect(() => {
     if (step === "resetSent" && resetEmail) {
@@ -123,22 +152,49 @@ export default function LoginModal({ onClose }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLocalError("");
+    setFieldError("");
+    setBannerClass("");
     if (clearError) clearError();
-    if (!loginPassword.trim()) { setLocalError("Por favor ingresá tu contraseña"); return; }
+    if (!loginPassword.trim()) { setFieldError("Por favor ingresá tu contraseña"); return; }
     const result = await login(email, loginPassword);
-    if (result.success) { setSuccessMessage("¡Bienvenido de vuelta!"); setTimeout(() => onClose(), 1500); }
-    else setLocalError(result.error);
+    if (result.success) { 
+      setSuccessMessage("¡Bienvenido de vuelta!"); 
+      setTimeout(() => onClose(), 1500); 
+    } else {
+      const { authErrorType } = result;
+      if (authErrorType === 'WRONG_PASSWORD') {
+        setLoginPassword(""); // Limpiar campo password
+        setFieldError(result.error); // Mostrar error inline bajo password
+        passwordRef.current?.focus(); // Hacer foco en input password
+        setShake(true); // Agregar clase shake
+        setTimeout(() => setShake(false), 400); // Remover después de 400ms
+      } else if (authErrorType === 'USER_NOT_FOUND') {
+        setLoginPassword(""); // Limpiar password, pero conservamos el email tipeado
+        setLocalError("No encontramos una cuenta con ese email. Podés crear una nueva ahora mismo.");
+        setStep("register"); // Saltamos directo a crear cuenta, sin hacer retipear el email
+      } else if (authErrorType === 'ACCOUNT_BLOCKED') {
+        setLocalError(result.error); // Mostrar banner especial
+        setBannerClass("blocked");
+      } else if (authErrorType === 'UNVERIFIED') {
+        setLocalError(result.error); // Mostrar banner con instrucción
+        // Aquí podríamos agregar botón para reenviar email
+      } else {
+        setLocalError(result.error); // Mostrar en banner global
+      }
+    }
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setLocalError("");
+    setFieldError("");
     if (clearError) clearError();
     if (!registerPassword.trim() || !confirmPassword.trim()) { setLocalError("Por favor completá todos los campos"); return; }
     if (registerPassword !== confirmPassword) { setLocalError("Las contraseñas no coinciden"); return; }
-    if (registerPassword.length < 6) { setLocalError("La contraseña debe tener al menos 6 caracteres"); return; }
+    if (registerPassword.length < 8) { setLocalError("La contraseña debe tener al menos 8 caracteres"); return; }
     const result = await register({ email, password: registerPassword });
     if (result.success) { setSuccessMessage("¡Cuenta creada exitosamente! ✅"); setTimeout(() => onClose(), 1500); }
+    else if (result.authErrorType === 'EMAIL_TAKEN') { setFieldError(result.error); }
     else setLocalError(result.error);
   };
 
@@ -158,8 +214,23 @@ export default function LoginModal({ onClose }) {
   };
 
   const handleSocialLogin = (provider) => {
-    // TODO: window.location.href = `/oauth2/authorization/${provider.toLowerCase()}`;
-    setLocalError(`${provider} estará disponible próximamente.`);
+    // Guardamos la ruta actual para volver después del login
+    const currentPath = window.location.pathname;
+    if (currentPath !== "/" && currentPath !== "/login") {
+      sessionStorage.setItem("oauth2_return_to", currentPath);
+    }
+
+    // Redirige al backend de Spring Security que inicia el flujo OAuth2.
+    // El backend redirige a Google/Facebook, recibe el callback,
+    // genera los JWT y redirige al frontend a /oauth2/success?accessToken=...
+    const providerKey = provider.toLowerCase(); // "google" | "facebook"
+    const deviceId = getOrCreateDeviceId();
+    const deviceName = getDeviceName();
+
+    // Usar ruta relativa para pasar por el proxy de Vite en local.
+    // Incluir device_id y device_name como query params requeridos por el backend.
+    const params = new URLSearchParams({ device_id: deviceId, device_name: deviceName });
+    window.location.href = `/oauth2/authorization/${providerKey}?${params.toString()}`;
   };
 
   // ── Sub-componentes ───────────────────────────────────────────────────────
@@ -190,7 +261,7 @@ export default function LoginModal({ onClose }) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal-card ${shake ? 'shake' : ''}`} onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose} aria-label="Cerrar">✕</button>
 
         {/* Logo */}
@@ -204,7 +275,7 @@ export default function LoginModal({ onClose }) {
           <div className="success-banner"><FaCheckCircle /> {successMessage}</div>
         )}
         {(error || localError) && (
-          <div className="error-message">{localError || error}</div>
+          <div className={`error-message ${bannerClass}`}>{localError || error}</div>
         )}
 
         {/* ══ PASO: EMAIL ══════════════════════════════ */}
@@ -214,10 +285,10 @@ export default function LoginModal({ onClose }) {
             <p className="modal-subtitle">Ingresá tu email o continuá con una red social</p>
 
             <div className="social-section">
-              <button type="button" className="social-btn-full google" onClick={() => handleSocialLogin("Google")}>
+              <button type="button" className="social-btn-full google" onClick={() => handleSocialLogin("google")}>
                 <FaGoogle className="social-icon" /> Continuar con Google
               </button>
-              <button type="button" className="social-btn-full facebook" onClick={() => handleSocialLogin("Facebook")}>
+              <button type="button" className="social-btn-full facebook" onClick={() => handleSocialLogin("facebook")}>
                 <FaFacebook className="social-icon" /> Continuar con Facebook
               </button>
             </div>
@@ -233,6 +304,7 @@ export default function LoginModal({ onClose }) {
                   value={email}
                   onChange={(e) => handleEmailChange(e.target.value)}
                   className={`modal-input ${emailValidation.valid === true ? "valid" : emailValidation.valid === false ? "invalid" : ""}`}
+                  maxLength={100}
                 />
                 {email && (
                   <span className={`validation-icon ${emailValidation.valid ? "valid" : "invalid"}`}>
@@ -240,6 +312,7 @@ export default function LoginModal({ onClose }) {
                   </span>
                 )}
               </div>
+              {fieldError && step === "email" && <div className="field-error-inline">{fieldError}</div>}
               <button type="submit" className="modal-button login-btn" disabled={loading || !emailValidation.valid}>
                 Continuar
               </button>
@@ -289,19 +362,19 @@ export default function LoginModal({ onClose }) {
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="modal-input password-input"
-                  disabled={loading || isLocked?.locked}
+                  disabled={loading || isLocked()?.locked}
+                  maxLength={72}
                 />
                 <span className="toggle-password" onClick={() => setShowLoginPassword(!showLoginPassword)}>
                   {showLoginPassword ? <FaEyeSlash /> : <FaEye />}
                 </span>
-              </div>
-
+              </div>              {fieldError && step === "login" && <div className="field-error-inline">{fieldError}</div>}
               <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); setResetEmail(email); setStep("forgot"); }}>
                 Olvidé mi contraseña
               </a>
 
-              <button type="submit" className="modal-button login-btn" disabled={loading || isLocked?.locked}>
-                {loading ? <span className="spinner" /> : "Iniciar sesión"}
+              <button type="submit" className="modal-button login-btn" disabled={loading || lockoutTime > 0}>
+                {loading ? <span className="spinner" /> : lockoutTime > 0 ? `Bloqueado (${lockoutTime}s)` : "Iniciar sesión"}
               </button>
             </form>
 
@@ -324,6 +397,7 @@ export default function LoginModal({ onClose }) {
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   className="modal-input password-input"
                   disabled={loading}
+                  maxLength={72}
                 />
                 <span className="toggle-password" onClick={() => setShowRegisterPassword(!showRegisterPassword)}>
                   {showRegisterPassword ? <FaEyeSlash /> : <FaEye />}
@@ -354,6 +428,7 @@ export default function LoginModal({ onClose }) {
                   onPaste={(e) => e.preventDefault()}
                   className="modal-input password-input"
                   disabled={loading}
+                  maxLength={72}
                 />
                 <span className="toggle-password" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -364,6 +439,20 @@ export default function LoginModal({ onClose }) {
                 <p className="password-match" style={{ color: registerPassword === confirmPassword ? "#00cc66" : "#ff4444" }}>
                   {registerPassword === confirmPassword ? "✓ Las contraseñas coinciden" : "✗ Las contraseñas no coinciden"}
                 </p>
+              )}
+
+              {fieldError && step === "register" && (
+                <div className="field-error-inline">
+                  {fieldError}{" "}
+                  <button
+                    type="button"
+                    className="modal-link"
+                    style={{ display: "inline", padding: 0 }}
+                    onClick={() => { setFieldError(""); setLoginPassword(""); setStep("login"); }}
+                  >
+                    Iniciar sesión
+                  </button>
+                </div>
               )}
 
               <button
@@ -398,6 +487,7 @@ export default function LoginModal({ onClose }) {
                 }}
                 className="modal-input"
                 disabled={loading}
+                maxLength={100}
                 autoFocus
               />
               <button type="submit" className="modal-button login-btn" disabled={loading}>

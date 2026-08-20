@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import styles from "./EventCalendar.module.css";
 import {
@@ -5,75 +6,6 @@ import {
   MapPin, Tag, Search, Download, ExternalLink,
   LayoutGrid, List, ChevronUp, ChevronDown,
 } from "lucide-react";
-
-// ─────────────────────────────────────────────
-// MOCK DATA  (reemplazar con llamada al backend)
-// ─────────────────────────────────────────────
-export const MOCK_EVENTS = [
-  {
-    id: 1, title: "Noche de Jazz en Vivo",
-    date: "2026-02-08", time: "20:00", endTime: "23:00",
-    location: "Café Central", business: "Café Central",
-    category: "Música", color: "#B00020",
-    description: "Una velada especial con los mejores músicos de jazz. Entrada libre con consumición.",
-  },
-  {
-    id: 2, title: "Taller de Barismo",
-    date: "2026-02-12", time: "10:00", endTime: "12:00",
-    location: "Coffee Lab", business: "Coffee Lab",
-    category: "Gastronomía", color: "#FB8C00",
-    description: "Aprendé los secretos del café de especialidad. Incluye degustación y certificado.",
-  },
-  {
-    id: 3, title: "Clase de Yoga al Aire Libre",
-    date: "2026-02-15", time: "08:00", endTime: "09:30",
-    location: "Parque Central", business: "FitLife Studio",
-    category: "Deportes", color: "#43A047",
-    description: "Iniciá el día con energía. Clase para todos los niveles en el parque.",
-  },
-  {
-    id: 4, title: "Feria de Emprendedores",
-    date: "2026-02-15", time: "14:00", endTime: "20:00",
-    location: "Plaza Mayor", business: "Comunidad Local",
-    category: "Comercio", color: "#1976D2",
-    description: "Más de 50 emprendedores locales. Artesanías, gastronomía y tecnología.",
-  },
-  {
-    id: 5, title: "Degustación de Vinos",
-    date: "2026-02-20", time: "19:30", endTime: "22:00",
-    location: "Bodega del Centro", business: "Bodega del Centro",
-    category: "Gastronomía", color: "#8E24AA",
-    description: "Cata guiada de vinos argentinos con maridaje. Capacidad limitada.",
-  },
-  {
-    id: 6, title: "Workshop de Fotografía",
-    date: "2026-02-22", time: "15:00", endTime: "18:00",
-    location: "Estudio Imagen", business: "Estudio Imagen",
-    category: "Arte", color: "#D81B60",
-    description: "Técnicas de fotografía urbana. Trae tu cámara o smartphone.",
-  },
-  {
-    id: 7, title: "Happy Hour 2x1",
-    date: "2026-02-27", time: "18:00", endTime: "21:00",
-    location: "Bar La Esquina", business: "Bar La Esquina",
-    category: "Gastronomía", color: "#FB8C00",
-    description: "Cócteles 2x1 de 18 a 21 hs. Música en vivo a partir de las 20.",
-  },
-  {
-    id: 8, title: "Mercado Artesanal",
-    date: "2026-03-07", time: "10:00", endTime: "18:00",
-    location: "Patio del Centro", business: "Arte Local",
-    category: "Arte", color: "#D81B60",
-    description: "Feria mensual de artesanos y diseñadores locales.",
-  },
-  {
-    id: 9, title: "Torneo de Ajedrez",
-    date: "2026-03-14", time: "15:00", endTime: "20:00",
-    location: "Biblioteca Municipal", business: "Club Ajedrez",
-    category: "Deportes", color: "#43A047",
-    description: "Torneo abierto para todas las categorías. Premios para los tres primeros.",
-  },
-];
 
 // ─────────────────────────────────────────────
 // CONSTANTES
@@ -100,7 +32,7 @@ const toGCalDate = (dateStr, timeStr) => {
 // ─────────────────────────────────────────────
 // EXPORT HELPERS
 // ─────────────────────────────────────────────
-const openGoogleCalendar = (ev) => {
+export const openGoogleCalendar = (ev) => {
   const start = toGCalDate(ev.date, ev.time);
   const end   = toGCalDate(ev.date, ev.endTime || ev.time);
   const p = new URLSearchParams({
@@ -111,7 +43,7 @@ const openGoogleCalendar = (ev) => {
   window.open(`https://calendar.google.com/calendar/render?${p}`, "_blank");
 };
 
-const downloadICal = (ev) => {
+export const downloadICal = (ev) => {
   const start = toGCalDate(ev.date, ev.time);
   const end   = toGCalDate(ev.date, ev.endTime || ev.time);
   const now   = new Date().toISOString().replace(/[-:.]/g,"").slice(0,15)+"Z";
@@ -316,8 +248,8 @@ const WeekView = ({ anchorDate, eventsByDate, onDayClick }) => {
 // ─────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
-const EventCalendar = ({ events = MOCK_EVENTS, compact = false }) => {
-  const today = new Date();
+const EventCalendar = ({ events = [], compact = false, jumpTo = null }) => {
+  const today = useMemo(() => new Date(), []);
 
   const [view,       setView      ] = useState("month");
   const [year,       setYear      ] = useState(today.getFullYear());
@@ -410,6 +342,21 @@ const EventCalendar = ({ events = MOCK_EVENTS, compact = false }) => {
     setSelDate(key); setSelEvs(evs);
   }, [byDate]);
 
+  // ── saltar a una fecha puntual desde afuera (ej. click en "Ver en el
+  //    calendario" desde el bloque destacado de Eventos.jsx) ──
+  useEffect(() => {
+    if (!jumpTo?.date) return;
+    const [y, m] = jumpTo.date.split("-").map(Number);
+    setYear(y);
+    setMonth(m - 1);
+    setView("month");
+    const evs = byDate[jumpTo.date] || [];
+    if (evs.length) { setSelDate(jumpTo.date); setSelEvs(evs); }
+    // Solo debe re-ejecutar cuando cambia el "nonce" (cada click), no en cada
+    // render donde byDate se recalcula.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpTo?.nonce]);
+
   // ── panel lateral ──
   const panelEvs = useMemo(() => {
     if (view === "month") {
@@ -428,7 +375,7 @@ const EventCalendar = ({ events = MOCK_EVENTS, compact = false }) => {
   const upcomingCount = useMemo(() => {
     const todayKey = toKey(today.getFullYear(), today.getMonth(), today.getDate());
     return events.filter(e => e.date >= todayKey).length;
-  }, [events]);
+  }, [events, today]);
 
   // ── título header ──
   const headerTitle = useMemo(() => {
@@ -583,7 +530,7 @@ const EventCalendar = ({ events = MOCK_EVENTS, compact = false }) => {
         {/* Leyenda */}
         <div className={styles.hint}>
           {query
-            ? <><Search size={12}/> {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para "{query}"</>
+            ? <><Search size={12}/> {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para &quot;{query}&quot;</>
             : <><span className={styles.hintDot} style={{ background:"#B00020" }}/> Pasá el mouse por un día o hacé click para ver detalles</>
           }
         </div>

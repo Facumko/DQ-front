@@ -296,6 +296,95 @@
   box-shadow: 0 6px 20px rgba(176,0,32,0.4);
 }
 
+.currentPlanBadge {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 2px solid #16a34a;
+  background: #f0fdf4;
+  color: #166534;
+  font-family: 'Arial', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: auto;
+}
+.currentPlanBadge svg { width: 18px; height: 18px; }
+
+/* ── Confirmación (cambio de plan) ── */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-confirm, 1100);
+  padding: 16px;
+}
+
+.confirmBox {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 380px;
+  padding: 24px 22px 18px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+.confirmBox p { color: #374151; font-size: 0.9rem; line-height: 1.5; margin: 0 0 18px; }
+
+.confirmActions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.confirmBtnCancel, .confirmBtnOk {
+  padding: 0.65rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, opacity 0.2s;
+}
+.confirmBtnCancel { background: #f3f4f6; color: #374151; border: 1.5px solid #e5e7eb; }
+.confirmBtnCancel:hover { background: #e5e7eb; }
+.confirmBtnOk { background: var(--brand); color: #fff; border: none; }
+.confirmBtnOk:hover { background: var(--brand-dark); }
+.confirmBtnCancel:disabled, .confirmBtnOk:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 40px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  z-index: var(--z-toast, 4000);
+  white-space: nowrap;
+  max-width: calc(100vw - 40px);
+}
+.toast_success { background: #166534; color: #fff; }
+.toast_error   { background: #B00020; color: #fff; }
+.toastClose {
+  background: none; border: none; cursor: pointer;
+  color: inherit; opacity: 0.7; padding: 0; display: flex;
+  margin-left: 4px;
+}
+.toastClose:hover { opacity: 1; }
+
 /* Disclaimer */
 .disclaimer {
   font-family: 'Arial', sans-serif;
@@ -347,9 +436,19 @@
 
 .compareTable {
   width: 100%;
+  min-width: 620px;
   border-collapse: collapse;
   font-family: 'Arial', sans-serif;
   font-size: 0.9rem;
+}
+
+.tableSwipeHint {
+  display: none;
+  text-align: center;
+  font-family: 'Arial', sans-serif;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
 }
 
 .compareTable thead tr {
@@ -579,4 +678,43 @@
   .compareSection,
   .paySection,
   .faqSection { padding: 3rem 1rem; }
+
+  /* La tabla comparativa no entra en una pantalla chica (4 columnas: feature
+     + 3 planes) — en vez de aplastar el texto hasta ilegible, dejamos que
+     scrollee horizontal con un aviso arriba y un fade en el borde derecho. */
+  .tableSwipeHint { display: block; }
+  .tableWrapper {
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tableWrapper::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 28px;
+    background: linear-gradient(to left, rgba(255,255,255,0.9), transparent);
+    pointer-events: none;
+  }
+  .compareTable { font-size: 0.82rem; }
+  .compareTable th,
+  .compareTable td { padding: 0.7rem 0.75rem; }
+
+  .payGrid { gap: 1rem; }
+  .payCard { padding: 1.5rem 1.25rem; }
+}
+
+@media (max-width: 380px) {
+  .heroTitle { font-size: 1.5rem; }
+  .heroSub { font-size: 0.92rem; }
+  .plansSection { padding: 2rem 0.75rem 1.25rem; }
+  .card { padding: 1.25rem 1rem; }
+  .planName { font-size: 1.2rem; }
+  .priceBig { font-size: 1.7rem; }
+  .compareSection,
+  .paySection,
+  .faqSection { padding: 2.25rem 0.75rem; }
+  .faqQuestion { padding: 0.95rem 1rem; font-size: 0.88rem; }
+  .faqAnswer { padding: 0 1rem 0.95rem; font-size: 0.85rem; }
+  .ctaSection { padding: 3rem 1rem 3.5rem; }
+  .ctaFinalBtn { padding: 0.8rem 2rem; font-size: 0.92rem; }
 }

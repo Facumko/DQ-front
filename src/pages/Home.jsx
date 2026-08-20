@@ -1,239 +1,167 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import FloatingChat from "../components/FloatingChat/FloatingChat";
 import styles from "./Home.module.css";
+import { getMainFeed, getFeaturedSection, getBusinessById, getAllCommerces } from "../Api/Api";
+import { UserContext } from "./UserContext";
 import {
-  Calendar,
-  Utensils,
-  Tag,
-  Store,
-  Wrench,
-  TrendingUp,
+  Siren,
+  Coffee,
+  UtensilsCrossed,
+  Sparkles,
+  Percent,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   Star,
   Clock,
-  MapPin,
-  Bookmark,
-  Heart,
-  Share2,
   Building2,
+  Share2,
+  Bookmark,
 } from "lucide-react";
 
-// ============================================
-// 🔥 DATA MOCK TEMPORAL
-// ============================================
+const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23e0e0e0' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='14' fill='%23888' text-anchor='middle' dy='0.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+const handleImageError = (e) => {
+  e.target.src = PLACEHOLDER_IMAGE;
+  e.target.style.backgroundColor = '#f0f0f0';
+};
+
 const MOCK_DATA = {
-  heroSlides: [
-    {
-      id: 1,
-      image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80",
-      title: "Festival Gastronómico 2025",
-      subtitle: "Los mejores sabores de la ciudad se reúnen este fin de semana",
-      badge: { type: "event", text: "Evento Especial" },
-      cta: "Ver Detalles",
-      metadata: { date: "15-17 Nov" },
-    },
-    {
-      id: 2,
-      image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80",
-      title: "Restaurante Villa Gourmet",
-      subtitle: "Nueva experiencia culinaria en el corazón de la ciudad",
-      badge: { type: "featured", text: "Destacado" },
-      cta: "Reservar Mesa",
-      metadata: { rating: "4.9" },
-    },
-    {
-      id: 3,
-      image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80",
-      title: "Ofertas Black Friday",
-      subtitle: "Hasta 50% de descuento en tus negocios favoritos",
-      badge: { type: "promotion", text: "Oferta Limitada" },
-      cta: "Ver Ofertas",
-      metadata: { discount: "Hasta 50% OFF" },
-    },
-  ],
+  heroSlides: [],
 
-  featuredBusinesses: [
-    {
-      id: 1,
-      name: "Café Artesanal Luna",
-      logo: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=120&q=80",
-      category: "Cafetería",
-      location: "Centro Histórico",
-      promotion: "Café + Postre $8.500",
-    },
-    {
-      id: 2,
-      name: "Gimnasio FitLife Pro",
-      logo: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=120&q=80",
-      category: "Deportes & Fitness",
-      location: "Zona Norte",
-      promotion: "Primer mes gratis",
-    },
-    {
-      id: 3,
-      name: "Spa Wellness Center",
-      logo: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=120&q=80",
-      category: "Salud & Belleza",
-      location: "Plaza Central",
-      promotion: "Masajes 2x1",
-    },
-  ],
-
-  categories: [
-    {
-      id: "events",
-      title: "¿Qué pasa esta semana?",
-      description: "Eventos destacados",
-      icon: Calendar,
-      gradient: "gradientBlue",
-      image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&q=80",
-    },
-    {
-      id: "restaurants",
-      title: "¿Dónde cenar esta noche?",
-      description: "Restaurantes y cafés",
-      icon: Utensils,
-      gradient: "gradientOrange",
-      image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",
-    },
-    {
-      id: "deals",
-      title: "Ofertas destacadas",
-      description: "Descuentos especiales",
-      icon: Tag,
-      gradient: "gradientGreen",
-      image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80",
-    },
-    {
-      id: "new",
-      title: "¿Qué hay de nuevo cerca?",
-      description: "Nuevos negocios",
-      icon: Store,
-      gradient: "gradientPurple",
-      image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80",
-    },
-    {
-      id: "urgent",
-      title: "Servicios urgentes",
-      description: "Técnicos y delivery",
-      icon: Wrench,
-      gradient: "gradientRed",
-      image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80",
-    },
-    {
-      id: "trending",
-      title: "Lo más popular",
-      description: "Tendencias actuales",
-      icon: TrendingUp,
-      gradient: "gradientPink",
-      image: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=400&q=80",
-    },
-  ],
-
-  // ── MOCK: Directorio por subcategoría ──────────────────────────
-  // En producción esto vendrá del endpoint del back.
-  // El backend ya se encarga de elegir los comercios al azar
-  // y rotar los que aún no fueron mostrados.
-  directorySlides: [
-    {
-      subcategory: "Abogados",
-      businesses: [
-        { id: 101, name: "Estudio Ramírez & Asociados", image: "https://images.unsplash.com/photo-1521791055366-0d553872952f?w=120&q=80" },
-        { id: 102, name: "Dra. Silvia Méndez", image: null },
-        { id: 103, name: "Bufete Legal Norte", image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=120&q=80" },
-        { id: 104, name: "Asesoría Jurídica Pérez", image: null },
-        { id: 105, name: "Dr. Carlos Vega – Civil", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=120&q=80" },
-      ],
-    },
-    {
-      subcategory: "Contadores",
-      businesses: [
-        { id: 201, name: "Estudio Contable Gómez", image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=120&q=80" },
-        { id: 202, name: "Lic. Fernández & Cia", image: null },
-        { id: 203, name: "Asesoría Impositiva Ruiz", image: "https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?w=120&q=80" },
-        { id: 204, name: "Contadora López", image: null },
-        { id: 205, name: "Tax Consulting Salta", image: null },
-      ],
-    },
-    {
-      subcategory: "Electricistas",
-      businesses: [
-        { id: 301, name: "Electro Servicios Torres", image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=120&q=80" },
-        { id: 302, name: "Instalaciones Herrera", image: null },
-        { id: 303, name: "Técnico Rápido – 24 hs", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=120&q=80" },
-        { id: 304, name: "ElectroCiudad", image: null },
-      ],
-    },
-    {
-      subcategory: "Médicos",
-      businesses: [
-        { id: 401, name: "Dr. Martín Ríos – Clínica", image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=120&q=80" },
-        { id: 402, name: "Consultorio Dra. Suárez", image: null },
-        { id: 403, name: "Centro Médico del Norte", image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=120&q=80" },
-        { id: 404, name: "Dr. Bravo – Pediatría", image: null },
-        { id: 405, name: "Salud Integral SRL", image: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=120&q=80" },
-      ],
-    },
-  ],
-
-  posts: [
-    {
-      id: "1",
-      businessName: "Restaurante El Buen Sabor",
-      businessLogo: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=60&q=80",
-      location: "Centro Histórico",
-      timeAgo: "2 horas",
-      content: "🍽️ ¡Nuevo menú de temporada disponible! Ven y prueba nuestros platos especiales preparados con ingredientes frescos de la región. Reserva tu mesa llamando al 555-0123.",
-      images: [
-        "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600&q=80",
-        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80",
-        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80",
-      ],
-      likes: 47,
-      isLiked: false,
-      saved: false,
-    },
-    {
-      id: "2",
-      businessName: "Café Central",
-      businessLogo: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=60&q=80",
-      location: "Plaza Principal",
-      timeAgo: "4 horas",
-      content: "☕ Comenzamos la semana con energía. Nuestro café recién tostado te está esperando. Abierto desde las 7:00 AM con desayunos especiales y wifi gratuito.",
-      images: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80"],
-      likes: 32,
-      isLiked: true,
-      saved: true,
-    },
-    {
-      id: "3",
-      businessName: "Tienda La Esquina",
-      businessLogo: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=60&q=80",
-      location: "Barrio Norte",
-      timeAgo: "6 horas",
-      content: "🛍️ Gran oferta de fin de semana: 20% de descuento en toda la ropa de temporada. Además, envío gratis en compras superiores a $50. Válido hasta el domingo.",
-      images: [
-        "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=600&q=80",
-        "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&q=80",
-      ],
-      likes: 28,
-      isLiked: false,
-      saved: false,
-    },
-  ],
+  featuredBusinesses: [],
 };
 
 // ============================================
-// 🗂️ COMPONENTE: Directorio Destacado (sidebar carrusel)
+// Cajas fijas de "Explorá más"
 // ============================================
+// A diferencia de las categorías (que venían del backend), estas 6 cajas son
+// fijas y responden a una intención de búsqueda, no a un rubro. El campo
+// "explora" es la clave que va a usar SearchPage (en un próximo paso) para
+// pedir al backend el listado correspondiente a cada caja.
+const EXPLORE_BOXES = [
+  {
+    key: "emergencias",
+    icon: Siren,
+    gradient: "gradientRed",
+    image: "https://images.unsplash.com/photo-1587351021355-a479a299d2f9?w=400&q=80",
+    title: "Servicios de Emergencia y 24hs",
+    description: "Urgencias, guardias y atención inmediata",
+    link: "/search?explora=emergencias",
+  },
+  {
+    key: "hoy",
+    icon: Coffee,
+    gradient: "gradientOrange",
+    image: "https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=400&q=80",
+    title: "¿Qué hacemos hoy?",
+    description: "Cafés, heladerías, planes y eventos de hoy",
+    link: "/search?explora=hoy",
+  },
+  {
+    key: "cena",
+    icon: UtensilsCrossed,
+    gradient: "gradientPurple",
+    image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",
+    title: "¿Dónde cenar esta noche?",
+    description: "Restaurantes, bares y delivery nocturno",
+    link: "/search?explora=cena",
+  },
+  {
+    key: "abierto-ahora",
+    icon: Clock,
+    gradient: "gradientBlue",
+    image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&q=80",
+    title: "De Turno y Abierto Ahora",
+    description: "Lo que está abierto en este momento",
+    link: "/search?explora=abierto-ahora",
+  },
+  {
+    key: "nuevos",
+    icon: Sparkles,
+    gradient: "gradientPink",
+    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80",
+    title: "Nuevos en la Ciudad",
+    description: "Los últimos negocios en sumarse",
+    // Este ya funciona hoy: reutiliza el modo "agregados" que SearchPage
+    // trae de getRecentCommerces() (comercios de los últimos 30 días).
+    link: "/search?agregados=true",
+  },
+  {
+    key: "promociones",
+    icon: Percent,
+    gradient: "gradientGreen",
+    image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80",
+    title: "Promociones y Descuentos",
+    description: "Las mejores ofertas activas ahora",
+    link: "/search?explora=promociones",
+  },
+];
+
+// ============================================
+// Directorio Destacado
+// ============================================
+// Agrupa los comercios reales por subcategoría (TagDto de type SUBCATEGORY)
+// para armar los slides del widget. No hace falta un endpoint dedicado:
+// con una sola llamada a getAllCommerces() alcanza, porque cada comercio ya
+// trae sus propios tags incluidos. Solo entran subcategorías que tengan al
+// menos un comercio cargado — nada de mostrar rubros vacíos.
+// Rubros de servicio profesional que se muestran acá a propósito: por su
+// naturaleza generan pocas publicaciones (no suben fotos de productos, menú,
+// promos, como sí hace un local de ropa o una heladería), así que sin este
+// espacio dedicado casi no aparecerían en el Home. La lista es fija — no se
+// arma según quién tenga más negocios cargados, para no terminar mostrando
+// acá un rubro que igual ya tiene sobra de visibilidad en el feed normal.
+//
+// tagName es el nombre EXACTO del catálogo real de /etiqueta/subcategoria.
+// "Médicos", "Electricistas" y "Plomeros" no existen tal cual ahí, así que
+// se mapean al tag más cercano — si preferís otro mapeo, se cambia acá.
+const DIRECTORY_TARGET_SUBCATEGORIES = [
+  { displayName: "Médicos",      tagName: "clínicas y consultorios" },
+  { displayName: "Abogados",     tagName: "abogados" },
+  { displayName: "Contadores",   tagName: "contadores" },
+  { displayName: "Electricistas",tagName: "electricidad" },
+  { displayName: "Plomeros",     tagName: "plomería" },
+];
+
+const normalizeTagText = (s) =>
+  (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+const buildDirectorySlides = (commerces) => {
+  const byTarget = new Map(DIRECTORY_TARGET_SUBCATEGORIES.map((t) => [t.tagName, []]));
+
+  (commerces || []).forEach((c) => {
+    const subcategoryNames = (c.tags || [])
+      .filter((t) => t.type === "SUBCATEGORY")
+      .map((t) => normalizeTagText(t.nameTag));
+
+    DIRECTORY_TARGET_SUBCATEGORIES.forEach(({ tagName }) => {
+      if (subcategoryNames.includes(normalizeTagText(tagName))) {
+        byTarget.get(tagName).push({
+          id: c.idCommerce,
+          name: c.name || "Sin nombre",
+          image: c.profileImage?.url || null,
+        });
+      }
+    });
+  });
+
+  return DIRECTORY_TARGET_SUBCATEGORIES
+    .map(({ displayName, tagName }) => ({
+      subcategory: displayName,
+      businesses: byTarget.get(tagName).slice(0, 6),
+    }))
+    // Solo entran los rubros que ya tienen al menos un comercio cargado —
+    // nada de mostrar un slide vacío. Entre los que sí tienen, los más
+    // completos van primero.
+    .filter((slide) => slide.businesses.length > 0)
+    .sort((a, b) => b.businesses.length - a.businesses.length);
+};
+
 const DirectorySpotlight = ({ slides }) => {
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
-
-  const INTERVAL = 6000; // ms entre transiciones
+  const INTERVAL = 6000;
 
   const startTimer = () => {
     clearInterval(timerRef.current);
@@ -245,37 +173,30 @@ const DirectorySpotlight = ({ slides }) => {
   useEffect(() => {
     startTimer();
     return () => clearInterval(timerRef.current);
-  }, [slides.length]);
+  }, [slides.length]); // eslint-disable-line
 
-  const goTo = (idx) => {
-    setCurrent(idx);
-    startTimer(); // reinicia el timer si el usuario hace click
-  };
-
-  const { subcategory, businesses } = slides[current];
+  if (!slides || slides.length === 0) return null;
+  const { subcategory, businesses } = slides[current] || slides[0];
+  const goTo = (idx) => { setCurrent(idx); startTimer(); };
 
   return (
     <aside className={styles.directoryWidget}>
-      {/* Cabecera */}
       <div className={styles.directoryHeader}>
         <Building2 size={16} className={styles.directoryHeaderIcon} />
         <span>Directorio de servicios</span>
       </div>
 
-      {/* Contenido con animación */}
       <div className={styles.directorySlide} key={current}>
         <h3 className={styles.directorySubcategory}>{subcategory}</h3>
-
         <ul className={styles.directoryList}>
           {businesses.map((biz) => (
             <li key={biz.id} className={styles.directoryItem}>
               <Link to={`/negocios/${biz.id}`} className={styles.directoryLink}>
                 <div className={styles.directoryAvatar}>
-                  {biz.image ? (
-                    <img src={biz.image} alt={biz.name} />
-                  ) : (
-                    <span>{biz.name.charAt(0).toUpperCase()}</span>
-                  )}
+                  {biz.image
+                    ? <img src={biz.image} alt={biz.name} onError={handleImageError} />
+                    : <span>{biz.name.charAt(0).toUpperCase()}</span>
+                  }
                 </div>
                 <span className={styles.directoryName}>{biz.name}</span>
               </Link>
@@ -284,7 +205,6 @@ const DirectorySpotlight = ({ slides }) => {
         </ul>
       </div>
 
-      {/* Indicadores / navegación */}
       <div className={styles.directoryNav}>
         {slides.map((slide, idx) => (
           <button
@@ -296,7 +216,6 @@ const DirectorySpotlight = ({ slides }) => {
         ))}
       </div>
 
-      {/* Barra de progreso */}
       <div className={styles.directoryProgress}>
         <div
           className={styles.directoryProgressBar}
@@ -313,72 +232,338 @@ const DirectorySpotlight = ({ slides }) => {
 };
 
 // ============================================
-// 🎯 COMPONENTE PRINCIPAL
+// COMPONENTE PRINCIPAL
 // ============================================
 const Home = () => {
   const navigate = useNavigate();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [posts, setPosts] = useState(MOCK_DATA.posts);
-  const [currentImageIndex, setCurrentImageIndex] = useState({});
+  const { user, savedPostIds, toggleSavedPost, openLoginModal } = useContext(UserContext);
+
+  // ── Estado carrusel ──────────────────────────────────────────────────
+  const [heroSlides,          setHeroSlides]          = useState(MOCK_DATA.heroSlides);
+  const [currentSlide,        setCurrentSlide]        = useState(0);
+
+  // ── Estado feed ──────────────────────────────────────────────────────
+  const [posts,               setPosts]               = useState([]);
+  const [feedPage,            setFeedPage]            = useState(0);
+  const [feedLoading,         setFeedLoading]         = useState(false);
+  const [feedError,           setFeedError]           = useState("");
+  const [feedHasMore,         setFeedHasMore]         = useState(true);
+  const [currentImageIndex,   setCurrentImageIndex]   = useState({});
+  const [expandedPostIds,     setExpandedPostIds]     = useState(() => new Set());
+  const POST_CONTENT_LIMIT = 220;
+  const togglePostExpanded = (idPost) => {
+    setExpandedPostIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(idPost)) next.delete(idPost); else next.add(idPost);
+      return next;
+    });
+  };
+  const [sideFeatured,        setSideFeatured]        = useState([]); // cajas laterales: misma fuente que el carrusel (/destacado → featured)
+  const [directorySlides,     setDirectorySlides]     = useState([]);
   const sectionsRef = useRef([]);
+  const sidebarMarqueeRef = useRef(null);
+  const FEED_SIZE = 10;
 
+  // ── Normalizar item del carrusel del backend ──────────────────────────
+  const normalizeFeaturedItem = (item) => {
+    const d = item.data || {};
+    const imageUrl = d.coverImageUrl || d.coverImage?.url || d.images?.[0]?.url || "";
+
+    const getLink = () => {
+      const rt = d.redirectType;
+      const id = d.redirectTargetId;
+      if (rt === "EVENT")    return `/eventos`;
+      if (rt === "POST")     return `/negocios/${d.idCommerce}`;
+      if (rt === "COMMERCE") return `/negocios/${id}`;
+      if (item.type === "EVENT")    return `/eventos`;
+      if (item.type === "COMMERCE") return `/negocios/${d.idCommerce || d.id}`;
+      return `/negocios/${d.idCommerce || d.id || ""}`;
+    };
+
+    return {
+      id:       d.idPromotion || d.idEvent || d.idPost || d.idCommerce || Math.random(),
+      image:    imageUrl,
+      title:    d.title || d.name || "",
+      subtitle: d.description || "",
+      badge: {
+        type: item.type?.toLowerCase() || "featured",
+        text: item.type === "EVENT" ? "Evento" : item.type === "PROMOTION" ? "Promoción" : "Destacado",
+      },
+      cta:      "Ver más",
+      metadata: { rating: null, date: null, discount: null },
+      link:     getLink(),
+    };
+  };
+
+  // ── Normalizar item de las cajas laterales ─────────────────────────────
+  // Misma fuente y misma forma de extraer datos que el carrusel (FeaturedItemDto: { type, data }),
+  // pero viene del array "featured" de /destacado, que el backend ya separa del "carousel".
+  // No toca normalizeFeaturedItem ni la carga del carrusel de arriba.
+  const normalizeFeaturedBox = (item) => {
+    const d = item.data || {};
+    const type = item.type; // 'EVENT' | 'POST' | 'PROMOTION' | 'COMMERCE'
+
+    // El comercio dueño del contenido: cada tipo lo expone distinto según el backend
+    const commerce   = d.commerceOwner || d.commerce || {};
+    const commerceId = d.idCommerce || commerce.idCommerce || d.commerceId
+                        || (type === "COMMERCE" ? (d.idCommerce || d.id) : null);
+
+    const businessName  = d.commerceName || d.nameCommerce || commerce.name || d.name || "Comercio";
+    const businessImage = d.commerceProfileImageUrl || commerce.profileImage?.url
+                        || d.profileImage?.url || d.coverImage?.url || null;
+    // "category" es objeto único por comercio (no array).
+    const category = commerce.category?.name || d.category?.name || "";
+
+    const title = d.title || d.name || (d.description ? d.description.slice(0, 60) : "") || businessName;
+
+    const badgeMap  = { EVENT: "Evento", POST: "Publicación", PROMOTION: "Promoción", COMMERCE: "Destacado" };
+    const badgeText = badgeMap[type] || "Destacado";
+
+    const itemId = d.idEvent || d.idPost || d.idPromotion || d.idCommerce || null;
+
+    // Mismo criterio de link que el carrusel (siempre al negocio), pero acá además
+    // apuntamos a la publicación/evento puntual cuando esa vista es pública (posts y eventos lo son).
+    // Las promociones no tienen vista pública propia todavía, así que van al perfil del negocio nomás.
+    let link = `/negocios/${commerceId || ""}`;
+    if (type === "POST"  && commerceId && d.idPost)  link = `/negocios/${commerceId}?tab=posts&item=${d.idPost}`;
+    if (type === "EVENT" && commerceId && d.idEvent) link = `/negocios/${commerceId}?tab=events&item=${d.idEvent}`;
+    if (type === "PROMOTION" && commerceId) {
+      // El backend ya manda a dónde apunta la promo (redirectType/redirectTargetId
+      // del PromotionResponseDto), sin necesidad de pedir nada más.
+      const rt = (d.redirectType || "").toUpperCase();
+      if (rt === "POST"  && d.redirectTargetId) link = `/negocios/${commerceId}?tab=posts&item=${d.redirectTargetId}`;
+      if (rt === "EVENT" && d.redirectTargetId) link = `/negocios/${commerceId}?tab=events&item=${d.redirectTargetId}`;
+      // Si la promo no tiene publicación/evento vinculado (redirectType "NONE" o vacío),
+      // no hay a dónde apuntar más específico que el negocio.
+    }
+
+    return {
+      key: `${type}-${itemId ?? "x"}-${commerceId ?? "x"}`,
+      type, badgeText, title, businessName, businessImage, category, link, commerceId,
+    };
+  };
+
+  // ── Helpers feed ──────────────────────────────────────────────────────
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return "";
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+    if (diff < 60)     return "ahora";
+    if (diff < 3600)   return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400)  return `${Math.floor(diff / 3600)}h`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+    return new Date(dateStr).toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+  };
+
+  const handleShare = async (post) => {
+    const url  = post.businessId ? `${window.location.origin}/negocios/${post.businessId}` : window.location.href;
+    const text = `${post.businessName}: ${post.content?.slice(0, 80)}...`;
+    if (navigator.share) {
+      try { await navigator.share({ title: post.businessName, text, url }); } catch { /* usuario canceló el share nativo */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      alert("¡Link copiado al portapapeles!");
+    }
+  };
+
+  const handleToggleSave = async (post) => {
+    if (!user) { openLoginModal(); return; }
+    await toggleSavedPost(post);
+  };
+
+  const normalizeFeedPost = (p) => {
+    const d = p.data || p;
+    return {
+      id:           d.idPost       || d.id,
+      idPost:       d.idPost       || d.id,
+      businessName: d.commerceName || d.nameCommerce || d.businessName || d.commerce?.name || "Sin nombre",
+      businessId:   d.commerceId   || d.idCommerce   || d.businessId   || d.commerce?.idCommerce,
+      businessLogo: p.commerceProfileImageUrl || d.commerceProfileImage || d.profileImageCommerce || d.commerce?.profileImage?.url || null,
+      timeAgo:      p.createdAt    || d.postedAt || d.createdAt || "",
+      content:      d.description  || d.text || "",
+      images: Array.isArray(d.images)
+        ? d.images.sort((a, b) => (a.imageOrder || 0) - (b.imageOrder || 0)).map((i) => i.url || i)
+        : [],
+    };
+  };
+
+  const loadFeed = async (page = 0, append = false) => {
+    setFeedLoading(true);
+    setFeedError("");
+    try {
+      const data       = await getMainFeed(page, FEED_SIZE);
+      const normalized = data.map(normalizeFeedPost);
+      setPosts((prev) => append ? [...prev, ...normalized] : normalized);
+      setFeedHasMore(data.length === FEED_SIZE);
+    } catch {
+      setFeedError("No se pudo cargar el feed. Intentá de nuevo.");
+    } finally {
+      setFeedLoading(false);
+    }
+  };
+
+  const loadMore = () => {
+    const next = feedPage + 1;
+    setFeedPage(next);
+    loadFeed(next, true);
+  };
+
+  // ── Effect principal: timer carrusel + carga inicial ──────────────────
   useEffect(() => {
+    // Timer autoplay — usa función para leer heroSlides actualizado
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % MOCK_DATA.heroSlides.length);
+      setCurrentSlide((prev) => {
+        // Usamos ref para saber el length actualizado sin re-crear el interval
+        return prev + 1; // se normaliza abajo en el render
+      });
     }, 6000);
-    return () => clearInterval(timer);
-  }, []);
 
+    // Cargar carrusel del backend
+    getFeaturedSection(0, 5)
+      .then((data) => {
+        const items = data?.carousel;
+        if (Array.isArray(items) && items.length > 0) {
+          setHeroSlides(items.map(normalizeFeaturedItem));
+          setCurrentSlide(0);
+        }
+        // Cajas laterales: lo que el backend ya separa como "featured" (no está en el carrusel)
+        const boxItems = data?.featured;
+        if (Array.isArray(boxItems) && boxItems.length > 0) {
+          setSideFeatured(boxItems.map(normalizeFeaturedBox));
+        }
+      })
+      .catch(() => {}); // fallback silencioso → se queda con el mock
+
+    loadFeed(0);
+
+    // Directorio de servicios: una sola llamada trae todos los comercios
+    // (ya vienen con sus tags incluidos) y se agrupan por subcategoría acá
+    // mismo, sin pegarle al back una vez por rubro.
+    getAllCommerces()
+      .then((commerces) => setDirectorySlides(buildDirectorySlides(commerces)))
+      .catch(() => setDirectorySlides([]));
+
+    return () => clearInterval(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Enriquecer categoría de las cajas laterales ─────────────────────────
+  // PostResponseDto y PromotionResponseDto (lo que trae /destacado para esos tipos)
+  // no incluyen la categoría del comercio — solo EventResponseDto la trae completa
+  // (vía commerceOwner.category). Para no dejar ese campo vacío, pedimos el negocio
+  // completo (mismo GET que ya usa ProfileHeader) solo para los que faltan, una vez por comercio.
+  const enrichedCommerceIds = useRef(new Set());
+  useEffect(() => {
+    const idsToFetch = [...new Set(
+      sideFeatured
+        .filter((b) => b.commerceId && !enrichedCommerceIds.current.has(b.commerceId) && !b.category)
+        .map((b) => b.commerceId)
+    )];
+    if (idsToFetch.length === 0) return;
+    idsToFetch.forEach((id) => enrichedCommerceIds.current.add(id)); // evita reintentos en cada render
+
+    let cancelled = false;
+    Promise.all(idsToFetch.map((id) => getBusinessById(id).catch(() => null)))
+      .then((results) => {
+        if (cancelled) return;
+        const byId = {};
+        idsToFetch.forEach((id, i) => { byId[id] = results[i]; });
+        setSideFeatured((prev) => prev.map((b) => {
+          const extra = byId[b.commerceId];
+          if (!extra) return b;
+          return { ...b, category: b.category || extra.category?.name || "" };
+        }));
+      });
+    return () => { cancelled = true; };
+  }, [sideFeatured]);
+
+  // ── Auto-scroll horizontal del "marquee" mobile (pausable / arrastrable ──
+useEffect(() => {
+  if (sideFeatured.length === 0) return;
+  const el = sidebarMarqueeRef.current;
+  if (!el) return;
+  if (!window.matchMedia("(max-width: 1024px)").matches) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  let rafId;
+  let paused = false;
+  let resumeTimeout;
+  const SPEED = 0.55;
+
+  const step = () => {
+    if (!paused) {
+      const half = el.scrollWidth / 2;
+      el.scrollLeft += SPEED;
+      if (el.scrollLeft >= half) el.scrollLeft -= half;
+    }
+    rafId = requestAnimationFrame(step);
+  };
+  rafId = requestAnimationFrame(step);
+
+  const pause = () => { paused = true; clearTimeout(resumeTimeout); };
+  const scheduleResume = () => {
+    clearTimeout(resumeTimeout);
+    resumeTimeout = setTimeout(() => { paused = false; }, 3000);
+  };
+
+  el.addEventListener("pointerdown", pause);
+  el.addEventListener("pointerup", scheduleResume);
+  el.addEventListener("pointercancel", scheduleResume);
+  el.addEventListener("touchstart", pause, { passive: true });
+  el.addEventListener("touchend", scheduleResume);
+
+  return () => {
+    cancelAnimationFrame(rafId);
+    clearTimeout(resumeTimeout);
+    el.removeEventListener("pointerdown", pause);
+    el.removeEventListener("pointerup", scheduleResume);
+    el.removeEventListener("pointercancel", scheduleResume);
+    el.removeEventListener("touchstart", pause);
+    el.removeEventListener("touchend", scheduleResume);
+  };
+}, [sideFeatured.length]);
+
+  // ── Effect intersection observer para animaciones ─────────────────────
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) entry.target.classList.add(styles.visible);
-        });
-      },
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add(styles.visible); }),
       { threshold: 0.05, rootMargin: "0px 0px -60px 0px" }
     );
     sectionsRef.current.forEach((s) => s && observer.observe(s));
     return () => observer.disconnect();
   }, []);
 
-  const nextSlide = () => setCurrentSlide((p) => (p + 1) % MOCK_DATA.heroSlides.length);
-  const prevSlide = () => setCurrentSlide((p) => (p - 1 + MOCK_DATA.heroSlides.length) % MOCK_DATA.heroSlides.length);
+  // ── Navegación carrusel ───────────────────────────────────────────────
+  const prevSlide = () => setCurrentSlide((p) => (p - 1 + heroSlides.length) % heroSlides.length);
+  const nextSlide = () => setCurrentSlide((p) => (p + 1) % heroSlides.length);
+  // Normalizar currentSlide por si heroSlides cambió de tamaño
+  const safeCurrentSlide = heroSlides.length > 0 ? currentSlide % heroSlides.length : 0;
 
   const getBadgeClass = (type) => {
     const map = { event: styles.badgeEvent, featured: styles.badgeFeatured, promotion: styles.badgePromotion };
     return map[type] || styles.badgeDefault;
   };
 
-  const toggleLike = (postId) =>
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, isLiked: !p.isLiked, likes: p.isLiked ? p.likes - 1 : p.likes + 1 } : p
-      )
-    );
-
-  const toggleSave = (postId) =>
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, saved: !p.saved } : p)));
-
   const nextImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) + 1) % total }));
-
   const prevImage = (postId, total) =>
     setCurrentImageIndex((prev) => ({ ...prev, [postId]: ((prev[postId] || 0) - 1 + total) % total }));
 
+  // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className={styles.homeContainer}>
 
-      {/* ── HERO: Carousel + Sidebar negocios destacados ── */}
+      {/* ── HERO / CARRUSEL ── */}
       <section ref={(el) => (sectionsRef.current[0] = el)} className={`${styles.section} ${styles.heroSection}`}>
         <div className={styles.heroGrid}>
 
-          {/* Carousel */}
           <div className={styles.carouselContainer}>
             <div className={styles.carousel}>
-              {MOCK_DATA.heroSlides.map((slide, index) => (
-                <div key={slide.id} className={`${styles.slide} ${index === currentSlide ? styles.slideActive : ""}`}>
-                  <img src={slide.image} alt={slide.title} className={styles.slideImage} />
+
+              {heroSlides.map((slide, index) => (
+                <div
+                  key={slide.id}
+                  className={`${styles.slide} ${index === safeCurrentSlide ? styles.slideActive : ""}`}
+                >
+                  <img src={slide.image} alt={slide.title} className={styles.slideImage} onError={handleImageError} />
                   <div className={styles.slideOverlay}>
                     <div className={styles.slideBadgeContainer}>
                       <span className={`${styles.slideBadge} ${getBadgeClass(slide.badge.type)}`}>
@@ -387,19 +572,26 @@ const Home = () => {
                     </div>
                     <div className={styles.slideContent}>
                       <div className={styles.slideMetadata}>
-                        {slide.metadata.date && (
+                        {slide.metadata?.date && (
                           <div className={styles.metadataItem}><Clock size={16} /><span>{slide.metadata.date}</span></div>
                         )}
-                        {slide.metadata.rating && (
+                        {slide.metadata?.rating && (
                           <div className={styles.metadataItem}><Star size={16} fill="currentColor" /><span>{slide.metadata.rating}</span></div>
                         )}
-                        {slide.metadata.discount && (
+                        {slide.metadata?.discount && (
                           <span className={styles.discountBadge}>{slide.metadata.discount}</span>
                         )}
                       </div>
                       <h2 className={styles.slideTitle}>{slide.title}</h2>
                       <p className={styles.slideSubtitle}>{slide.subtitle}</p>
-                      <button className={styles.slideCta}>{slide.cta}<ExternalLink size={18} /></button>
+
+                      {/* ← onClick navega al destino correcto */}
+                      <button
+                        className={styles.slideCta}
+                        onClick={() => slide.link && navigate(slide.link)}
+                      >
+                        {slide.cta}<ExternalLink size={18} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -413,10 +605,10 @@ const Home = () => {
               </button>
 
               <div className={styles.carouselIndicators}>
-                {MOCK_DATA.heroSlides.map((_, index) => (
+                {heroSlides.map((_, index) => (
                   <button
                     key={index}
-                    className={`${styles.indicator} ${index === currentSlide ? styles.indicatorActive : ""}`}
+                    className={`${styles.indicator} ${index === safeCurrentSlide ? styles.indicatorActive : ""}`}
                     onClick={() => setCurrentSlide(index)}
                   />
                 ))}
@@ -424,64 +616,98 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Sidebar negocios premium */}
-          <div className={styles.sidebar}>
-            {MOCK_DATA.featuredBusinesses.map((business) => (
-              <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
-                <div className={styles.businessHeader}>
-                  <img src={business.logo} alt={business.name} className={styles.businessLogo} />
-                  <div className={styles.businessInfo}>
-                    <h3 className={styles.businessName}>{business.name}</h3>
-                    <p className={styles.businessCategory}>{business.category}</p>
+          <div 
+          ref={sidebarMarqueeRef}
+          className={`${styles.sidebar} ${sideFeatured.length > 0 ? styles.sidebarMarquee : ""}`}>
+            {sideFeatured.length > 0 ? (
+              <div
+                className={styles.sidebarTrack}
+                style={{ "--marquee-duration": `${Math.max(sideFeatured.length * 6, 18)}s` }}
+              >
+                {[...sideFeatured, ...sideFeatured].map((business, i) => (
+                  <Link to={business.link} key={`${business.key}-${i}`} className={styles.businessCard}>
+                    <div className={styles.businessHeader}>
+                      <img
+                        src={business.businessImage || PLACEHOLDER_IMAGE}
+                        alt={business.businessName}
+                        className={styles.businessLogo}
+                        onError={handleImageError}
+                      />
+                      <div className={styles.businessInfo}>
+                        <h3 className={styles.businessName}>{business.businessName}</h3>
+                        {business.category && <p className={styles.businessCategory}>{business.category}</p>}
+                      </div>
+                    </div>
+                    <div className={styles.businessFooter}>
+                      <span className={`${styles.businessBadge} ${styles["badge" + business.type]}`}>
+                        {business.badgeText}
+                      </span>
+                      <p className={styles.businessTitle}>{business.title}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              MOCK_DATA.featuredBusinesses.map((business) => (
+                <Link to={`/negocios/${business.id}`} key={business.id} className={styles.businessCard}>
+                  <div className={styles.businessHeader}>
+                    <img src={business.logo} alt={business.name} className={styles.businessLogo} onError={handleImageError} />
+                    <div className={styles.businessInfo}>
+                      <h3 className={styles.businessName}>{business.name}</h3>
+                      <p className={styles.businessCategory}>{business.category}</p>
+                    </div>
                   </div>
-                </div>
-                <div className={styles.businessLocation}>
-                  <MapPin size={14} /><span>{business.location}</span>
-                </div>
-                <div className={styles.businessPromotion}>{business.promotion}</div>
-              </Link>
-            ))}
+                  <div className={styles.businessFooter}>
+                    <span className={`${styles.businessBadge} ${styles.badgePROMOTION}`}>Promoción</span>
+                    <p className={styles.businessTitle}>{business.promotion}</p>
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </section>
 
-      {/* ── ¿Qué estás buscando? + Directorio básico ── */}
+      {/* ── EXPLORÁ MÁS + DIRECTORIO ── */}
       <section ref={(el) => (sectionsRef.current[1] = el)} className={`${styles.section} ${styles.categoriesSection}`}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>¿Qué estás buscando?</h2>
+          <h2 className={styles.sectionTitle}>Explorá más</h2>
           <p className={styles.sectionSubtitle}>
-            Explorá nuestras categorías más populares y encontrá exactamente lo que necesitás
+            Elegí qué necesitás en este momento y te mostramos lo que corresponde
           </p>
         </div>
 
-        {/* Layout: categorías a la izq, directorio a la der */}
         <div className={styles.categoriesLayout}>
           <div className={styles.categoriesGrid}>
-            {MOCK_DATA.categories.map((category) => {
-              const IconComponent = category.icon;
+            {EXPLORE_BOXES.map((box) => {
+              const IconComponent = box.icon;
               return (
-                <div key={category.id} className={styles.categoryCard}>
+                <div
+                  key={box.key}
+                  className={styles.categoryCard}
+                  onClick={() => navigate(box.link)}
+                  style={{ cursor: "pointer" }}
+                >
                   <div className={styles.categoryImageContainer}>
-                    <img src={category.image} alt={category.title} className={styles.categoryImage} />
-                    <div className={`${styles.categoryOverlay} ${styles[category.gradient]}`}>
+                    <img src={box.image} alt={box.title} className={styles.categoryImage} onError={handleImageError} />
+                    <div className={`${styles.categoryOverlay} ${styles[box.gradient]}`}>
                       <IconComponent size={64} className={styles.categoryIcon} />
                     </div>
                   </div>
                   <div className={styles.categoryContent}>
-                    <h3 className={styles.categoryTitle}>{category.title}</h3>
-                    <p className={styles.categoryDescription}>{category.description}</p>
+                    <h3 className={styles.categoryTitle}>{box.title}</h3>
+                    <p className={styles.categoryDescription}>{box.description}</p>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* ── DIRECTORIO BÁSICO / INTERMEDIO ── */}
-          <DirectorySpotlight slides={MOCK_DATA.directorySlides} />
+          <DirectorySpotlight slides={directorySlides} />
         </div>
       </section>
 
-      {/* ── Feed de publicaciones ── */}
+      {/* ── FEED ── */}
       <section ref={(el) => (sectionsRef.current[2] = el)} className={`${styles.section} ${styles.postsSection}`}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Últimas Publicaciones</h2>
@@ -489,33 +715,60 @@ const Home = () => {
         </div>
 
         <div className={styles.postsFeed}>
+
+          {feedLoading && posts.length === 0 && (
+            <div className={styles.feedLoading}>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className={styles.postCardSkeleton}>
+                  <div className={styles.skeletonHeader} />
+                  <div className={styles.skeletonBody} />
+                  <div className={styles.skeletonImage} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {feedError && (
+            <div className={styles.feedError}>
+              <p>{feedError}</p>
+              <button className={styles.retryBtn} onClick={() => loadFeed(0)}>Reintentar</button>
+            </div>
+          )}
+
+          {!feedLoading && !feedError && posts.length === 0 && (
+            <div className={styles.feedEmpty}>
+              <p>No hay publicaciones todavía.</p>
+            </div>
+          )}
+
           {posts.map((post) => {
             const currentIndex = currentImageIndex[post.id] || 0;
+            const isSaved = savedPostIds?.has(post.id) ?? false;
+
             return (
               <div key={post.id} className={styles.postCard}>
-                <div className={styles.postHeader}>
-                  <img src={post.businessLogo} alt={post.businessName} className={styles.postAvatar} />
-                  <div className={styles.postBusinessInfo}>
-                    <h3 className={styles.postBusinessName}>{post.businessName}</h3>
-                    <div className={styles.postMetadata}>
-                      <MapPin size={14} /><span>{post.location}</span>
-                      <span>•</span>
-                      <Clock size={14} /><span>hace {post.timeAgo}</span>
-                    </div>
-                  </div>
-                  <button
-                    className={`${styles.postSaveBtn} ${post.saved ? styles.postSaveBtnActive : ""}`}
-                    onClick={() => toggleSave(post.id)}
-                  >
-                    <Bookmark size={20} fill={post.saved ? "currentColor" : "none"} />
-                  </button>
-                </div>
 
-                <div className={styles.postContent}><p>{post.content}</p></div>
+                <div className={styles.postHeader}>
+                  {post.businessLogo
+                    ? <img src={post.businessLogo} alt={post.businessName} className={styles.postAvatar} />
+                    : <div className={styles.postAvatarFallback}>{post.businessName?.charAt(0).toUpperCase()}</div>
+                  }
+                  <div className={styles.postBusinessInfo}>
+                    {post.businessId
+                      ? <Link to={`/negocios/${post.businessId}`} className={styles.postBusinessName}>{post.businessName}</Link>
+                      : <span className={styles.postBusinessName}>{post.businessName}</span>
+                    }
+                  </div>
+                  <span className={styles.postHeaderTime}>{formatTimeAgo(post.timeAgo)}</span>
+                </div>
 
                 {post.images.length > 0 && (
                   <div className={styles.postImagesContainer}>
-                    <img src={post.images[currentIndex]} alt={`${post.businessName} ${currentIndex + 1}`} className={styles.postImage} />
+                    <img
+                      src={post.images[currentIndex]}
+                      alt={`${post.businessName} ${currentIndex + 1}`}
+                      className={styles.postImage}
+                    />
                     {post.images.length > 1 && (
                       <>
                         <button className={`${styles.postImageBtn} ${styles.postImageBtnPrev}`} onClick={() => prevImage(post.id, post.images.length)}>
@@ -526,7 +779,7 @@ const Home = () => {
                         </button>
                         <div className={styles.postImageIndicators}>
                           {post.images.map((_, i) => (
-                            <div key={i} className={`${styles.postImageDot} ${i === currentIndex ? styles.postImageDotActive : ""}`} />
+                            <div key={`${post.id}-img-${i}`} className={`${styles.postImageDot} ${i === currentIndex ? styles.postImageDotActive : ""}`} />
                           ))}
                         </div>
                       </>
@@ -536,27 +789,60 @@ const Home = () => {
 
                 <div className={styles.postActions}>
                   <div className={styles.postActionsLeft}>
-                    <button className={`${styles.postActionBtn} ${post.isLiked ? styles.postLikeBtnActive : ""}`} onClick={() => toggleLike(post.id)}>
-                      <Heart size={20} fill={post.isLiked ? "currentColor" : "none"} />
-                      <span>{post.likes}</span>
-                    </button>
-                    <button className={styles.postActionBtn}>
-                      <Share2 size={20} /><span>Compartir</span>
+                    <button className={styles.postActionBtn} onClick={() => handleShare(post)} title="Compartir">
+                      <Share2 size={20} />
+                      <span>Compartir</span>
                     </button>
                   </div>
-                  <span className={styles.postLikesCount}>{post.likes} me gusta</span>
+                  <button
+                    className={`${styles.postActionBtn} ${isSaved ? styles.postActionBtnActive : ""}`}
+                    onClick={() => handleToggleSave(post)}
+                    title={isSaved ? "Guardado" : "Guardar"}
+                  >
+                    <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
+                  </button>
                 </div>
+
+                {post.content && (
+                  <div className={styles.postContent}>
+                    <span className={styles.postContentBusiness}>{post.businessName} </span>
+                    <span>
+                      {post.content.length > POST_CONTENT_LIMIT && !expandedPostIds.has(post.id)
+                        ? `${post.content.slice(0, POST_CONTENT_LIMIT).trim()}…`
+                        : post.content}
+                    </span>
+                    {post.content.length > POST_CONTENT_LIMIT && (
+                      <button
+                        type="button"
+                        className={styles.postVerMasBtn}
+                        onClick={() => togglePostExpanded(post.id)}
+                      >
+                        {expandedPostIds.has(post.id) ? " Ver menos" : " Ver más"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <span className={styles.postFooterTime}>{formatTimeAgo(post.timeAgo)}</span>
               </div>
             );
           })}
 
-          <div className={styles.loadMoreContainer}>
-            <button className={styles.loadMoreBtn}>Cargar más publicaciones</button>
-          </div>
+          {posts.length > 0 && (
+            <div className={styles.loadMoreContainer}>
+              {feedHasMore ? (
+                <button className={styles.loadMoreBtn} onClick={loadMore} disabled={feedLoading}>
+                  {feedLoading ? "Cargando..." : "Cargar más publicaciones"}
+                </button>
+              ) : (
+                <p className={styles.feedEnd}>Ya viste todo por ahora</p>
+              )}
+            </div>
+          )}
+
         </div>
       </section>
 
-      <FloatingChat />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 /* ============================================================
-   ProfileHeader.module.css  — Dónde Queda? — UI Refactorizada
+   ProfileHeader.module.css  — Dónde Queda?
    ============================================================ */
 
 /* ── Variables locales ── */
@@ -224,6 +224,42 @@
 }
 .btnEdit:hover { border-color: var(--brand); color: var(--brand); }
 
+/* Compartir: acción secundaria, disponible para cualquiera (no solo el dueño) —
+   por eso va "ghost" (sin fondo ni borde), más liviana que btnEdit, que es la
+   acción principal del dueño. */
+.btnShare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 30px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btnShare:hover { background: var(--border); color: var(--text); }
+
+/* WhatsApp: color de marca reconocible a propósito (verde WhatsApp), como
+   círculo sólido para que se lea como ícono de acción rápida, no como texto. */
+.whatsappBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #25d366;
+  color: white;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.whatsappBtn:hover { transform: scale(1.08); box-shadow: 0 2px 8px rgba(37, 211, 102, 0.4); }
+
 .btnSave {
   display: flex;
   align-items: center;
@@ -271,6 +307,8 @@
   margin: 0 0 4px;
   letter-spacing: -0.02em;
   animation: nameFadeIn 0.2s ease;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @keyframes nameFadeIn {
@@ -335,7 +373,7 @@
   border-top: 1px solid var(--border);
 }
 
-.infoCol { padding: 20px 28px; }
+.infoCol { padding: 20px 28px; min-width: 0; }
 .infoCol + .infoCol { border-left: 1px solid var(--border); }
 
 .infoSectionTitle {
@@ -353,7 +391,22 @@
   line-height: 1.65;
   margin: 0;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
+
+.verMasBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 2px;
+  color: var(--brand);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.verMasBtn:hover { text-decoration: underline; }
 
 .editTextarea {
   width: 100%;
@@ -407,6 +460,19 @@
   color: #dc2626;
   margin-top: 2px;
   display: block;
+}
+
+.scheduleWarning {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin: 4px 0 0;
 }
 
 /* ══════════════════════════════════════════
@@ -678,6 +744,16 @@
 }
 .postCard:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
+.cardHighlighted {
+  animation: cardHighlightPulse 1.6s ease-in-out 0s 2;
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+@keyframes cardHighlightPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(176, 0, 32, 0); }
+  50%      { box-shadow: 0 0 0 8px rgba(176, 0, 32, 0.12); }
+}
+
 .postBody   { padding: 16px 18px; }
 
 .postText {
@@ -783,6 +859,18 @@
 }
 
 .emptyIcon  { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
+
+.emptyIconWrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+}
 .emptyTitle { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0 0 4px; }
 .emptyDesc  { font-size: 0.88rem; margin: 0; }
 
@@ -823,4 +911,722 @@
   .topActions { flex-wrap: wrap; }
   .btnEdit, .btnSave, .btnCancel { font-size: 0.82rem; padding: 7px 12px; }
   .tabBtn { padding: 8px 14px; font-size: 0.82rem; }
+}
+
+/* ══════════════════════════════════════════
+   SCHEDULE EDITOR - NEW DESIGN
+══════════════════════════════════════════ */
+.scheduleEditor {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 16px;
+}
+
+.scheduleHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.scheduleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
+  gap: 16px;
+}
+
+.dayCard {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: border-color var(--transition);
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dayCard:hover {
+  border-color: var(--brand);
+}
+
+.dayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dayName {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.toggleSwitch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.toggleOff {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.toggleOff:hover {
+  background: #fee2e2;
+}
+
+.toggleOn {
+  color: #059669;
+  background: #f0fdf4;
+}
+
+.toggleOn:hover {
+  background: #dcfce7;
+}
+
+.dayControls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modeToggle {
+  display: flex;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.modeBtn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.modeActive {
+  background: var(--brand);
+  color: white;
+}
+
+.timeInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.timeGroup label {
+  min-width: 45px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.timeInput {
+  padding: 6px 6px 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--text);
+  transition: border-color var(--transition);
+  width: 118px;
+  min-width: 118px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.timeInput:focus {
+  border-color: var(--brand);
+  outline: none;
+}
+
+/* El ícono nativo del reloj (Chrome/Edge/Safari) se dibuja pegado al texto
+   si no se le reserva espacio propio; sin esto se superponía con los dígitos. */
+.timeInput::-webkit-calendar-picker-indicator {
+  margin-left: 6px;
+  padding: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.timeInput::-webkit-datetime-edit {
+  display: flex;
+  align-items: center;
+}
+
+.timeSep {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.shiftGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shiftLabel {
+  min-width: 55px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ══════════════════════════════════════════
+   SCHEDULE DISPLAY - NEW DESIGN
+══════════════════════════════════════════ */
+.scheduleDisplay {
+  margin-top: 16px;
+}
+
+.scheduleStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.scheduleStatus.open {
+  color: #059669;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.scheduleStatus.closed {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.scheduleToggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--brand);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 6px 0;
+  transition: color var(--transition);
+}
+
+.scheduleToggle:hover {
+  color: var(--brand-dark);
+}
+
+.scheduleTable {
+  margin-top: 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.scheduleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.scheduleRow:last-child {
+  border-bottom: none;
+}
+
+.scheduleDay {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 40px;
+}
+
+.scheduleHours {
+  color: var(--muted);
+  text-align: right;
+}
+
+.scheduleClosed {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ── Clasificación — vista ── */
+/* Jerarquía real: la categoría es el dato que más importa (por ahí te
+   encuentran en el buscador principal), así que tiene más presencia que
+   las subcategorías — antes pesaban lo mismo en una sola línea de texto. */
+.classificationRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 20px;
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid rgba(176,0,32,0.15);
+}
+
+.subcategoryChipView {
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+/* Solo el dueño la ve — es un llamado a la acción, no información pública */
+.missingCategoryNudge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 10px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition);
+}
+.missingCategoryNudge:hover { background: #fef3c7; }
+
+/* ── Categorías / subcategorías — edición ── */
+.categoryEditorSection {
+  margin-top: 8px;
+}
+
+.sectionHint {
+  margin: 2px 0 8px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.sectionPlaceholder {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Categoría: pills más grandes y con más peso — "elegí UNA de estas" */
+.categoryPillsEdit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.categoryPillEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--white);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.categoryPillEdit:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.categoryPillEditSelected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.categoryPillEditSelected:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  color: #fff;
+}
+
+/* Subcategorías: chips más chicos, con casillero — "elegí varias de estas" */
+.subcategoryChipsEdit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.subcategoryChipEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.subcategoryChipEdit:hover {
+  border-color: var(--muted);
+  background: var(--bg);
+}
+
+.subcategoryCheckbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  color: #fff;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+
+.subcategoryChipEditSelected {
+  border-color: var(--text);
+  background: var(--bg);
+}
+.subcategoryChipEditSelected .subcategoryCheckbox {
+  background: var(--text);
+  border-color: var(--text);
+}
+
+.subcategorySearchWrap {
+  position: relative;
+  margin-bottom: 8px;
+  max-width: 280px;
+}
+.subcategorySearchIcon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.subcategorySearchInput {
+  width: 100%;
+  padding: 6px 10px 6px 28px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color var(--transition);
+}
+.subcategorySearchInput:focus {
+  border-color: var(--brand);
+  outline: none;
+}
+
+.categoryCount {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* ── Etiquetas descriptivas — vista pública ── */
+.descriptiveTagsView {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.descriptiveChipView {
+  padding: 4px 10px;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.tagsMoreBtn {
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color var(--transition), color var(--transition);
+}
+.tagsMoreBtn:hover { border-color: var(--muted); color: var(--text); }
+
+.optionalHint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── Etiquetas descriptivas — edición (chips removibles + input) ── */
+.tagsChipsEdit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tagChipRemovable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 12px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.tagChipRemoveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(17, 24, 39, 0.08);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s;
+}
+.tagChipRemoveBtn:hover { background: rgba(17, 24, 39, 0.16); color: var(--text); }
+
+.tagInputRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tagInput {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  transition: border-color var(--transition);
+}
+.tagInput:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.tagAddBtn {
+  padding: 9px 16px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition);
+  white-space: nowrap;
+}
+.tagAddBtn:hover { background: var(--brand-dark); }
+/* ══════════════════════════════════════════
+   ACORDEÓN DE EDICIÓN (perfil de comercio)
+   Reemplaza el infoGrid de 2 columnas cuando isEditing=true:
+   secciones colapsables, una abierta a la vez, para no volcar
+   todos los campos encimados de una.
+══════════════════════════════════════════ */
+.editAccordion {
+  border-top: 1px solid var(--border);
+  padding: 16px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.accordionItem {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.accordionItem.accordionItemOpen {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+
+.accordionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.accordionHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.accordionIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-light);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.accordionItemOpen .accordionIcon {
+  background: var(--brand);
+  color: #fff;
+}
+
+.accordionHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.accordionTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accordionErrorDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex-shrink: 0;
+}
+
+.accordionSubtitle {
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.accordionChevron {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform var(--transition);
+}
+.accordionItemOpen .accordionChevron {
+  transform: rotate(180deg);
+  color: var(--brand);
+}
+
+.accordionBody {
+  padding: 4px 16px 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  animation: accordionOpen 0.18s ease;
+}
+
+@keyframes accordionOpen {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .editAccordion { padding: 14px 16px 20px; }
+  .accordionSubtitle { max-width: 180px; }
 }

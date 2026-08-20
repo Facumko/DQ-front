@@ -54,7 +54,7 @@ export default function TerminosUso() {
             <li>Ver con prioridad las publicaciones de los comercios que sigue.</li>
             <li>Guardar publicaciones para revisarlas más tarde.</li>
             <li>Indicar asistencia a eventos publicados en la plataforma.</li>
-            <li>Comentar publicaciones y reaccionar con "Me gusta".</li>
+            <li>Comentar publicaciones y reaccionar con &quot;Me gusta&quot;.</li>
           </ul>
           <p>El usuario es responsable del contenido que publica, comenta o comparte dentro de la plataforma.</p>
         </Section>
@@ -163,7 +163,7 @@ export default function TerminosUso() {
       </div>
 
       <footer className="legal-footer">
-        <p>© 2026 Dónde Queda? — Todos los derechos reservados.</p>
+        <p>© 2026 Dónde Queda? - Todos los derechos reservados.</p>
         <div className="legal-footer-links">
           <Link to="/politica-de-privacidad">Política de Privacidad</Link>
           <span>·</span>

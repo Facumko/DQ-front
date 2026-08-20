@@ -2,6 +2,7 @@ import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserContext } from "../../pages/UserContext";
+import { resolveBackendPlanId, subscribeToPlan, changePlan, getPlans, getMySubscription, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
 import styles from "./CheckoutPage.module.css";
 import {
   FaShieldAlt, FaLock, FaCheckCircle, FaArrowLeft,
@@ -9,8 +10,11 @@ import {
 } from "react-icons/fa";
 
 // ── Definición de planes ─────────────────────────────────────────────────────
-// IMPORTANTE: los precios aquí son solo visuales.
-// El backend define el monto real al crear la preferencia de MP.
+// Los precios de acá son el FALLBACK visual — al montar la pantalla se pide
+// el precio real a /plan/traer (ver useEffect con getPlans más abajo) y se
+// muestra ese en su lugar. Si ese fetch falla, se usa este hardcodeado.
+// De cualquier forma, el backend define el monto real al crear la
+// preferencia de MP — el precio mostrado acá nunca afecta lo que se cobra.
 const PLANES = {
   basic: {
     id: "basic",
@@ -72,17 +76,70 @@ export default function CheckoutPage() {
 
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
+  // Precio real del backend — arranca en null y se reemplaza el precio
+  // hardcodeado de PLANES apenas llega. Si el fetch falla, nos quedamos
+  // con el hardcodeado (mejor mostrar un precio aproximado que nada,
+  // y el cobro real de todas formas lo define el backend en Mercado Pago).
+  const [realPrice, setRealPrice] = useState(null);
+  // Solo se usa en modo desarrollo, para probar con una cuenta de comprador
+  // de test de Mercado Pago sin cambiar el email real de la cuenta logueada.
+  const [testEmail, setTestEmail] = useState("");
 
-  // Redirigir si el plan no existe o no hay sesión
+  // Guarda contra suscripción duplicada: si el usuario llega acá directo
+  // (link viejo, botón "atrás", URL escrita a mano) y YA tiene una
+  // suscripción activa, no debe poder pagar de nuevo acá — eso crearía una
+  // segunda suscripción en Mercado Pago en paralelo a la existente. El
+  // cambio de plan para alguien ya suscripto se hace desde /planes
+  // (changePlan), no desde este checkout.
+  const [subscription, setSubscription] = useState(null);
+  const [checkingSub,  setCheckingSub]  = useState(true);
+
+  useEffect(() => {
+    if (!user) { setCheckingSub(false); return; }
+    let cancelled = false;
+    getMySubscription()
+      .then(sub => { if (!cancelled) setSubscription(sub || null); })
+      .catch(() => { if (!cancelled) setSubscription(null); })
+      .finally(() => { if (!cancelled) setCheckingSub(false); });
+    return () => { cancelled = true; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!plan) return;
+    let cancelled = false;
+    const planType = FRONT_PLAN_ID_TO_TYPE[plan.id];
+    getPlans()
+      .then(plans => {
+        if (cancelled || !Array.isArray(plans)) return;
+        const match = plans.find(p => p.planType === planType);
+        if (match && typeof match.price === "number") setRealPrice(match.price);
+      })
+      .catch(() => { /* silencioso — nos quedamos con el precio hardcodeado */ });
+    return () => { cancelled = true; };
+  }, [plan]);
+
+  // Redirigir si el plan no existe, no hay sesión, o ya tiene un plan activo
   useEffect(() => {
     if (!plan)  { navigate("/planes"); return; }
     if (!user)  { navigate("/planes"); return; }
+    if (checkingSub) return; // esperar a saber si tiene suscripción activa
+    if (subscription?.status === "ACTIVE") {
+      // Ya está suscripto — el cambio de plan se hace desde /planes
+      // (changePlan), no acá.
+      navigate("/planes");
+      return;
+    }
     window.scrollTo(0, 0);
     document.title = `Checkout — Plan ${plan.badge} | Dónde Queda?`;
     return () => { document.title = "Dónde Queda?"; };
-  }, [plan, user, navigate]);
+  }, [plan, user, navigate, checkingSub, subscription]);
 
   if (!plan || !user) return null;
+  if (checkingSub || subscription?.status === "ACTIVE") return null;
+
+  const displayPrice = realPrice ?? plan.precio;
+
+  const isDevMode = import.meta.env.MODE === "development";
 
   // ── Iniciar pago ──────────────────────────────────────────────────────────
   const handlePagar = async () => {
@@ -90,26 +147,34 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      // Llamada a TU backend — él crea la preferencia en MP y devuelve el init_point
-      const response = await fetch("/api/pagos/crear-preferencia", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Si usás JWT: "Authorization": `Bearer ${user.token}`
-        },
-        body: JSON.stringify({
-          planId: plan.id,
-          userId: user.id_user,
-          userEmail: user.email,
-        }),
-      });
+      // plan.id es el id "amigable" del front (basic/mid/premium); el backend
+      // necesita el idPlan numérico real, así que primero lo resolvemos
+      // contra /plan/traer (ver comentario en Api.jsx sobre este mapeo).
+      const idPlan = await resolveBackendPlanId(plan.id);
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.mensaje || "Error al iniciar el pago");
+      // El backend crea la preferencia en Mercado Pago y devuelve initPoint.
+      // testEmail solo tiene valor si estamos en modo dev y se completó el
+      // campo — si no, va undefined y el backend usa el email de la cuenta.
+      const { initPoint } = await subscribeToPlan(idPlan, isDevMode ? testEmail.trim() || null : null);
+      if (!initPoint) throw new Error("El servidor no devolvió el link de pago.");
+
+      // 🧪 SOLO DESARROLLO: forzamos el cambio de plan DESPUÉS de crear la
+      // suscripción (subscribeToPlan de arriba ya generó el registro, aunque
+      // quede en estado "pending"), para poder probar el flujo completo sin
+      // depender de completar el pago y de que el webhook (POST /webhook/mp)
+      // le avise al backend. No reemplaza el flujo real — el redirect a MP
+      // de abajo sigue pasando igual.
+      if (isDevMode) {
+        const planType = FRONT_PLAN_ID_TO_TYPE[plan.id];
+        try {
+          await changePlan(planType);
+        } catch (testErr) {
+          // Si el backend exige status ACTIVE (no solo que exista el
+          // registro), esto va a seguir fallando incluso con la suscripción
+          // recién creada — es una limitación del backend, no del front.
+          console.warn("[modo prueba] No se pudo forzar el cambio de plan:", testErr.message);
+        }
       }
-
-      const { initPoint } = await response.json();
 
       // Redirigir al checkout de Mercado Pago
       window.location.href = initPoint;
@@ -153,7 +218,7 @@ export default function CheckoutPage() {
 
               <div className={styles.priceRow}>
                 <span className={styles.priceLabel}>Total por mes</span>
-                <span className={styles.price}>{formatARS(plan.precio)}</span>
+                <span className={styles.price}>{formatARS(displayPrice)}</span>
               </div>
 
               <div className={styles.divider} />
@@ -223,7 +288,7 @@ export default function CheckoutPage() {
               <div className={styles.invoiceBox}>
                 <div className={styles.invoiceLine}>
                   <span>Plan {plan.badge}</span>
-                  <span>{formatARS(plan.precio)}</span>
+                  <span>{formatARS(displayPrice)}</span>
                 </div>
                 <div className={styles.invoiceLine}>
                   <span>Período</span>
@@ -231,9 +296,30 @@ export default function CheckoutPage() {
                 </div>
                 <div className={`${styles.invoiceLine} ${styles.invoiceTotal}`}>
                   <span>Total</span>
-                  <span>{formatARS(plan.precio)}/mes</span>
+                  <span>{formatARS(displayPrice)}/mes</span>
                 </div>
               </div>
+
+              {isDevMode && (
+                <div className={styles.devBanner}>
+                  🧪 Modo prueba: el plan se va a cambiar igual, sin depender de que completes el pago en MP.
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ display: "block", fontSize: "0.78rem", marginBottom: 4, opacity: 0.85 }}>
+                      Email de comprador de test de MP (opcional — si lo dejás vacío, se usa el email de tu cuenta)
+                    </label>
+                    <input
+                      type="email"
+                      value={testEmail}
+                      onChange={(e) => setTestEmail(e.target.value)}
+                      placeholder="TESTUSER.....@testuser.com"
+                      style={{
+                        width: "100%", padding: "8px 10px", borderRadius: 8,
+                        border: "1px solid rgba(0,0,0,0.15)", fontSize: "0.85rem",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className={styles.errorBox}>

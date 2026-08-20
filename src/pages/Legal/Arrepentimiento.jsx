@@ -2,9 +2,32 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Arrepentimiento.module.css";
 
+const LIMITS = { nombre: 60, email: 60, telefono: 10, descripcion: 500 };
+const NOMBRE_INVALIDO = /[^\p{L}\s]/gu;
+const TELEFONO_INVALIDO = /[^\d]/g;
+
+const validate = (form) => {
+  const errors = {};
+
+  if (!form.nombre.trim()) errors.nombre = "Ingresá tu nombre y apellido";
+  else if (form.nombre.trim().length < 2) errors.nombre = "El nombre es demasiado corto";
+
+  if (!form.email.trim()) errors.email = "Ingresá tu email";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = "Ingresá un email válido";
+
+  if (!form.telefono.trim()) errors.telefono = "Ingresá tu teléfono";
+  else if (form.telefono.trim().length !== LIMITS.telefono) errors.telefono = `El teléfono debe tener ${LIMITS.telefono} dígitos`;
+
+  if (!form.descripcion.trim()) errors.descripcion = "Describí la operación";
+  else if (form.descripcion.trim().length < 10) errors.descripcion = "Contanos un poco más (mínimo 10 caracteres)";
+
+  return errors;
+};
+
 const Arrepentimiento = () => {
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     nombre: "",
     email: "",
@@ -15,11 +38,22 @@ const Arrepentimiento = () => {
   });
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    let clean = value;
+    if (name === "nombre") clean = value.replace(NOMBRE_INVALIDO, "");
+    if (name === "telefono") clean = value.replace(TELEFONO_INVALIDO, "");
+    if (LIMITS[name] && clean.length > LIMITS[name]) return;
+    setForm({ ...form, [name]: clean });
+    if (errors[name]) setErrors({ ...errors, [name]: undefined });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const foundErrors = validate(form);
+    if (Object.keys(foundErrors).length > 0) {
+      setErrors(foundErrors);
+      return;
+    }
     // TODO: conectar con backend
     setSubmitted(true);
     window.scrollTo(0, 0);
@@ -92,8 +126,10 @@ const Arrepentimiento = () => {
                   value={form.nombre}
                   onChange={handleChange}
                   placeholder="Ej: Juan Pérez"
+                  maxLength={LIMITS.nombre}
                   required
                 />
+                {errors.nombre && <small className={styles.errorMessage}>{errors.nombre}</small>}
               </div>
               <div className={styles.formGroup}>
                 <label>Email de contacto *</label>
@@ -103,21 +139,27 @@ const Arrepentimiento = () => {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="tucorreo@ejemplo.com"
+                  maxLength={LIMITS.email}
                   required
                 />
+                {errors.email && <small className={styles.errorMessage}>{errors.email}</small>}
               </div>
             </div>
 
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
-                <label>Teléfono</label>
+                <label>Teléfono *</label>
                 <input
                   type="tel"
                   name="telefono"
                   value={form.telefono}
                   onChange={handleChange}
-                  placeholder="+54 9 362 000-0000"
+                  placeholder="3644123456"
+                  maxLength={LIMITS.telefono}
+                  inputMode="numeric"
+                  required
                 />
+                {errors.telefono && <small className={styles.errorMessage}>{errors.telefono}</small>}
               </div>
               <div className={styles.formGroup}>
                 <label>Fecha de la operación *</label>
@@ -155,8 +197,11 @@ const Arrepentimiento = () => {
                 onChange={handleChange}
                 rows={4}
                 placeholder="Describí brevemente la operación que querés revocar..."
+                maxLength={LIMITS.descripcion}
                 required
               />
+              <small className={styles.charCount}>{form.descripcion.length}/{LIMITS.descripcion}</small>
+              {errors.descripcion && <small className={styles.errorMessage}>{errors.descripcion}</small>}
             </div>
 
             <div className={styles.formFooter}>
@@ -175,7 +220,7 @@ const Arrepentimiento = () => {
           <p>
             También podés enviarnos un email directamente a{" "}
             <a href="mailto:desarrollomf.arg@gmail.com">desarrollomf.arg@gmail.com</a>{" "}
-            indicando en el asunto <em>"Solicitud de arrepentimiento"</em>.
+            indicando en el asunto <em>&quot;Solicitud de arrepentimiento&quot;</em>.
           </p>
         </div>
       </div>
