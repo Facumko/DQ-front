@@ -1,7 +1,7 @@
 // Fuente única de verdad para la info visual de los planes (features y
 // límites). Los PRECIOS reales siempre se piden al backend con getPlans()
-// (ver Plans.jsx / PlanStep.jsx) — acá solo van textos y límites de
-// referencia para no repetir listas hardcodeadas en varios lugares.
+// (ver Plans.jsx) — acá solo van textos y límites de referencia para no
+// repetir listas hardcodeadas en varios lugares.
 //
 // Si cambian los límites reales en la BD, actualizar acá (idealmente esto
 // terminaría leyendo maxCommerces/maxPostsPerDay/maxEventsPerDay directo

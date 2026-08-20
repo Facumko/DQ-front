@@ -10,7 +10,7 @@ const formatARS = (n) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
 // highlight (tarjeta destacada) es solo un detalle visual de esta pantalla,
-// no forma parte de la config compartida con PlanStep.
+// no forma parte de la config compartida (data/plansConfig.js).
 const PLANS = PLANS_CONFIG.map(p => ({ ...p, highlight: false }));
 
 const FAQS = [
