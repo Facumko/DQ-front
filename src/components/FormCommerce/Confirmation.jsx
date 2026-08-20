@@ -3,18 +3,6 @@ import { FaCheckCircle, FaArrowLeft, FaTimes } from "react-icons/fa";
 import "./Confirmation.css";
 import "./FormStep.css";
 
-const PLAN_NAMES = {
-  basic:   "Básico — Punto de Encuentro",
-  mid:     "Intermedio — Lugar en el Mapa",
-  premium: "Premium — Referente de la Ciudad",
-};
-
-const PLAN_COLORS = {
-  basic:   { color: "#0369a1", bg: "#e0f2fe" },
-  mid:     { color: "#b45309", bg: "#fef3c7" },
-  premium: { color: "#9d174d", bg: "#fce7f3" },
-};
-
 function Row({ label, value }) {
   if (!value) return null;
   return (
@@ -37,8 +25,6 @@ function Section({ title, children }) {
 function Confirmation({ data, onSuccess, isSubmitting, onBack }) {
   const navigate = useNavigate();
 
-  const planColor = PLAN_COLORS[data?.selectedPlan] || PLAN_COLORS.basic;
-
   return (
     <div className="form-step fade-in">
       <div className="confirm-header">
@@ -52,13 +38,6 @@ function Confirmation({ data, onSuccess, isSubmitting, onBack }) {
       </div>
 
       <div className="confirm-preview">
-
-        {/* Plan contratado */}
-        <Section title="Plan contratado">
-          <div className="confirm-plan-badge" style={{ background: planColor.bg, color: planColor.color }}>
-            {PLAN_NAMES[data?.selectedPlan] || "—"}
-          </div>
-        </Section>
 
         {/* Propietario */}
         <Section title="Datos del propietario">
