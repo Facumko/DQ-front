@@ -81,14 +81,9 @@ export default function CheckoutPage() {
   // con el hardcodeado (mejor mostrar un precio aproximado que nada,
   // y el cobro real de todas formas lo define el backend en Mercado Pago).
   const [realPrice, setRealPrice] = useState(null);
-  // Email de comprador de test de Mercado Pago. Se puede precargar desde
-  // VITE_MP_TEST_EMAIL (configurable en Netlify > Site settings > Environment
-  // variables) para que se mande automático sin depender de modo desarrollo
-  // ni de completar el campo a mano en cada deploy. Si esa env var no está
-  // seteada, arranca vacío y se usa el email real de la cuenta (comportamiento
-  // normal / producción real).
-  const mpTestEmailFromEnv = import.meta.env.VITE_MP_TEST_EMAIL || "";
-  const [testEmail, setTestEmail] = useState(mpTestEmailFromEnv);
+  // Solo se usa en modo desarrollo, para probar con una cuenta de comprador
+  // de test de Mercado Pago sin cambiar el email real de la cuenta logueada.
+  const [testEmail, setTestEmail] = useState("");
 
   // Guarda contra suscripción duplicada: si el usuario llega acá directo
   // (link viejo, botón "atrás", URL escrita a mano) y YA tiene una
@@ -145,11 +140,6 @@ export default function CheckoutPage() {
   const displayPrice = realPrice ?? plan.precio;
 
   const isDevMode = import.meta.env.MODE === "development";
-  // El banner y el envío automático del email de test se activan en modo
-  // dev local O cuando hay un VITE_MP_TEST_EMAIL configurado (útil para
-  // probar el flujo de pago en un deploy de Netlify sin exponer esto a
-  // usuarios reales, ya que la env var solo la seteás vos a propósito).
-  const showTestBanner = isDevMode || !!mpTestEmailFromEnv;
 
   // ── Iniciar pago ──────────────────────────────────────────────────────────
   const handlePagar = async () => {
@@ -163,10 +153,9 @@ export default function CheckoutPage() {
       const idPlan = await resolveBackendPlanId(plan.id);
 
       // El backend crea la preferencia en Mercado Pago y devuelve initPoint.
-      // testEmail solo tiene valor si estamos en modo dev/test (banner activo)
-      // y se completó el campo — si no, va null y el backend usa el email
-      // real de la cuenta.
-      const { initPoint } = await subscribeToPlan(idPlan, showTestBanner ? testEmail.trim() || null : null);
+      // testEmail solo tiene valor si estamos en modo dev y se completó el
+      // campo — si no, va undefined y el backend usa el email de la cuenta.
+      const { initPoint } = await subscribeToPlan(idPlan, isDevMode ? testEmail.trim() || null : null);
       if (!initPoint) throw new Error("El servidor no devolvió el link de pago.");
 
       // 🧪 SOLO DESARROLLO: forzamos el cambio de plan DESPUÉS de crear la
@@ -311,10 +300,9 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {showTestBanner && (
+              {isDevMode && (
                 <div className={styles.devBanner}>
-                  🧪 Modo prueba: se va a usar un comprador de test de Mercado Pago.
-                  {isDevMode && " El plan se va a cambiar igual, sin depender de que completes el pago en MP."}
+                  🧪 Modo prueba: el plan se va a cambiar igual, sin depender de que completes el pago en MP.
                   <div style={{ marginTop: 10 }}>
                     <label style={{ display: "block", fontSize: "0.78rem", marginBottom: 4, opacity: 0.85 }}>
                       Email de comprador de test de MP (opcional — si lo dejás vacío, se usa el email de tu cuenta)
