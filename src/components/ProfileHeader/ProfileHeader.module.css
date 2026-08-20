@@ -734,6 +734,30 @@
   gap: 20px;
 }
 
+/* Botón "+ Ver más publicaciones" — mismo patrón que el feed del Home:
+   se listan solo las primeras 3 y el resto queda atrás de este botón. */
+.loadMoreContainer {
+  text-align: center;
+  margin-top: -4px;
+}
+.loadMoreBtn {
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color var(--transition), color var(--transition), transform var(--transition);
+}
+.loadMoreBtn:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  transform: translateY(-1px);
+}
+
 .postCard {
   background: var(--white);
   border-radius: var(--radius-lg);
