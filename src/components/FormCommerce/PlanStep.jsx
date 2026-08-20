@@ -1,56 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { getPlans, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
+import { PLANS_CONFIG } from "../../data/plansConfig";
 import "./FormStep.css";
 import "./PlanStep.css";
 
-// Mismos planes que Plans.jsx — fuente de verdad visual en el frontend
-const PLANES = [
-  {
-    id: "basic",
-    badge: "Básico",
-    name: "Punto de Encuentro",
-    tagline: "Para empezar a estar en el mapa",
-    precio: 4500,
-    color: "#0369a1",
-    colorBg: "#e0f2fe",
-    features: [
-      "1 perfil de comercio",
-      "Información completa del comercio",
-      "Imagen de perfil y portada",
-      "Aparición en sección destacada por categoría",
-      "Hasta 5 imágenes en el perfil",
-    ],
-  },
-  {
-    id: "mid",
-    badge: "Intermedio",
-    name: "Lugar en el Mapa",
-    tagline: "Conectá con tu comunidad",
-    precio: 7900,
-    color: "#b45309",
-    colorBg: "#fef3c7",
-    popular: false,
-    features: [
-      "Todo lo del plan Básico",
-      "Publicaciones en el feed",
-    ],
-  },
-  {
-    id: "premium",
-    badge: "Premium",
-    name: "Referente de la Ciudad",
-    tagline: "Máxima visibilidad y presencia",
-    precio: 12900,
-    color: "#9d174d",
-    colorBg: "#fce7f3",
-    features: [
-      "Todo lo del plan Intermedio",
-      "Creación de eventos",
-      "Aparición en carrusel principal",
-      "Múltiples perfiles de comercio",
-    ],
-  },
-];
+// Mismos planes que Plans.jsx (fuente única en /data/plansConfig.js).
+// Acá solo se muestran las features incluidas (included: true).
+const PLANES = PLANS_CONFIG.map(p => ({
+  ...p,
+  features: p.features.filter(f => f.included).map(f => f.text),
+}));
 
 const formatARS = (n) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
@@ -58,6 +18,28 @@ const formatARS = (n) =>
 export default function PlanStep({ selectedPlan, onSelect, onCancel }) {
   const [hovered, setHovered] = useState(null);
   const [chosen,  setChosen]  = useState(selectedPlan || null);
+
+  // Precio real del backend, igual que en Plans.jsx — nunca se muestra un
+  // precio inventado. Mientras carga o si falla, se oculta el monto.
+  const [realPrices, setRealPrices] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    const typeToFrontId = Object.fromEntries(
+      Object.entries(FRONT_PLAN_ID_TO_TYPE).map(([frontId, type]) => [type, frontId])
+    );
+    getPlans()
+      .then(plans => {
+        if (cancelled || !Array.isArray(plans)) return;
+        const prices = {};
+        plans.forEach(p => {
+          const frontId = typeToFrontId[p.planType];
+          if (frontId && typeof p.price === "number") prices[frontId] = p.price;
+        });
+        setRealPrices(prices);
+      })
+      .catch(() => { /* silencioso — se oculta el precio */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleConfirm = () => {
     if (chosen) onSelect(chosen);
@@ -106,8 +88,14 @@ export default function PlanStep({ selectedPlan, onSelect, onCancel }) {
               </div>
 
               <div className="plan-step-price">
-                <span className="plan-step-price-amount">{formatARS(plan.precio)}</span>
-                <span className="plan-step-price-period">/mes</span>
+                {realPrices[plan.id] != null ? (
+                  <>
+                    <span className="plan-step-price-amount">{formatARS(realPrices[plan.id])}</span>
+                    <span className="plan-step-price-period">/mes</span>
+                  </>
+                ) : (
+                  <span className="plan-step-price-amount">$—</span>
+                )}
               </div>
 
               <ul className="plan-step-features">

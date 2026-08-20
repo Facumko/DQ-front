@@ -15,7 +15,9 @@ import {
   toLocalDateTime, getEventsByCommerce,
   getMisPromociones, getPromotionTags,
   createPromotion, updatePromotion, uploadPromotionImage,
+  getMySubscription,
 } from "../../Api/Api";
+import { cheapestPlanWithEvents } from "../../data/plansConfig";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
          Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
@@ -280,6 +282,58 @@ const ProfileHeader = ({
   const [planAccess, setPlanAccess] = useState(null);
   const [showPlanRestrictedModal, setShowPlanRestrictedModal] = useState(false);
   const navigate = useNavigate();
+
+  // Suscripción real del dueño — se usa para deshabilitar de entrada
+  // acciones que su plan no permite (ej. crear eventos), en vez de dejarlo
+  // intentar y recién ahí mostrar un error del backend.
+  const [subscription, setSubscription] = useState(null);
+  useEffect(() => {
+    if (!isOwner) return;
+    let cancelled = false;
+    getMySubscription()
+      .then(sub => { if (!cancelled) setSubscription(sub || null); })
+      .catch(() => { if (!cancelled) setSubscription(null); });
+    return () => { cancelled = true; };
+  }, [isOwner]);
+
+  const eventsAllowed = subscription?.status === "ACTIVE"
+    && (subscription.plan?.maxEventsPerDay ?? 0) > 0;
+
+  // Promociones: regla confirmada de negocio, solo plan Premium. Se chequea
+  // contra la suscripción real del usuario (proactivo) — no contra si el
+  // backend devolvió o no un 403 al pedir promociones, porque si el backend
+  // no bloquea a Intermedio ahí, el front nunca se enteraba de que debía
+  // bloquearlo igual. `planAccess` (seteado por loadPromotions) se mantiene
+  // como red de seguridad extra por si el backend bloquea algo que acá no
+  // contemplamos.
+  const promotionsAllowed = subscription?.status === "ACTIVE"
+    && subscription.plan?.planType === "PREMIUM"
+    && !(planAccess && !planAccess.allowed);
+
+  // Mensajes de restricción de plan para post/evento — separados del estado
+  // `planAccess` de arriba, que es EXCLUSIVO del flujo de promociones (lo
+  // completa loadPromotions() a partir de un 403 real al pedir promos). Antes,
+  // el catch de handleSubmitPost pisaba planAccess con cualquier 403 de post
+  // o evento, lo cual además bloqueaba el botón de "Crear Promoción" por un
+  // error que no tenía nada que ver.
+  const [actionRestriction, setActionRestriction] = useState(null);
+  const [showActionRestrictedModal, setShowActionRestrictedModal] = useState(false);
+
+  const buildActionRestrictionMessage = (kind) => {
+    if (kind === "event") {
+      return {
+        title: "Creación de eventos no disponible",
+        message: `Tu plan actual no incluye la creación de eventos. Necesitás el plan ${cheapestPlanWithEvents?.badge ?? "Premium"} para desbloquear esta función.`,
+      };
+    }
+    const max = subscription?.plan?.maxPostsPerDay;
+    return {
+      title: "Límite de publicaciones alcanzado",
+      message: max
+        ? `Tu plan permite hasta ${max} publicaciones por día y ya alcanzaste ese límite. Esperá a mañana o mejorá tu plan para publicar más seguido.`
+        : "Alcanzaste el límite de publicaciones diarias de tu plan. Mejorá tu plan para publicar más seguido.",
+    };
+  };
 
   // Deep-link desde las cajas del Home: /negocios/:id?tab=posts&item=123
   const [searchParams] = useSearchParams();
@@ -1006,8 +1060,9 @@ const ProfileHeader = ({
       setShowModal(false);
     } catch (err) {
       if (err.isPlanError) {
-        setPlanAccess({ allowed: false });
-        setShowPlanRestrictedModal(true);
+        const { title, message } = buildActionRestrictionMessage(modalType === "event" ? "event" : "post");
+        setActionRestriction({ title, message });
+        setShowActionRestrictedModal(true);
       } else {
         flashError(err.message || "Error al guardar");
       }
@@ -1061,7 +1116,7 @@ const ProfileHeader = ({
   };
 
   const handleOpenPromotionModal = () => {
-    if (planAccess && !planAccess.allowed) { setShowPlanRestrictedModal(true); return; }
+    if (!promotionsAllowed) { setShowPlanRestrictedModal(true); return; }
     setPromotionFormError("");
     setEditingPromotion(null);
     setShowPromotionModal(true);
@@ -1528,7 +1583,19 @@ const ProfileHeader = ({
                 <button className={styles.btnCreate} onClick={() => openModal("post")} disabled={loading.creatingPost}>
                   <Plus size={15}/> Publicación
                 </button>
-                <button className={styles.btnCreateSecondary} onClick={() => openModal("event")} disabled={loading.creatingPost}>
+                <button
+                  className={styles.btnCreateSecondary}
+                  onClick={() => {
+                    if (!eventsAllowed) {
+                      const { title, message } = buildActionRestrictionMessage("event");
+                      setActionRestriction({ title, message });
+                      setShowActionRestrictedModal(true);
+                      return;
+                    }
+                    openModal("event");
+                  }}
+                  disabled={loading.creatingPost}
+                >
                   <Plus size={15}/> Evento
                 </button>
                 {activeTab === "promotions" && (
@@ -1656,12 +1723,12 @@ const ProfileHeader = ({
         )}
 
         {activeTab === "promotions" && isOwner && (
-          planAccess && !planAccess.allowed ? (
+          !promotionsAllowed ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyIconWrap}><Sparkles size={24} /></div>
-              <p className={styles.emptyTitle}>Necesitás un plan superior</p>
+              <p className={styles.emptyTitle}>Necesitás el plan Premium</p>
               <p className={styles.emptyDesc}>
-                Para poder crear promociones necesitás tener un plan superior activo.
+                Crear promociones está disponible solo en el plan Premium.
                 Mejorá tu plan para destacar tu negocio en el carrusel principal.
               </p>
               <button
@@ -1720,6 +1787,14 @@ const ProfileHeader = ({
         isOpen={showPlanRestrictedModal}
         onClose={() => setShowPlanRestrictedModal(false)}
         onUpgrade={handleUpgradePlan}
+      />
+
+      <PlanRestrictedModal
+        isOpen={showActionRestrictedModal}
+        onClose={() => setShowActionRestrictedModal(false)}
+        onUpgrade={() => { setShowActionRestrictedModal(false); navigate("/planes"); }}
+        title={actionRestriction?.title}
+        message={actionRestriction?.message}
       />
     </div>
   );

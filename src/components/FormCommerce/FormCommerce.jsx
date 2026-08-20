@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
-import { createBusiness, setCommerceCategory, addCommerceSubcategories } from "../../Api/Api";
+import { createBusiness, setCommerceCategory, addCommerceSubcategories, getMySubscription } from "../../Api/Api";
 import PlanRestrictedModal from "../ProfileHeader/PlanRestrictedModal";
 import ProgressBar from "./ProgressBar";
 import PlanStep from "./PlanStep";
@@ -14,12 +14,19 @@ const STEPS = ["Plan", "Propietario", "Negocio", "Confirmación"];
 
 function FormCommerce() {
   const navigate = useNavigate();
-  const { user, loadBusinesses, openLoginModal } = useContext(UserContext);
+  const { user, businesses, loadBusinesses, openLoginModal } = useContext(UserContext);
 
   const [currentStep,      setCurrentStep]     = useState(1);
   const [isSubmitting,     setIsSubmitting]     = useState(false);
   const [checkingBusiness, setCheckingBusiness] = useState(true);
-  const [showPlanRestrictedModal, setShowPlanRestrictedModal] = useState(false);
+
+  // Límite de comercios: lo chequeamos nosotros contra la suscripción real
+  // ANTES de dejar avanzar el alta, en vez de dejar que el usuario llene
+  // todo el formulario y recién ahí reciba el 403 del backend (que además
+  // hoy dispara el modal de "necesitás plan superior para promociones",
+  // mensaje que no corresponde acá).
+  const [commerceLimitReached, setCommerceLimitReached] = useState(false);
+  const [limitInfo, setLimitInfo] = useState(null); // { max, planBadge }
 
   const [formData, setFormData] = useState({
     selectedPlan:        "",
@@ -42,8 +49,20 @@ function FormCommerce() {
 
   useEffect(() => {
     if (!user?.id_user) { openLoginModal(); return; }
-    setCheckingBusiness(false);
-  }, [user, openLoginModal]);
+    let cancelled = false;
+    getMySubscription()
+      .then(sub => {
+        if (cancelled) return;
+        const max = sub?.status === "ACTIVE" ? sub.plan?.maxCommerces : 1; // sin suscripción activa, 1 comercio (plan Básico implícito)
+        if (typeof max === "number" && businesses.length >= max) {
+          setCommerceLimitReached(true);
+          setLimitInfo({ max, planBadge: sub?.plan?.planType || "actual" });
+        }
+      })
+      .catch(() => { /* si falla el chequeo, no bloqueamos — el backend valida igual */ })
+      .finally(() => { if (!cancelled) setCheckingBusiness(false); });
+    return () => { cancelled = true; };
+  }, [user, businesses, openLoginModal]);
 
   const updateFormData = useCallback(
     (data) => setFormData(prev => ({ ...prev, ...data })),
@@ -108,7 +127,9 @@ function FormCommerce() {
       navigate(`/negocios/${created.id_business}`);
     } catch (err) {
       if (err.isPlanError) {
-        setShowPlanRestrictedModal(true);
+        // Ya deberíamos haber bloqueado esto antes (ver commerceLimitReached),
+        // esto es solo red de seguridad si el chequeo previo falló o quedó desactualizado.
+        setCommerceLimitReached(true);
       } else {
         alert(`Error al crear el negocio: ${err.message}`);
       }
@@ -175,9 +196,15 @@ function FormCommerce() {
       </div>
 
       <PlanRestrictedModal
-        isOpen={showPlanRestrictedModal}
-        onClose={() => setShowPlanRestrictedModal(false)}
+        isOpen={commerceLimitReached}
+        onClose={() => setCommerceLimitReached(false)}
         onUpgrade={() => navigate("/planes")}
+        title="Llegaste al límite de comercios de tu plan"
+        message={
+          limitInfo
+            ? `Tu plan actual permite hasta ${limitInfo.max} comercio${limitInfo.max === 1 ? "" : "s"}. Mejorá tu plan para agregar otro.`
+            : "Tu plan actual no permite agregar otro comercio. Mejorá tu plan para agregar otro."
+        }
       />
     </div>
   );

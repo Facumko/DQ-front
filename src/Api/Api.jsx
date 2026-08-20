@@ -430,7 +430,14 @@ const validateApiResponse = (response, endpoint) => {
 };
 const handleApiError = (error, endpoint) => {
   if (isDevelopment) console.error(`❌ Error en ${endpoint}:`, error);
-  if (!error.response) { if (error.code==='ECONNABORTED') return new Error('⏱️ Timeout.'); return new Error(`🔌 No se pudo conectar al servidor en ${API_URL}`); }
+  if (!error.response) {
+    if (error.code === 'ECONNABORTED') return new Error('⏱️ La operación tardó demasiado. Intentá de nuevo.');
+    // Sin response = falla de red o el backend tiró una excepción sin headers
+    // CORS válidos (el navegador lo reporta como si no hubiera respuesta).
+    // Nunca mostramos la URL real del servidor al usuario — solo queda en consola.
+    if (isDevelopment) console.error(`🔌 Sin respuesta del servidor en ${API_URL} — endpoint: ${endpoint}`, error);
+    return new Error('No pudimos completar la operación. Revisá que todos los campos obligatorios estén completos e intentá de nuevo.');
+  }
   const { status, data } = error.response;
   const serverMessage = (data?.message || data?.error || data?.mensaje || '').toLowerCase();
   let errorMsg = '';

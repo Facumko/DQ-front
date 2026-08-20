@@ -3,73 +3,15 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import { getPlans, getMySubscription, changePlan, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
+import { PLANS_CONFIG } from "../../data/plansConfig";
 import styles from "./Plans.module.css";
 
 const formatARS = (n) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
-const PLANS = [
-  {
-    id: "basic",
-    badge: "Básico",
-    name: "Punto de Encuentro",
-    tagline: "Para empezar a estar en el mapa",
-    color: "#0369a1",
-    colorBg: "#e0f2fe",
-    highlight: false,
-    features: [
-      { text: "1 perfil de comercio", included: true },
-      { text: "Información completa del comercio", included: true },
-      { text: "Imagen de perfil y portada", included: true },
-      { text: "Aparición en sección destacada por categoría", included: true },
-      { text: "Hasta 5 imágenes en el perfil", included: true },
-      { text: "Publicaciones en el feed", included: false },
-      { text: "Creación de eventos", included: false },
-      { text: "Aparición en carrusel principal", included: false },
-      { text: "Más de un perfil de comercio", included: false },
-    ],
-  },
-  {
-    id: "mid",
-    badge: "Intermedio",
-    name: "Lugar en el Mapa",
-    tagline: "Conectá con tu comunidad",
-    color: "#b45309",
-    colorBg: "#fef3c7",
-    highlight: false,
-    features: [
-      { text: "1 perfil de comercio", included: true },
-      { text: "Información completa del comercio", included: true },
-      { text: "Imagen de perfil y portada", included: true },
-      { text: "Aparición en sección destacada por categoría", included: true },
-      { text: "Hasta 10 imágenes en el perfil", included: true },
-      { text: "10 publicaciones en el feed por día", included: true },
-      { text: "Creación de eventos", included: false },
-      { text: "Aparición en carrusel principal", included: false },
-      { text: "Más de un perfil de comercio", included: false },
-    ],
-  },
-  {
-    id: "premium",
-    badge: "Premium",
-    name: "Referente de la Ciudad",
-    tagline: "Máxima visibilidad y presencia",
-    color: "#9d174d",
-    colorBg: "#fce7f3",
-    highlight: false,
-    features: [
-      { text: "Múltiples perfiles de comercio", included: true },
-      { text: "Información completa del comercio", included: true },
-      { text: "Imagen de perfil y portada", included: true },
-      { text: "Aparición en sección destacada", included: true },
-      { text: "Hasta 20 imágenes en el perfil", included: true },
-      { text: "Publicaciones ilimitadas en el feed", included: true },
-      { text: "Creación de eventos", included: true },
-      { text: "Aparición en carrusel principal", included: true },
-      { text: "Más de un perfil de comercio", included: true },
-    ],
-  },
-];
+// highlight (tarjeta destacada) es solo un detalle visual de esta pantalla,
+// no forma parte de la config compartida con PlanStep.
+const PLANS = PLANS_CONFIG.map(p => ({ ...p, highlight: false }));
 
 const FAQS = [
   {
@@ -395,11 +337,10 @@ export default function Planes() {
                 ["Perfil de comercio",                    true,  true,  true ],
                 ["Información + imagen de perfil y portada", true,  true,  true ],
                 ["Sección destacada por categoría",       true,  true,  true ],
-                ["Hasta 5 imágenes en el perfil",         true,  true,  true ],
-                ["Publicaciones en el feed",              false, true,  true ],
+                ["Publicaciones en el feed",              true,  true,  true ],
                 ["Creación de eventos",                   false, false, true ],
                 ["Carrusel en página principal",          false, false, true ],
-                ["Más de un perfil de comercio",          false, false, true ],
+                ["Más de un perfil de comercio",          false, true,  true ],
               ].map(([label, basic, mid, premium], i) => (
                 <tr key={i}>
                   <td className={styles.featLabel}>{label}</td>
