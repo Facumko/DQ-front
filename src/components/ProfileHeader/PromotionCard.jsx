@@ -43,8 +43,6 @@ const PromotionCard = ({ promotion, onEdit, onDeleted, onStatusChanged, onError 
   const [metricsLoading, setMetricsLoading] = useState(false);
 
   const isActive = promotion.status === "ACTIVE";
-  const isPaused = promotion.status === "PAUSED";
-  const isDraft  = promotion.status === "DRAFT";
 
   // Cargar métricas solo si está ACTIVE
   useEffect(() => {
@@ -131,18 +129,15 @@ const PromotionCard = ({ promotion, onEdit, onDeleted, onStatusChanged, onError 
           )}
 
           {/* Tags */}
-          {Array.isArray(promotion.tags) && promotion.tags.length > 0 && (
-            <div className={styles.tagsRow}>
-              {promotion.tags.map((tag, i) => {
-                const tagName = tag.nameTag || tag.name || tag;
-                return (
-                  <span key={i} className={styles.tagChip}>
-                    <Tag size={10} /> {tagName}
-                  </span>
-                );
-              })}
-            </div>
-          )}
+            {promotion.tags.map((tag, i) => {
+              const tagName = tag.nameTag || tag.name || tag;
+              return (
+                <span key={i} className={styles.tagChip}>
+                  <Tag size={10} /> {tagName}
+                </span>
+              );
+            })}
+
           {/* Redirect */}
           {redirectLabel && (
             <div className={styles.redirectRow}>

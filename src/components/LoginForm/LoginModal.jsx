@@ -15,6 +15,28 @@ import { FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaCheckCircle, FaArrowLeft } f
 
 const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.3:8080";
 
+// Puras (no dependen de props/estado del componente): las sacamos afuera
+// para que sean estables entre renders, en vez de recrearse cada vez.
+const COOLDOWN_SECS = 60;
+const MAX_RESENDS   = 3;
+const LS_KEY        = (e) => `dq_reset_${e}`;
+
+const getPersistedState = (em) => {
+  if (!em) return { count: 0, secondsLeft: 0 };
+  try {
+    const raw = localStorage.getItem(LS_KEY(em));
+    if (!raw) return { count: 0, secondsLeft: 0 };
+    const { count, lastSentAt } = JSON.parse(raw);
+    const secondsLeft = Math.max(0, COOLDOWN_SECS - Math.floor((Date.now() - lastSentAt) / 1000));
+    return { count, secondsLeft };
+  } catch { return { count: 0, secondsLeft: 0 }; }
+};
+
+const persistSend = (em) => {
+  const { count } = getPersistedState(em);
+  localStorage.setItem(LS_KEY(em), JSON.stringify({ count: count + 1, lastSentAt: Date.now() }));
+};
+
 export default function LoginModal({ onClose }) {
   const { login, register, loading, error, clearError, isLocked } = useContext(UserContext);
 
@@ -36,27 +58,6 @@ export default function LoginModal({ onClose }) {
   // Reset
   const [resetEmail, setResetEmail] = useState("");
 
-  // Cooldown
-  const COOLDOWN_SECS = 60;
-  const MAX_RESENDS   = 3;
-  const LS_KEY        = (e) => `dq_reset_${e}`;
-
-  const getPersistedState = (em) => {
-    if (!em) return { count: 0, secondsLeft: 0 };
-    try {
-      const raw = localStorage.getItem(LS_KEY(em));
-      if (!raw) return { count: 0, secondsLeft: 0 };
-      const { count, lastSentAt } = JSON.parse(raw);
-      const secondsLeft = Math.max(0, COOLDOWN_SECS - Math.floor((Date.now() - lastSentAt) / 1000));
-      return { count, secondsLeft };
-    } catch { return { count: 0, secondsLeft: 0 }; }
-  };
-
-  const persistSend = (em) => {
-    const { count } = getPersistedState(em);
-    localStorage.setItem(LS_KEY(em), JSON.stringify({ count: count + 1, lastSentAt: Date.now() }));
-  };
-
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendCount,    setResendCount]    = useState(0);
   const [localError,     setLocalError]     = useState("");
@@ -74,7 +75,7 @@ export default function LoginModal({ onClose }) {
     if ((step === "login" || step === "register") && passwordRef.current) passwordRef.current.focus();
   }, [step]);
 
-  useEffect(() => { if (localError) setLocalError(""); }, [email, loginPassword, registerPassword, confirmPassword]);
+  useEffect(() => { if (localError) setLocalError(""); }, [email, loginPassword, registerPassword, confirmPassword, localError]);
   useEffect(() => { return () => { if (clearError) clearError(); }; }, [clearError]);
 
   useEffect(() => {
@@ -226,10 +227,10 @@ export default function LoginModal({ onClose }) {
     const deviceId = getOrCreateDeviceId();
     const deviceName = getDeviceName();
 
-    // Usar ruta relativa para pasar por el proxy de Vite en local
-    // Incluir device_id y device_name como query params requeridos por el backend
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.3:8080';
-    window.location.href = `/oauth2/authorization/${provider.toLowerCase()}`;
+    // Usar ruta relativa para pasar por el proxy de Vite en local.
+    // Incluir device_id y device_name como query params requeridos por el backend.
+    const params = new URLSearchParams({ device_id: deviceId, device_name: deviceName });
+    window.location.href = `/oauth2/authorization/${providerKey}?${params.toString()}`;
   };
 
   // ── Sub-componentes ───────────────────────────────────────────────────────

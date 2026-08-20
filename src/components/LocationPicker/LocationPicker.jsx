@@ -66,7 +66,7 @@ export default function LocationPicker({ value, onChange, label = "Ubicación de
       setMapCenter({ lat: value.lat, lng: value.lng });
       if (value.address) setSearchQuery(value.address);
     }
-  }, []);
+  }, [value?.lat, value?.lng, value?.address]);
 
   // ── Geocoding con Nominatim (OpenStreetMap, gratuito) ──────────────────────
   const searchAddress = useCallback(async (query) => {

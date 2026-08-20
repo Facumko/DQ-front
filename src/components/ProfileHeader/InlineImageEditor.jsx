@@ -53,9 +53,13 @@ export const CoverEditor = ({
   const [confirmed,     setConfirmed]     = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
+  // Reseteamos solo cuando cambia el ARCHIVO en sí (detectado por su
+  // previewUrl), no cada vez que cambia cualquier otra propiedad de
+  // pendingFile — si dependiéramos del objeto completo, se resetearían
+  // zoom/posición en medio de una edición sin que el usuario cargara nada nuevo.
   useEffect(() => {
     if (pendingFile) { setPosY(50); setZoom(1); setConfirmed(false); }
-  }, [pendingFile?.previewUrl]);
+  }, [pendingFile?.previewUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!pendingFile) setConfirmed(false);
@@ -267,6 +271,9 @@ export const AvatarEditor = ({
   const [confirmed,     setConfirmed]     = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
+  // Mismo motivo que el otro useEffect de este archivo: reseteamos solo
+  // cuando cambia el archivo en sí (previewUrl), no en cada cambio de
+  // pendingFile.
   useEffect(() => {
     if (pendingFile) {
       setZoom(1); setOffset({ x: 50, y: 50 });
@@ -274,7 +281,7 @@ export const AvatarEditor = ({
     } else {
       setExpanded(false); setConfirmed(false);
     }
-  }, [pendingFile?.previewUrl]);
+  }, [pendingFile?.previewUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canDrag = pendingFile && !confirmed;
 
