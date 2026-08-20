@@ -372,12 +372,20 @@ const Home = () => {
 
   const normalizeFeedPost = (p) => {
     const d = p.data || p;
+    // El feed mezcla PostResponseDto y EventResponseDto, y cada uno expone el
+    // comercio dueño con una key distinta: los posts traen commerceName/nameCommerce
+    // planos, los eventos traen todo adentro de "commerceOwner". Sin este fallback,
+    // un evento en el feed queda con nombre/id/logo vacíos.
+    const commerce = d.commerceOwner || d.commerce || {};
+    const isEvent  = d.idEvent != null;
+
     return {
-      id:           d.idPost       || d.id,
-      idPost:       d.idPost       || d.id,
-      businessName: d.commerceName || d.nameCommerce || d.businessName || d.commerce?.name || "Sin nombre",
-      businessId:   d.commerceId   || d.idCommerce   || d.businessId   || d.commerce?.idCommerce,
-      businessLogo: p.commerceProfileImageUrl || d.commerceProfileImage || d.profileImageCommerce || d.commerce?.profileImage?.url || null,
+      id:           d.idPost || d.idEvent || d.id,
+      idPost:       d.idPost || d.id, // ojo: sigue siendo solo para posts (ver isEvent abajo)
+      isEvent,
+      businessName: d.commerceName || d.nameCommerce || d.businessName || commerce.name || "Sin nombre",
+      businessId:   d.commerceId   || d.idCommerce   || d.businessId   || commerce.idCommerce,
+      businessLogo: p.commerceProfileImageUrl || d.commerceProfileImage || d.profileImageCommerce || commerce.profileImage?.url || null,
       timeAgo:      p.createdAt    || d.postedAt || d.createdAt || "",
       content:      d.description  || d.text || "",
       images: Array.isArray(d.images)
@@ -794,13 +802,15 @@ useEffect(() => {
                       <span>Compartir</span>
                     </button>
                   </div>
-                  <button
-                    className={`${styles.postActionBtn} ${isSaved ? styles.postActionBtnActive : ""}`}
-                    onClick={() => handleToggleSave(post)}
-                    title={isSaved ? "Guardado" : "Guardar"}
-                  >
-                    <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
-                  </button>
+                  {!post.isEvent && (
+                    <button
+                      className={`${styles.postActionBtn} ${isSaved ? styles.postActionBtnActive : ""}`}
+                      onClick={() => handleToggleSave(post)}
+                      title={isSaved ? "Guardado" : "Guardar"}
+                    >
+                      <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
+                    </button>
+                  )}
                 </div>
 
                 {post.content && (
