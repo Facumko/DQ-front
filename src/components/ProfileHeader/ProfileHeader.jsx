@@ -312,6 +312,11 @@ const ProfileHeader = ({
       return next;
     });
   };
+  // Igual que en el Home: al entrar a la solapa de publicaciones se ven
+  // solo las primeras 3, con un botón para desplegar el resto — antes se
+  // listaban todas juntas de una, sin límite.
+  const POSTS_COLLAPSE_AT = 3;
+  const [showAllPosts, setShowAllPosts] = useState(false);
   const [businessId, setBusinessId]= useState(null);
   const [events, setEvents] = useState([]);
 
@@ -591,6 +596,11 @@ const ProfileHeader = ({
   const loadPosts = useCallback(async (id) => {
     if (!id) return;
     setLoad("posts", true);
+    // Cada vez que se cargan posts (entrada inicial o cambio de negocio,
+    // ej. navegando de un perfil a otro sin remount) arrancamos de nuevo
+    // colapsado en 3 — si no, quedaba "desplegado" heredado del negocio
+    // anterior.
+    setShowAllPosts(false);
     // loadPromotions no depende de posts/eventos — antes se esperaba a que
     // posts/eventos terminaran para recién ahí pedir promociones, agregando
     // un viaje de ida y vuelta completo de más. Ahora arranca en paralelo
@@ -665,6 +675,16 @@ const ProfileHeader = ({
 
   // ── Deep-link desde las cajas del Home (?tab=posts|events&item=ID) ─────
   // Espera a que posts/eventos terminen de cargar para que el elemento ya esté en el DOM.
+  // sortedPosts se necesita acá arriba (antes se declaraba mucho más abajo
+  // en el componente, con useMemo — este efecto la referenciaba antes de
+  // que existiera).
+  const sortedPosts  = useMemo(() =>
+    posts.filter(p => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [posts]);
+  const sortedEvents = useMemo(() =>
+    [...events].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)),
+    [events]);
+
   useEffect(() => {
     if (loading.posts) return;
     const tabParam  = searchParams.get("tab");
@@ -675,13 +695,21 @@ const ProfileHeader = ({
     const key = `${tabParam}-${itemParam}`;
     setHighlightKey(key);
 
+    // Si el post al que apunta el link quedó afuera de las primeras 3
+    // (colapsadas), hay que desplegar el resto para que el elemento
+    // exista en el DOM antes de intentar hacer scroll hacia él.
+    if (tabParam === "posts") {
+      const idx = sortedPosts.findIndex((p) => String(p.id) === String(itemParam));
+      if (idx >= POSTS_COLLAPSE_AT) setShowAllPosts(true);
+    }
+
     const scrollTimer = setTimeout(() => {
       document.getElementById(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 150);
     const clearTimer = setTimeout(() => setHighlightKey(null), 3000);
 
     return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
-  }, [loading.posts, searchParams]);
+  }, [loading.posts, searchParams, sortedPosts]);
 
   const uploadImage = async (type, file) => {
     if (!businessId) return;
@@ -1071,13 +1099,6 @@ const ProfileHeader = ({
     if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
     setPendingAvatar(null);
   }, [pendingAvatar]);
-
-  const sortedPosts  = useMemo(() =>
-    posts.filter(p => p.type !== "event").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-    [posts]);
-  const sortedEvents = useMemo(() =>
-    [...events].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)),
-    [events]);
 
   const handleSubmitPost = async (data) => {
     if (!isOwner) { flashError("No tenés permisos"); return; }
@@ -1744,40 +1765,52 @@ const ProfileHeader = ({
               <p className={styles.emptyTitle}>Sin publicaciones aún</p>
               <p className={styles.emptyDesc}>{isOwner ? "¡Creá la primera publicación!" : "Este negocio no ha publicado nada todavía."}</p>
             </div>
-          ) : sortedPosts.map((post) => (
-            <div
-              key={post.id}
-              id={`posts-${post.id}`}
-              className={`${styles.postCard} ${highlightKey === `posts-${post.id}` ? styles.cardHighlighted : ""}`}
-            >
-              {post.images?.length > 0 && <PostGallery images={post.images} />}
-              <div className={styles.postBody}>
-                <p className={styles.postText}>
-                  {post.text && post.text.length > POST_TEXT_LIMIT && !expandedPostIds.has(post.id)
-                    ? `${post.text.slice(0, POST_TEXT_LIMIT).trim()}…`
-                    : post.text}
-                  {post.text && post.text.length > POST_TEXT_LIMIT && (
-                    <button
-                      type="button"
-                      className={styles.verMasBtn}
-                      onClick={() => togglePostExpanded(post.id)}
-                    >
-                      {expandedPostIds.has(post.id) ? " Ver menos" : " Ver más"}
-                    </button>
-                  )}
-                </p>
-                <div className={styles.postFooter}>
-                  <span className={styles.postDate}>{timeAgo(post.createdAt)}</span>
-                  {isOwner && (
-                    <div className={styles.postActions}>
-                      <button className={styles.btnPostEdit} onClick={() => openModal("post", post)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
-                      <button className={styles.btnPostDelete} onClick={() => handleDeletePost(post.id)} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
+          ) : (
+            <>
+              {(showAllPosts ? sortedPosts : sortedPosts.slice(0, POSTS_COLLAPSE_AT)).map((post) => (
+                <div
+                  key={post.id}
+                  id={`posts-${post.id}`}
+                  className={`${styles.postCard} ${highlightKey === `posts-${post.id}` ? styles.cardHighlighted : ""}`}
+                >
+                  {post.images?.length > 0 && <PostGallery images={post.images} />}
+                  <div className={styles.postBody}>
+                    <p className={styles.postText}>
+                      {post.text && post.text.length > POST_TEXT_LIMIT && !expandedPostIds.has(post.id)
+                        ? `${post.text.slice(0, POST_TEXT_LIMIT).trim()}…`
+                        : post.text}
+                      {post.text && post.text.length > POST_TEXT_LIMIT && (
+                        <button
+                          type="button"
+                          className={styles.verMasBtn}
+                          onClick={() => togglePostExpanded(post.id)}
+                        >
+                          {expandedPostIds.has(post.id) ? " Ver menos" : " Ver más"}
+                        </button>
+                      )}
+                    </p>
+                    <div className={styles.postFooter}>
+                      <span className={styles.postDate}>{timeAgo(post.createdAt)}</span>
+                      {isOwner && (
+                        <div className={styles.postActions}>
+                          <button className={styles.btnPostEdit} onClick={() => openModal("post", post)} disabled={loading.deletingPost}><Pencil size={12}/> Editar</button>
+                          <button className={styles.btnPostDelete} onClick={() => handleDeletePost(post.id)} disabled={loading.deletingPost}><Trash2 size={12}/> Eliminar</button>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))
+              ))}
+
+              {!showAllPosts && sortedPosts.length > POSTS_COLLAPSE_AT && (
+                <div className={styles.loadMoreContainer}>
+                  <button className={styles.loadMoreBtn} onClick={() => setShowAllPosts(true)}>
+                    + Ver {sortedPosts.length - POSTS_COLLAPSE_AT} publicaciones más
+                  </button>
+                </div>
+              )}
+            </>
+          )
         )}
 
         {activeTab === "events" && (
