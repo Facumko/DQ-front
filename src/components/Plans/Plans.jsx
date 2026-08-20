@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import { getPlans, getMySubscription, changePlan, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
-import { PLANS_CONFIG } from "../../data/plansConfig";
+import { PLANS_CONFIG } from "../../data/PlansConfig";
 import styles from "./Plans.module.css";
 
 const formatARS = (n) =>

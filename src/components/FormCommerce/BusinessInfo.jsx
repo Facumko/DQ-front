@@ -28,6 +28,7 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
   // pegarle de nuevo al back cada vez que cambia la categoría elegida.
   const [allSubcategoryTags, setAllSubcategoryTags] = useState([])
   const [errors,     setErrors]     = useState({})
+  const [touched,    setTouched]    = useState({}) // para no mostrar "obligatorio" antes de que el usuario toque el campo
   const [isValid,    setIsValid]    = useState(false)
   const [isLoading,  setIsLoading]  = useState(true)
 
@@ -94,17 +95,27 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     try { new URL(str); return true } catch { return false }
   }
   const cleanBusinessName = (str) =>
-    str.replace(/[^A-Za-z0-9\s&()/'.-]/g, "").slice(0, 100)
+    // Antes solo dejaba A-Za-z0-9 y algunos símbolos — cualquier tilde o
+    // "ñ" se borraba sola mientras se tipeaba (ej: "Café Martínez" quedaba
+    // "Caf Martnez"). Se agrega À-ÿ para permitir acentos y "ñ/Ñ",
+    // igual que ya se hace en CreatorInfo.jsx para nombre/apellido.
+    str.replace(/[^A-Za-zÀ-ÿ0-9\s&()/'.-]/g, "").slice(0, 100)
 
   useEffect(() => {
     const { businessName, businessDescription, email, instagram, facebook, website, businessPhone } = formData
     const newErrors = {}
-    if (email     && !isValidEmail(email))   newErrors.email     = "Formato de correo inválido"
+    // email y businessPhone están marcados como obligatorios (*) en el
+    // label, pero antes no se exigían acá — se podía avanzar con esos
+    // campos vacíos. Se agrega el chequeo de "no vacío" para que la
+    // validación coincida con lo que el formulario le promete al usuario.
+    if (!email.trim())              newErrors.email        = "El correo es obligatorio"
+    else if (!isValidEmail(email))  newErrors.email         = "Formato de correo inválido"
+    if (!businessPhone.trim())      newErrors.businessPhone = "El teléfono es obligatorio"
     if (instagram && !isValidUrl(instagram)) newErrors.instagram = "URL no válida"
     if (facebook  && !isValidUrl(facebook))  newErrors.facebook  = "URL no válida"
     if (website   && !isValidUrl(website))   newErrors.website   = "URL no válida"
     const phoneDigits = businessPhone.replace(/\D/g, "")
-    if (phoneDigits && phoneDigits.length < 10) newErrors.businessPhone = "Ingresá el teléfono completo (10 dígitos)"
+    if (phoneDigits && phoneDigits.length < 10 && !newErrors.businessPhone) newErrors.businessPhone = "Ingresá el teléfono completo (10 dígitos)"
     setErrors(newErrors)
     const hasError = Object.values(newErrors).some(Boolean)
     setIsValid(
@@ -130,6 +141,11 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     if (name === "email")               cleaned = value.slice(0, 60)
     if (["instagram", "facebook", "website"].includes(name)) cleaned = value.slice(0, 120)
     setFormData(prev => ({ ...prev, [name]: cleaned }))
+    setTouched(prev => (prev[name] ? prev : { ...prev, [name]: true }))
+  }
+
+  const handleBlur = (e) => {
+    setTouched(prev => (prev[e.target.name] ? prev : { ...prev, [e.target.name]: true }))
   }
 
   const handleLocationChange = (loc) => {
@@ -173,10 +189,10 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
     formData.selectedSubcategories.some(t => t.nameTag === tag.nameTag)
 
   const handleNext = () => {
-    if (!isValid) {
-      alert("Por favor completá todos los campos requeridos correctamente")
-      return
-    }
+    // El botón "Siguiente" ya está disabled mientras !isValid, así que esto
+    // en la práctica es inalcanzable — se deja como guarda silenciosa en vez
+    // de un alert() nativo (ya no correspondía tener uno acá).
+    if (!isValid) return
     onNext()
   }
 
@@ -292,11 +308,12 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             name="businessPhone"
             value={formData.businessPhone}
             onChange={handleChange}
+            onBlur={handleBlur}
             placeholder="(011) 2345-6789"
             maxLength={15}
             inputMode="numeric"
           />
-          {errors.businessPhone && <small className="error-message">{errors.businessPhone}</small>}
+          {errors.businessPhone && touched.businessPhone && <small className="error-message">{errors.businessPhone}</small>}
         </div>
 
         <div className="form-group">
@@ -307,10 +324,11 @@ function BusinessInfo({ data, onUpdate, onNext, onBack }) {
             name="email"
             value={formData.email}
             onChange={handleChange}
+            onBlur={handleBlur}
             placeholder="ejemplo@dominio.com"
             maxLength={60}
           />
-          {errors.email && <small className="error-message">{errors.email}</small>}
+          {errors.email && touched.email && <small className="error-message">{errors.email}</small>}
         </div>
 
         <div className="form-group">

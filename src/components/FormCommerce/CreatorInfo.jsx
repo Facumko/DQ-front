@@ -117,9 +117,11 @@ function CreatorInfo({ data, onUpdate, onNext}) {
   }
 
   const handleNext = async () => {
+    // El botón "Siguiente" ya está disabled mientras !isValid, así que esto
+    // en la práctica es inalcanzable — se deja como guarda silenciosa en vez
+    // de un alert() nativo (ya no correspondía tener uno acá).
     if (!isValid || !user?.id_user) {
       console.log("❌ No se puede avanzar:", { isValid, userId: user?.id_user })
-      alert("Por favor completa todos los campos requeridos correctamente")
       return
     }
 

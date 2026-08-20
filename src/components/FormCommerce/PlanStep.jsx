@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { getPlans, FRONT_PLAN_ID_TO_TYPE } from "../../Api/Api";
-import { PLANS_CONFIG } from "../../data/plansConfig";
+import { PLANS_CONFIG } from "../../data/PlansConfig";
 import "./FormStep.css";
 import "./PlanStep.css";
 
