@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useContext, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useContext, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { UserContext } from "../../pages/UserContext";
 import {
@@ -17,7 +17,7 @@ import {
   createPromotion, updatePromotion, uploadPromotionImage,
   getMySubscription,
 } from "../../Api/Api";
-import { cheapestPlanWithEvents } from "../../data/PlansConfig";
+import { cheapestPlanWithEvents } from "../../data/plansConfig";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
          Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
@@ -467,9 +467,20 @@ const ProfileHeader = ({
     await toggleFavoriteCommerce(commerce);
   }, [user, businessId, businessData, toggleFavoriteCommerce, openLoginModal]);
 
+  // Refs espejo de pendingCover/pendingAvatar: existen solo para que el
+  // cleanup de desmontaje de abajo pueda leer siempre el valor más
+  // reciente. Antes este efecto tenía deps [] y quedaba con el valor de
+  // pendingCover/pendingAvatar del primer render (casi siempre null) — es
+  // decir, si el usuario elegía una imagen y se iba de la página sin
+  // guardar ni cancelar, el blob URL nunca se liberaba.
+  const pendingCoverRef  = useRef(pendingCover);
+  const pendingAvatarRef = useRef(pendingAvatar);
+  pendingCoverRef.current  = pendingCover;
+  pendingAvatarRef.current = pendingAvatar;
+
   useEffect(() => () => {
-    if (pendingCover?.previewUrl)  URL.revokeObjectURL(pendingCover.previewUrl);
-    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    if (pendingCoverRef.current?.previewUrl)  URL.revokeObjectURL(pendingCoverRef.current.previewUrl);
+    if (pendingAvatarRef.current?.previewUrl) URL.revokeObjectURL(pendingAvatarRef.current.previewUrl);
   }, []);
 
   useEffect(() => {
@@ -504,50 +515,11 @@ const ProfileHeader = ({
       .catch(() => { setSubcategoryCatalogWithIds([]); setAllDescriptiveTags([]); });
   }, []);
 
-  useEffect(() => {
-    if (externalData) {
-      const d = normalizeBusiness(externalData);
-      setBusinessData(d); setDraft(d);
-      setDraftCategory(d.category);
-      if (d.schedules && d.schedules.length > 0) {
-        const loaded = scheduleFromBackend(d.schedules);
-        setSchedule(loaded); setDraftSchedule(loaded);
-      }
-      const id = externalData.idCommerce || externalData.id_business;
-      setBusinessId(id);
-      setLoading((p) => ({ ...p, business: false }));
-      if (id) loadPosts(id);
-      return;
-    }
-    if (user?.id_user) loadBusinessData();
-    else setLoading((p) => ({ ...p, business: false }));
-  }, [user?.id_user, externalData]);
-
-  // ── Deep-link desde las cajas del Home (?tab=posts|events&item=ID) ─────
-  // Espera a que posts/eventos terminen de cargar para que el elemento ya esté en el DOM.
-  useEffect(() => {
-    if (loading.posts) return;
-    const tabParam  = searchParams.get("tab");
-    const itemParam = searchParams.get("item");
-    if (tabParam !== "posts" && tabParam !== "events") return;
-
-    setActiveTab(tabParam);
-    const key = `${tabParam}-${itemParam}`;
-    setHighlightKey(key);
-
-    const scrollTimer = setTimeout(() => {
-      document.getElementById(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 150);
-    const clearTimer = setTimeout(() => setHighlightKey(null), 3000);
-
-    return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
-  }, [loading.posts, searchParams]);
-
-  const flash = (setter, msg, ms = 3500) => { setter(msg); setTimeout(() => setter(""), ms); };
-  const flashError   = (m) => flash(setErrorMsg,   m, 5000);
-  const flashSuccess = (m) => flash(setSuccessMsg, m);
-  const flashInfo    = (m) => flash(setInfoMsg,    m);
-  const setLoad = (key, val) => setLoading((p) => ({ ...p, [key]: val }));
+  const flash = useCallback((setter, msg, ms = 3500) => { setter(msg); setTimeout(() => setter(""), ms); }, []);
+  const flashError   = useCallback((m) => flash(setErrorMsg,   m, 5000), [flash]);
+  const flashSuccess = useCallback((m) => flash(setSuccessMsg, m), [flash]);
+  const flashInfo    = useCallback((m) => flash(setInfoMsg,    m), [flash]);
+  const setLoad = useCallback((key, val) => setLoading((p) => ({ ...p, [key]: val })), []);
 
   // idCommerce: comercio actualmente mostrado. Se lo pasamos a getMisPromociones
   // para filtrar client-side y que no se mezclen promos de otros comercios del
@@ -569,9 +541,29 @@ const ProfileHeader = ({
         flashError(err.message || "Error al cargar promociones");
       }
     }
-  }, [isOwner]);
+  }, [isOwner, flashError]);
 
-  const loadBusinessData = async (overlay = null) => {
+  const loadPosts = useCallback(async (id) => {
+    if (!id) return;
+    setLoad("posts", true);
+    // loadPromotions no depende de posts/eventos — antes se esperaba a que
+    // posts/eventos terminaran para recién ahí pedir promociones, agregando
+    // un viaje de ida y vuelta completo de más. Ahora arranca en paralelo
+    // (no lo esperamos acá: loadPromotions maneja su propio estado y no
+    // bloquea el spinner de "posts").
+    if (isOwner) loadPromotions(id);
+    try {
+      const [rawPosts, rawEvents] = await Promise.all([
+        getPostsByCommerce(id),
+        getEventsByCommerce(id),
+      ]);
+      setPosts(Array.isArray(rawPosts) ? rawPosts.map(normalizePost) : []);
+      setEvents(Array.isArray(rawEvents) ? rawEvents : []);
+    } catch { setPosts([]); setEvents([]); }
+    finally { setLoad("posts", false); }
+  }, [isOwner, loadPromotions, setLoad]);
+
+  const loadBusinessData = useCallback(async (overlay = null) => {
     setLoad("business", true);
     try {
       const biz = await getMyBusiness();
@@ -605,27 +597,46 @@ const ProfileHeader = ({
       }
     } catch (err) { flashError(err.message || "Error al cargar el negocio"); }
     finally { setLoad("business", false); }
-  };
+  }, [user, flashError, loadPosts, setLoad]);
 
-  const loadPosts = async (id) => {
-    if (!id) return;
-    setLoad("posts", true);
-    // loadPromotions no depende de posts/eventos — antes se esperaba a que
-    // posts/eventos terminaran para recién ahí pedir promociones, agregando
-    // un viaje de ida y vuelta completo de más. Ahora arranca en paralelo
-    // (no lo esperamos acá: loadPromotions maneja su propio estado y no
-    // bloquea el spinner de "posts").
-    if (isOwner) loadPromotions(id);
-    try {
-      const [rawPosts, rawEvents] = await Promise.all([
-        getPostsByCommerce(id),
-        getEventsByCommerce(id),
-      ]);
-      setPosts(Array.isArray(rawPosts) ? rawPosts.map(normalizePost) : []);
-      setEvents(Array.isArray(rawEvents) ? rawEvents : []);
-    } catch { setPosts([]); setEvents([]); }
-    finally { setLoad("posts", false); }
-  };
+  useEffect(() => {
+    if (externalData) {
+      const d = normalizeBusiness(externalData);
+      setBusinessData(d); setDraft(d);
+      setDraftCategory(d.category);
+      if (d.schedules && d.schedules.length > 0) {
+        const loaded = scheduleFromBackend(d.schedules);
+        setSchedule(loaded); setDraftSchedule(loaded);
+      }
+      const id = externalData.idCommerce || externalData.id_business;
+      setBusinessId(id);
+      setLoading((p) => ({ ...p, business: false }));
+      if (id) loadPosts(id);
+      return;
+    }
+    if (user?.id_user) loadBusinessData();
+    else setLoading((p) => ({ ...p, business: false }));
+  }, [user, externalData, loadPosts, loadBusinessData]);
+
+  // ── Deep-link desde las cajas del Home (?tab=posts|events&item=ID) ─────
+  // Espera a que posts/eventos terminen de cargar para que el elemento ya esté en el DOM.
+  useEffect(() => {
+    if (loading.posts) return;
+    const tabParam  = searchParams.get("tab");
+    const itemParam = searchParams.get("item");
+    if (tabParam !== "posts" && tabParam !== "events") return;
+
+    setActiveTab(tabParam);
+    const key = `${tabParam}-${itemParam}`;
+    setHighlightKey(key);
+
+    const scrollTimer = setTimeout(() => {
+      document.getElementById(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    const clearTimer = setTimeout(() => setHighlightKey(null), 3000);
+
+    return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
+  }, [loading.posts, searchParams]);
 
   const uploadImage = async (type, file) => {
     if (!businessId) return;
