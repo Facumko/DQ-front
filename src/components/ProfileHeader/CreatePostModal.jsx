@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styles from "./CreatePostModal.module.css";
-import { X, Calendar, Image, MapPin, Clock, AlertCircle, ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
+import { X, Calendar, Image, MapPin, Clock, AlertCircle, ArrowLeft, ArrowRight, Trash2, Crop } from "lucide-react";
+import PostImageCropper from "./PostImageCropper";
 
 const MAX_IMAGES = 10;
 const MAX_TITLE_LENGTH = 100;
@@ -8,7 +9,13 @@ const MAX_LOCATION_LENGTH = 150;
 
 // Cada imagen (nueva o ya guardada en el servidor) se representa igual,
 // así reordenar/eliminar es un solo camino de código sin importar el origen.
-// { key, url, kind: 'existing' | 'new', id?, file? }
+// { key, url, kind: 'existing' | 'new', id?, file?, originalUrl? }
+//
+// Para 'new': url/file son el resultado YA RECORTADO (cuadrado, mismo
+// tamaño de salida siempre — ver cropImageToSquare en imageUtils.js).
+// originalUrl guarda el objectURL de la foto sin recortar, para poder
+// reabrir el recorte y ajustar de nuevo sin perder calidad ni encimar
+// recortes sobre recortes.
 
 const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData = null, isSubmitting = false }) => {
   const [endDate,  setEndDate]  = useState("");
@@ -30,15 +37,31 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState(null); // índice de imagen a confirmar borrado
   const [confirmingClose, setConfirmingClose] = useState(false); // confirmar salir sin guardar
 
+  // ✅ Cola de recorte estilo Instagram: cada foto elegida pasa por el
+  // recortador cuadrado antes de sumarse a `images`. cropQueue guarda los
+  // File pendientes; cropSrc es el objectURL del que se está recortando
+  // ahora mismo (null = no hay recorte en curso).
+  const [cropQueue, setCropQueue] = useState([]);
+  const [cropSrc, setCropSrc] = useState(null);
+  // Si no es null, el recorte en curso es un RE-recorte de una imagen ya
+  // agregada (en vez de una nueva de la cola) — guarda su key para saber
+  // cuál actualizar al confirmar.
+  const [recroppingKey, setRecroppingKey] = useState(null);
+
   // ✅ Resetear estado al abrir/cerrar
   useEffect(() => {
     if (!isOpen) {
       // Limpiar URLs temporales al cerrar
       images.forEach(img => {
-        if (img.kind === 'new' && img.url?.startsWith?.('blob:')) {
-          URL.revokeObjectURL(img.url);
+        if (img.kind === 'new') {
+          if (img.url?.startsWith?.('blob:')) URL.revokeObjectURL(img.url);
+          if (img.originalUrl?.startsWith?.('blob:')) URL.revokeObjectURL(img.originalUrl);
         }
       });
+      cropQueue.forEach(item => {
+        if (item.rawUrl?.startsWith?.('blob:')) URL.revokeObjectURL(item.rawUrl);
+      });
+      if (cropSrc?.startsWith?.('blob:') && !recroppingKey) URL.revokeObjectURL(cropSrc);
 
       setText("");
       setImages([]);
@@ -56,6 +79,9 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
       setFieldErrors({});
       setPendingRemoveIndex(null);
       setConfirmingClose(false);
+      setCropQueue([]);
+      setCropSrc(null);
+      setRecroppingKey(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -102,6 +128,15 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
     setActiveIndex(i => Math.min(i, Math.max(images.length - 1, 0)));
   }, [images.length]);
 
+  // ✅ Tomar la siguiente foto de la cola de recorte apenas el recortador
+  // queda libre (no hay recorte ni re-recorte en curso).
+  useEffect(() => {
+    if (cropSrc || recroppingKey) return; // ya hay uno en pantalla
+    if (cropQueue.length === 0) return;
+    const [next] = cropQueue;
+    setCropSrc(next.rawUrl);
+  }, [cropQueue, cropSrc, recroppingKey]);
+
   const totalImages = images.length;
   const newCount = images.filter(i => i.kind === 'new').length;
   const availableSlots = MAX_IMAGES - totalImages;
@@ -119,22 +154,80 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
 
     setErrorMessage("");
 
-    const newItems = files.map((file, i) => ({
-      key: `new-${Date.now()}-${i}-${file.name}`,
-      url: URL.createObjectURL(file),
+    // No se agregan directo a `images`: pasan primero por el recortador
+    // cuadrado, una por una (igual que el selector de fotos de Instagram).
+    const queued = files.map((file, i) => ({
+      queueKey: `queue-${Date.now()}-${i}-${file.name}`,
+      file,
+      rawUrl: URL.createObjectURL(file),
+    }));
+    setCropQueue(prev => [...prev, ...queued]);
+    e.target.value = ""; // permite volver a elegir el mismo archivo después
+  };
+
+  // Se llama cuando el usuario confirma un recorte (de la cola, o un
+  // re-recorte de una foto ya agregada).
+  const handleCropConfirm = ({ file, previewUrl }) => {
+    if (recroppingKey) {
+      // Re-recorte: reemplaza el archivo/preview de una imagen ya agregada,
+      // sin tocar su lugar en el orden ni su originalUrl (para poder
+      // volver a re-recortar más adelante si quiere).
+      setImages(prev => prev.map(img => {
+        if (img.key !== recroppingKey) return img;
+        if (img.url?.startsWith?.('blob:')) URL.revokeObjectURL(img.url);
+        return { ...img, file, url: previewUrl };
+      }));
+      setRecroppingKey(null);
+      setCropSrc(null);
+      return;
+    }
+
+    // Cola normal: la foto recién recortada pasa a `images`, y avanzamos
+    // a la siguiente de la cola (si hay).
+    const [current, ...rest] = cropQueue;
+    if (!current) { setCropSrc(null); return; }
+
+    const newItem = {
+      key: `new-${Date.now()}-${current.queueKey}`,
+      url: previewUrl,
       kind: 'new',
       file,
-    }));
+      originalUrl: current.rawUrl,
+    };
+    setActiveIndex(images.length); // enfocar la recién agregada
+    setImages(prev => [...prev, newItem]);
+    setCropQueue(rest);
+    setCropSrc(null);
+  };
 
-    setActiveIndex(images.length); // enfocar la primera recién agregada
-    setImages(prev => [...prev, ...newItems]);
+  const handleCropCancel = () => {
+    if (recroppingKey) {
+      // Cancelar un re-recorte no descarta la imagen, solo cierra el editor.
+      setRecroppingKey(null);
+      setCropSrc(null);
+      return;
+    }
+    // Cancelar una foto de la cola: se descarta esa foto puntual (no todas
+    // las demás pendientes) y se libera su blob URL.
+    const [current, ...rest] = cropQueue;
+    if (current?.rawUrl?.startsWith?.('blob:')) URL.revokeObjectURL(current.rawUrl);
+    setCropQueue(rest);
+    setCropSrc(null);
+  };
+
+  const openRecrop = (index) => {
+    const img = images[index];
+    if (!img || img.kind !== 'new' || !img.originalUrl) return;
+    setRecroppingKey(img.key);
+    setCropSrc(img.originalUrl);
   };
 
   const removeImageAt = (index) => {
     setImages(prev => {
       const img = prev[index];
-      if (img?.kind === 'new' && img.url?.startsWith?.('blob:')) {
-        URL.revokeObjectURL(img.url);
+      if (img?.kind === 'new') {
+        if (img.url?.startsWith?.('blob:')) URL.revokeObjectURL(img.url);
+        if (img.originalUrl?.startsWith?.('blob:')) URL.revokeObjectURL(img.originalUrl);
       }
       return prev.filter((_, i) => i !== index);
     });
@@ -339,7 +432,7 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
         </div>
       )}
 
-      {/* ✅ Controles sobre la foto actualmente enfocada: reordenar / eliminar */}
+      {/* ✅ Controles sobre la foto actualmente enfocada: recortar / reordenar / eliminar */}
       {images.length > 0 && (
         <div className={styles.photoToolbar}>
           <button
@@ -351,6 +444,17 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
           >
             <ArrowLeft size={15} /> Mover
           </button>
+          {images[activeIndex]?.kind === 'new' && (
+            <button
+              type="button"
+              className={styles.toolbarBtn}
+              onClick={() => openRecrop(activeIndex)}
+              disabled={isSubmitting}
+              title="Ajustar el recorte de esta foto"
+            >
+              <Crop size={14} /> Recortar
+            </button>
+          )}
           <button
             type="button"
             className={`${styles.toolbarBtn} ${styles.toolbarBtnDanger}`}
@@ -579,6 +683,16 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, type = "post", initialData
             </div>
           </div>
         </div>
+      )}
+
+      {/* Recortador cuadrado (Instagram-style) — foto nueva de la cola, o
+          re-recorte de una ya agregada. Va al frente de todo lo demás. */}
+      {cropSrc && (
+        <PostImageCropper
+          imageSrc={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
       )}
     </div>
   );

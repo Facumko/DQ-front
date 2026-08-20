@@ -264,6 +264,9 @@
 }
 
 /* ---------- GALERÍA DENTRO DEL MODAL ---------- */
+/* Cuadro fijo 1:1 — el recorte ya deja las fotos nuevas cuadradas, así que
+   esta vista previa muestra exactamente cómo se van a ver en el perfil y
+   en el Home (mismo aspect-ratio + cover en los tres lugares). */
 .mainViewer {
   position: relative;
   display: flex;
@@ -272,13 +275,14 @@
   background: #f9fafb;
   border-radius: 12px;
   overflow: hidden;
-  min-height: 200px;
+  aspect-ratio: 1 / 1;
+  width: 100%;
 }
 
 .mainImg {
   width: 100%;
-  max-height: 300px;
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
   border-radius: 12px;
 }
 
