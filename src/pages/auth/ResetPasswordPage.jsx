@@ -80,7 +80,7 @@ const ResetPasswordPage = () => {
       await new Promise((r) => setTimeout(r, 900)); // simula latencia
       setSuccess(true);
       setTimeout(() => navigate("/?login=true"), 3000);
-    } catch (err) {
+    } catch {
       setError("Ocurrió un error. El enlace puede haber expirado. Solicitá uno nuevo.");
     } finally {
       setLoading(false);

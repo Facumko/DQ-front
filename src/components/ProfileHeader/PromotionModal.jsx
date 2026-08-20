@@ -56,7 +56,7 @@ const PromotionModal = ({
       setLinked(null);
     }
     setErrors({});
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, posts, events]);
 
   if (!isOpen) return null;
 

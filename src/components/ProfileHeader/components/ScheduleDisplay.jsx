@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Clock, ChevronDown, ChevronUp } from "lucide-react";
 import styles from "../ProfileHeader.module.css";
 
@@ -18,8 +18,10 @@ const ScheduleDisplay = ({ schedule }) => {
     'Dom': 'Domingo'
   };
 
-  // Ensure schedule is valid
-  const safeSchedule = schedule || {};
+  // Ensure schedule is valid — memoizado: sin esto, "schedule || {}" crea un
+  // objeto nuevo en cada render cuando schedule es falsy, lo que hacía que
+  // el useEffect de abajo se re-ejecutara de más.
+  const safeSchedule = useMemo(() => schedule || {}, [schedule]);
 
   useEffect(() => {
     const checkStatus = () => {
@@ -104,7 +106,7 @@ const ScheduleDisplay = ({ schedule }) => {
     checkStatus();
     const interval = setInterval(checkStatus, 60000); // Check every minute
     return () => clearInterval(interval);
-  }, [safeSchedule]);
+  }, [safeSchedule, schedule]);
 
   return (
     <div className={styles.scheduleDisplay}>

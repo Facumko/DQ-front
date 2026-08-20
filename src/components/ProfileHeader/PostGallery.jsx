@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styles from "./PostGallery.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -10,8 +10,8 @@ const PostGallery = ({ images }) => {
   }, [images]);
 
 
-  const next = () => setIndex((i) => (i + 1) % images.length);
-  const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
+  const next = useCallback(() => setIndex((i) => (i + 1) % images.length), [images.length]);
+  const prev = useCallback(() => setIndex((i) => (i - 1 + images.length) % images.length), [images.length]);
 
   useEffect(() => {
     if (!images || images.length === 0) return ;
@@ -22,7 +22,7 @@ const PostGallery = ({ images }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [images.length]);
+  }, [images, next, prev]);
 
   if (!images || images.length === 0) return null;
 
