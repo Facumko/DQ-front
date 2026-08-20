@@ -224,7 +224,7 @@ const DirectorySpotlight = ({ slides }) => {
         />
       </div>
 
-      <Link to="/categorias" className={styles.directoryViewAll}>
+      <Link to="/search?explora=servicios" className={styles.directoryViewAll}>
         Ver todos los servicios →
       </Link>
     </aside>

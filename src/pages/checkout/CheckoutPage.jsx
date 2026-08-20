@@ -29,7 +29,6 @@ const PLANES = {
       "Información completa del comercio",
       "Imagen de perfil y portada",
       "Aparición en sección destacada por categoría",
-      "Hasta 5 imágenes en el perfil",
     ],
   },
   mid: {

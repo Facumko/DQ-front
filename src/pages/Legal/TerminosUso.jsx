@@ -75,7 +75,7 @@ export default function TerminosUso() {
                     <span className="plan-badge plan-basic">Básico</span>
                     <span className="plan-name">Punto de Encuentro</span>
                   </td>
-                  <td>1 perfil de comercio · Información completa · Imagen de perfil y portada · Aparición en sección destacada según categoría · Hasta 5 imágenes · Sin publicaciones</td>
+                  <td>1 perfil de comercio · Información completa · Imagen de perfil y portada · Aparición en sección destacada según categoría · Sin publicaciones</td>
                 </tr>
                 <tr>
                   <td>
