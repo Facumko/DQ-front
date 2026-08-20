@@ -29,6 +29,7 @@ const EXPLORA_TITLES = {
   "cena": "¿Dónde cenar esta noche?",
   "promociones": "Promociones y Descuentos",
   "hoy": "¿Qué hacemos hoy?",
+  "servicios": "Directorio de servicios",
 };
 
 // Tag que carga el formulario de onboarding cuando el dueño responde "Sí" a
@@ -54,6 +55,14 @@ const HOY_SUBCATEGORY_KEYWORDS = [
   "cafeterías", "heladerías", "panaderías y pastelerías",
   "cines y teatros", "recreación infantil",
 ];
+// Mismas subcategorías que arma el widget "Directorio de servicios" del
+// Home (ver DIRECTORY_TARGET_SUBCATEGORIES en Home.jsx) — el widget solo
+// muestra hasta 6 comercios por rubro en su carrusel, así que "Ver todos
+// los servicios" tiene que traer la lista completa de estos mismos rubros
+// acá. Nombres EXACTOS del catálogo, igual que arriba.
+const SERVICIOS_SUBCATEGORY_KEYWORDS = [
+  "clínicas y consultorios", "abogados", "contadores", "electricidad", "plomería",
+];
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
@@ -70,6 +79,7 @@ const SearchPage = () => {
   const isCena = explora === "cena";
   const isPromociones = explora === "promociones";
   const isHoy = explora === "hoy";
+  const isServicios = explora === "servicios";
   const isExploraComingSoon = Boolean(explora) && !EXPLORA_TITLES[explora];
   // query === null pasa cuando no hay parámetro "q" en la URL (ej. entrar
   // directo a /search sin nada más). Se trata igual que "" — mostrar todos
@@ -153,6 +163,13 @@ const SearchPage = () => {
             .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
           setTodayEvents(eventsToday);
           setHasMore(false);
+        } else if (isServicios) {
+          const all = await getAllCommerces();
+          const list = (Array.isArray(all) ? all : []).filter((c) =>
+            commerceHasSubcategoryMatching(c, SERVICIOS_SUBCATEGORY_KEYWORDS)
+          );
+          setResults(list);
+          setHasMore(false);
         } else if (isExploraComingSoon) {
           setResults([]);
           setHasMore(false);
@@ -199,7 +216,7 @@ const SearchPage = () => {
         setLoadingMore(false);
       }
     },
-    [query, isAgregados, isAbiertoAhora, isEmergencias, isCena, isPromociones, isHoy, isExploraComingSoon, isAllMode, isSearchMode, selectedCategoryIds]
+    [query, isAgregados, isAbiertoAhora, isEmergencias, isCena, isPromociones, isHoy, isServicios, isExploraComingSoon, isAllMode, isSearchMode, selectedCategoryIds]
   );
 
   useEffect(() => {
@@ -227,6 +244,7 @@ const SearchPage = () => {
     if (isCena) return EXPLORA_TITLES["cena"];
     if (isPromociones) return EXPLORA_TITLES["promociones"];
     if (isHoy) return EXPLORA_TITLES["hoy"];
+    if (isServicios) return EXPLORA_TITLES["servicios"];
     if (isExploraComingSoon) return "Muy pronto";
     if (isAgregados) return "Agregados recientemente";
     if (selectedCategoryIds.length > 0 && !query?.trim()) {
@@ -259,7 +277,7 @@ const SearchPage = () => {
         <div className={styles.loadingContainer}>
           <Loader size={40} className={styles.spinner} />
           <p>
-            {isAbiertoAhora ? "Viendo quién está abierto ahora..." : isEmergencias ? "Buscando servicios de emergencia..." : isCena ? "Buscando dónde cenar..." : isPromociones ? "Buscando promociones activas..." : isHoy ? "Viendo qué se puede hacer hoy..." : isAgregados ? "Cargando novedades..." : isAllMode ? "Cargando negocios..." : "Buscando..."}
+            {isAbiertoAhora ? "Viendo quién está abierto ahora..." : isEmergencias ? "Buscando servicios de emergencia..." : isCena ? "Buscando dónde cenar..." : isPromociones ? "Buscando promociones activas..." : isHoy ? "Viendo qué se puede hacer hoy..." : isServicios ? "Cargando el directorio de servicios..." : isAgregados ? "Cargando novedades..." : isAllMode ? "Cargando negocios..." : "Buscando..."}
           </p>
         </div>
       </div>
@@ -304,7 +322,7 @@ const SearchPage = () => {
                     results.length > 0 ? `${results.length} plan${results.length !== 1 ? "es" : ""} para hoy` : null,
                     todayEvents.length > 0 ? `${todayEvents.length} evento${todayEvents.length !== 1 ? "s" : ""} hoy` : null,
                   ].filter(Boolean).join(" · ")
-                : `${results.length} negocio${results.length !== 1 ? "s" : ""}${isAbiertoAhora ? " abiertos en este momento" : isEmergencias ? " que atienden urgencias" : isCena ? " para cenar esta noche" : isAgregados ? " nuevos en los últimos 30 días" : isAllMode ? " en Sáenz Peña" : ` encontrado${results.length !== 1 ? "s" : ""}`}`}
+                : `${results.length} negocio${results.length !== 1 ? "s" : ""}${isAbiertoAhora ? " abiertos en este momento" : isEmergencias ? " que atienden urgencias" : isCena ? " para cenar esta noche" : isServicios ? " en el directorio de servicios" : isAgregados ? " nuevos en los últimos 30 días" : isAllMode ? " en Sáenz Peña" : ` encontrado${results.length !== 1 ? "s" : ""}`}`}
             </p>
           )}
         </div>
@@ -335,6 +353,7 @@ const SearchPage = () => {
             {isAbiertoAhora ? "No hay negocios abiertos en este momento"
               : isEmergencias ? "Todavía no hay comercios cargados con este servicio"
               : isCena ? "Todavía no hay comercios con subcategoría gastronómica que abran hoy"
+              : isServicios ? "Todavía no hay comercios cargados en médicos, abogados, contadores, electricistas o plomeros"
               : isPromociones ? "No hay promociones activas en este momento"
               : isHoy ? "Todavía no hay planes ni eventos cargados para hoy"
               : isAgregados ? "No hay negocios nuevos este mes"
@@ -346,6 +365,7 @@ const SearchPage = () => {
             {isAbiertoAhora ? "Probá de nuevo más tarde, los horarios cambian durante el día"
               : isEmergencias ? "Mientras tanto, usá los números útiles de arriba"
               : isCena ? "Puede que hoy sea el día de cierre de varios locales — probá explorando por categoría"
+              : isServicios ? "Volvé a revisar más tarde, se van sumando comercios todos los días"
               : isPromociones ? "Volvé a revisar más tarde, los comercios suelen activarlas por tiempo limitado"
               : isHoy ? "Volvé a revisar más tarde, se va sumando contenido todos los días"
               : isAgregados ? "Volvé pronto, ¡cada día se suman más!"
