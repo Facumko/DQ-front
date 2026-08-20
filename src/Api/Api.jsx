@@ -525,6 +525,31 @@ const handleApiError = (error, endpoint) => {
 };
 const validateParams = (params, names) => { for (const n of names) { if (params[n]===null||params[n]===undefined||params[n]==='') throw new Error(`Parámetro requerido faltante: ${n}`); } };
 
+// El backend no siempre devuelve 403 cuando el rechazo es por temas de plan
+// (a veces manda 400 u otro código con el mensaje "necesitás una suscripción
+// activa..." en el body) — por eso NO alcanza con mirar el status code, hay
+// que revisar también el texto del mensaje. Esto se usa en todos los
+// endpoints de creación (comercio, post, evento, promoción) para que el
+// frontend siempre pueda distinguir un error de plan de un error genérico,
+// sin importar qué código HTTP haya elegido el backend ese día.
+const NO_SUBSCRIPTION_MSG_RE = /(necesit[aá]s?|requiere|hace falta|falta).{0,30}suscripci[oó]n activa|sin suscripci[oó]n activa|no ten[eé]s.{0,25}suscripci[oó]n/i;
+
+// Marca el error como "de plan" (isPlanError) y, si además el mensaje deja
+// en claro que es por NO tener ninguna suscripción activa (a diferencia de
+// tener una pero haber llegado al límite del plan), lo marca también como
+// isNoActivePlan — para que la UI pueda mandar a cada caso a la pantalla
+// que corresponde en vez de mezclar ambos bajo el mismo modal.
+const markPlanError = (error) => {
+  const msg = (error?.message || '').toLowerCase();
+  if (NO_SUBSCRIPTION_MSG_RE.test(msg)) {
+    error.isPlanError = true;
+    error.isNoActivePlan = true;
+  } else if (error?.status === 403) {
+    error.isPlanError = true;
+  }
+  return error;
+};
+
 const apiRequest = async (method, endpoint, data=null, retries=MAX_RETRIES) => {
   if (isDevelopment) {
     console.log(`🌐 ${method} ${endpoint}`);
@@ -898,8 +923,7 @@ export const createBusiness = async (businessData) => {
     };
   } catch (error) {
     console.error("❌ Error en createBusiness:", error);
-    if (error.status === 403) error.isPlanError = true;
-    throw error;
+    throw markPlanError(error);
   }
 };
 
@@ -1025,8 +1049,7 @@ export const createPost = async (description, idCommerce, imageFiles=[], eventDa
     return response.data;
   } catch (error) {
     const err = handleApiError(error, 'createPost');
-    if (err.status === 403) err.isPlanError = true;
-    throw err;
+    throw markPlanError(err);
   }
 };
 
@@ -1328,8 +1351,7 @@ export const createEvent = async (eventData, imageFiles = []) => {
     return response.data;
   } catch (error) {
     const err = handleApiError(error, 'createEvent');
-    if (err.status === 403) err.isPlanError = true;
-    throw err;
+    throw markPlanError(err);
   }
 };
 
@@ -1477,7 +1499,14 @@ export const getMisPromociones = async (idCommerce) => {
 
 export const createPromotion = async (commerceId, dto) => {
   validateParams({ commerceId, dto }, ['commerceId', 'dto']);
-  return apiRequest('POST', `/promocion/crear/${commerceId}`, dto);
+  try {
+    return await apiRequest('POST', `/promocion/crear/${commerceId}`, dto);
+  } catch (error) {
+    // Antes esto no marcaba isPlanError (faltaba el try/catch), así que el
+    // rechazo por plan quedaba mostrando solo el texto crudo del backend
+    // dentro del modal, en vez de disparar el PlanRestrictedModal.
+    throw markPlanError(error);
+  }
 };
 
 export const updatePromotion = async (idPromocion, dto) => {

@@ -56,6 +56,11 @@ function FormCommerce() {
   const [commerceLimitReached, setCommerceLimitReached] = useState(false);
   const [limitInfo, setLimitInfo] = useState(null); // { max, currentBadge, requiredPlanId, requiredBadge }
 
+  // Error genérico de submit (red, 500, validación puntual del backend, etc).
+  // Antes esto se mostraba con un alert() nativo del navegador; ahora se
+  // muestra como banner inline dentro del paso de Confirmación.
+  const [submitError, setSubmitError] = useState("");
+
   const [formData, setFormData] = useState({
     firstName:           "",
     lastName:            "",
@@ -102,7 +107,17 @@ function FormCommerce() {
           });
         }
       })
-      .catch(() => { /* si falla el chequeo, no bloqueamos — el backend valida igual */ })
+      .catch(() => {
+        if (cancelled) return;
+        // Antes esto se ignoraba en silencio ("el backend valida igual"),
+        // pero esa suposición era el bug real: si el usuario nunca tuvo
+        // ninguna suscripción, este endpoint devuelve 404 en vez de un 200
+        // con status distinto de ACTIVE, y el 404 caía acá sin bloquear
+        // nada — por eso nunca aparecía ningún aviso. Ante cualquier falla
+        // de este chequeo tratamos como "no confirmado que tenga plan
+        // activo" y bloqueamos, en vez de dejar pasar a ciegas.
+        setNoActivePlan(true);
+      })
       .finally(() => { if (!cancelled) setCheckingBusiness(false); });
     return () => { cancelled = true; };
   }, [user, businesses, openLoginModal]);
@@ -125,8 +140,9 @@ function FormCommerce() {
 
   const handleSuccess = async () => {
     if (!user?.id_user) { openLoginModal(); return; }
+    setSubmitError("");
     if (!formData.businessName || !formData.businessDescription) {
-      alert("Por favor completá todos los campos requeridos");
+      setSubmitError("Por favor completá todos los campos requeridos");
       return;
     }
 
@@ -172,12 +188,19 @@ function FormCommerce() {
 
       navigate(`/negocios/${created.id_business}`);
     } catch (err) {
-      if (err.isPlanError) {
+      if (err.isNoActivePlan) {
+        // El chequeo previo (getMySubscription al entrar al formulario) no
+        // llegó a detectar que ya no hay ninguna suscripción activa —se venció
+        // mientras completaba el formulario, o ese chequeo falló en silencio—.
+        // Reusamos la misma pantalla de bloqueo que se muestra antes de
+        // empezar el alta, en vez de un modal distinto para el mismo caso.
+        setNoActivePlan(true);
+      } else if (err.isPlanError) {
         // Ya deberíamos haber bloqueado esto antes (ver commerceLimitReached),
         // esto es solo red de seguridad si el chequeo previo falló o quedó desactualizado.
         setCommerceLimitReached(true);
       } else {
-        alert(`Error al crear el negocio: ${err.message}`);
+        setSubmitError(err.message || "No pudimos crear el negocio. Intentá de nuevo.");
       }
       setIsSubmitting(false);
     }
@@ -259,6 +282,7 @@ function FormCommerce() {
               onSuccess={handleSuccess}
               isSubmitting={isSubmitting}
               onBack={handleBack}
+              errorMessage={submitError}
             />
           )}
 

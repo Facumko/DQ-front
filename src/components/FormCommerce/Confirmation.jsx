@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { FaCheckCircle, FaArrowLeft, FaTimes } from "react-icons/fa";
+import { FaCheckCircle, FaArrowLeft, FaTimes, FaExclamationCircle } from "react-icons/fa";
 import "./Confirmation.css";
 import "./FormStep.css";
 
@@ -22,7 +22,7 @@ function Section({ title, children }) {
   );
 }
 
-function Confirmation({ data, onSuccess, isSubmitting, onBack }) {
+function Confirmation({ data, onSuccess, isSubmitting, onBack, errorMessage }) {
   const navigate = useNavigate();
 
   return (
@@ -66,6 +66,13 @@ function Confirmation({ data, onSuccess, isSubmitting, onBack }) {
         )}
 
       </div>
+
+      {errorMessage && (
+        <div className="confirm-error-banner" role="alert">
+          <FaExclamationCircle />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       <div className="form-actions">
         <button

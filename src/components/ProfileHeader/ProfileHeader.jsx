@@ -17,7 +17,7 @@ import {
   createPromotion, updatePromotion, uploadPromotionImage,
   getMySubscription,
 } from "../../Api/Api";
-import { cheapestPlanWithEvents } from "../../data/plansConfig";
+import { cheapestPlanWithEvents } from "../../data/PlansConfig";
 import styles from "./ProfileHeader.module.css";
 import { Loader, AlertCircle, Check, Edit2, Star, ArrowRight, Plus,
          Phone, Mail, Link2, Clock, Pencil, Trash2, Share2,
